@@ -20,14 +20,17 @@ Fork this module to create/edit/deploy your own custom Tradle models
 
 1. write your models in `./models`, each model in a separate json file with the file name [myModel.id].json (see [./models/my.custom.NameForm.json](./models/my.custom.NameForm.json) for an example)
 2. build your models with `npm run build` (merge + validate)
-3. create a `.env` file a la [.env.sample](./.env.sample)
-4. deploy with `npm run deploy`
+3. define your styles in `./styles.json` (see ./styles.sample.json)
+4. create a `.env` file a la [.env.sample](./.env.sample)
+5. deploy with `npm run deploy`
 
 Note: do NOT edit `./models.json` directly as it will be overwritten when you merge
 
 ## Scripts
 
-- `npm run merge`: merges models from `./models` with values in `./values` and outputs `./models.json`
-- `npm run validate`: validates your models
-- `npm run build`: merge + validate your models
-- `npm run deploy`: deploys your models to your Tradle MyCloud's S3 bucket that holds your bot's configuration
+- `npm run mergemodels`: merges models from `./models` with values in `./values` and outputs `./models.json`
+- `npm run validate`: validate your models and styles
+- `npm run build`: merge + validate your models, validate your styles
+- `npm run deploy`: deploy your models and styles to your Tradle MyCloud's S3 bucket
+- `npm run deploy:models`: deploy your models
+- `npm run deploy:styles`: deploy your styles
