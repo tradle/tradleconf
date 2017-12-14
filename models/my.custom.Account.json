@@ -1,0 +1,10 @@
+{
+  "type": "tradle.Model",
+  "id": "my.custom.Account",
+  "title": "Custom Account",
+  "subClassOf": "tradle.FinancialProduct",
+  "properties": {},
+  "forms": [
+    "my.custom.NameForm"
+  ]
+}

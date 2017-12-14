@@ -1,0 +1,7 @@
+{
+  "type": "tradle.Model",
+  "id": "my.custom.MyAccount",
+  "title": "My Custom Account",
+  "subClassOf": "tradle.MyProduct",
+  "properties": {}
+}

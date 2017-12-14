@@ -22,9 +22,20 @@ then
 fi
 
 key="custom-models.json"
+params="--profile "$aws_profile" put-object \
+  --bucket "$bucket" \
+  --key "$key" \
+  --content-type "application/json" \
+  --body ./models.json"
+
+s3="aws s3api"
+if [ -n "$local" ]
+then
+  s3="$s3 --endpoint http://localhost:4572"
+fi
 
 echo "deploying your models to $bucket/$key with AWS profile $aws_profile"
-aws --profile "$aws_profile" s3api put-object \
+eval "$s3" --profile "$aws_profile" put-object \
   --bucket "$bucket" \
   --key "$key" \
   --content-type "application/json" \
