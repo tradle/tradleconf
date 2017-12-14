@@ -1,0 +1,45 @@
+{
+  "name": "@tradle/models-template",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "template for building, editing and deploying Tradle models to your Tradle MyCloud",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tradle/models-template"
+  },
+  "author": "Mark Vayngrib <mark@tradle.io> (http://github.com/mvayngrib)",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint --quiet --ext .json --ext .js .",
+    "validate": "validate-model ./models.json --depends-on @tradle/models --depends-on @tradle/custom-models",
+    "merge": "npm run lint && pack-models -i ./models -o ./models.json",
+    "postpublish": "git push -u",
+    "build": "npm run merge && npm run validate",
+    "precommit": "npm run build && git add models.json",
+    "predeploy": "npm run build",
+    "deploy": "./deploy.sh"
+  },
+  "keywords": [
+    "tradle",
+    "models"
+  ],
+  "bugs": {
+    "url": "https://github.com/tradle/models-template/issues"
+  },
+  "homepage": "https://github.com/tradle/models-template",
+  "devDependencies": {
+    "@tradle/custom-models": "github:tradle/custom-models#640158c",
+    "@tradle/models": "github:tradle/models#d7771ec",
+    "@tradle/pack-models": "^2.0.0",
+    "@tradle/validate-model": "^4.1.0",
+    "eslint": "^3.15.0",
+    "eslint-plugin-json": "^1.2.0",
+    "git": "^0.1.5",
+    "husky": "^0.13.1"
+  },
+  "dependencies": {
+    "minimist": "^1.2.0",
+    "typeforce": "^1.10.6",
+    "write-file-atomic": "^1.1.4"
+  }
+}
