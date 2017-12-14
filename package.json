@@ -1,11 +1,11 @@
 {
-  "name": "@tradle/models-template",
+  "name": "@tradle/configure-tradle",
   "version": "1.0.0",
   "main": "index.js",
   "description": "template for building, editing and deploying Tradle models, styles and configuration to your Tradle MyCloud",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tradle/models-template"
+    "url": "https://github.com/tradle/configure-tradle"
   },
   "author": "Mark Vayngrib <mark@tradle.io> (http://github.com/mvayngrib)",
   "license": "MIT",
@@ -28,9 +28,9 @@
     "models"
   ],
   "bugs": {
-    "url": "https://github.com/tradle/models-template/issues"
+    "url": "https://github.com/tradle/configure-tradle/issues"
   },
-  "homepage": "https://github.com/tradle/models-template",
+  "homepage": "https://github.com/tradle/configure-tradle",
   "devDependencies": {
     "@tradle/custom-models": "github:tradle/custom-models#640158c",
     "@tradle/models": "github:tradle/models#d7771ec",
