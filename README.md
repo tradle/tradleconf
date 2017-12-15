@@ -20,7 +20,7 @@ Fork this module to create/edit/deploy your own custom Tradle models
 
 1. write your models in `./models`, each model in a separate json file with the file name [myModel.id].json (see [./models/my.custom.NameForm.json](./models/my.custom.NameForm.json) for an example)
 2. build your models with `npm run build` (merge + validate)
-3. define your styles in `./styles.json` (see ./styles.sample.json)
+3. define your styles in `./styles.json` (see ./styles.sample.json). Styles must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model
 4. create a `.env` file a la [.env.sample](./.env.sample)
 5. deploy with `npm run deploy`
 
