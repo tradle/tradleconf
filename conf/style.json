@@ -3,5 +3,8 @@
   "backgroundImage": {
     "url": "https://s3.amazonaws.com/tradle-public-images/bg-rainbow-fuzz-opacity-50.png"
   },
+  "logo": {
+    "url": "https://s3.amazonaws.com/tradle-public-images/easy.png"
+  },
   "logoNeedsText": true
 }

@@ -1,0 +1,12 @@
+{
+  "type": "tradle.Model",
+  "id": "my.custom.AddressForm",
+  "title": "Your Address",
+  "subClassOf": "tradle.Form",
+  "properties": {
+    "what3words": {
+      "type": "string",
+      "description": "Your three-word address on https://map.what3words.com"
+    }
+  }
+}

@@ -5,6 +5,7 @@
   "subClassOf": "tradle.FinancialProduct",
   "properties": {},
   "forms": [
-    "my.custom.NameForm"
+    "my.custom.NameForm",
+    "my.custom.AddressForm"
   ]
 }

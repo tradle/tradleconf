@@ -11,17 +11,22 @@
   "license": "MIT",
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js .",
-    "validate:models": "validate-model ./models.json --depends-on @tradle/models --depends-on @tradle/custom-models",
-    "validate:styles": "node ./validate-styles.js",
-    "mergemodels": "npm run lint && pack-models -i ./models -o ./models.json",
+    "validate:models": "validate-model ./conf/models.json --depends-on @tradle/models --depends-on @tradle/custom-models",
+    "validate:style": "node ./validate-style.js ./conf/style.json",
+    "validate:botconf": "node ./validate-conf.js ./conf/bot.json",
+    "mergemodels": "npm run lint && pack-models -i ./models -o ./conf/models.json",
     "postpublish": "git push -u",
-    "build": "npm run build:styles && npm run build:models",
+    "build": "npm run build:style && npm run build:models",
     "build:models": "npm run mergemodels && npm run validate:models",
-    "build:styles": "npm run validate:styles",
+    "build:style": "npm run validate:style",
+    "build:botconf": "npm run validate:botconf",
     "precommit": "npm run build && git add models.json",
-    "predeploy:models": "npm run build:models",
-    "deploy:models": "./deploy-models.sh",
-    "deploy:styles": "./deploy-styles.sh"
+    "deploy": "./push-to-s3.sh conf/models.json conf/style.json conf/bot.json",
+    "deploy:models": "./push-to-s3.sh conf/models.json",
+    "deploy:style": "./push-to-s3.sh conf/style.json",
+    "deploy:botconf": "./push-to-s3.sh conf/bot.json",
+    "postdeploy": "./postdeploy.sh",
+    "load": "./load-from-s3.sh"
   },
   "keywords": [
     "tradle",
@@ -42,6 +47,7 @@
     "husky": "^0.13.1"
   },
   "dependencies": {
+    "@tradle/models": "github:tradle/models",
     "@tradle/validate-resource": "^2.13.0",
     "minimist": "^1.2.0",
     "typeforce": "^1.10.6",

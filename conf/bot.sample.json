@@ -1,0 +1,38 @@
+{
+  "products": {
+    "enabled": [
+      "nl.tradle.DigitalPassport",
+      "tradle.CorporateBankAccount",
+      "tradle.LifeInsurance",
+      "tradle.MortgageProduct"
+    ],
+    "autoApprove": true,
+    "autoVerify": false,
+    "approveAllEmployees": true,
+    "plugins": {
+      "customize-message": {
+        "tradle.FormRequest": {
+          "tradle.PhotoID": "Please click to scan your **ID document**",
+          "tradle.Selfie": "Thank you. Now take a '**selfie**' photo of yourself that I can match against your ID document",
+          "tradle.Residence": {
+            "first": "Thank you. Now I need you to provide your **residence** information",
+            "nth": "Thank you. Do you have another **residence**? If yes, tap Add, otherwise tap Next"
+          }
+        },
+        "tradle.Confirmation": {
+          "tradle.Remediation": "Thanks for importing your data!"
+        }
+      }
+    }
+  },
+  "tours": {
+    "intro": {
+      "_t": "tradle.Tour",
+      "message": "Take a quick tour of chat bot?",
+      "pages": [
+        "https://tradle.io",
+        "https://imdb.com"
+      ]
+    }
+  }
+}

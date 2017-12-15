@@ -1,4 +1,6 @@
-NO_ENV_ERROR="expected .env file with variables \"bucket\" and \"aws_profile\""
+#!/bin/bash
+
+NO_ENV_ERROR="expected .env file with variables \"bucket\", \"aws_profile\" and \"stack_name\""
 
 if [ ! -f ".env" ];
 then
@@ -6,17 +8,30 @@ then
   exit 1
 fi
 
-source .env
+if [ -z "${local+x}" ]
+then
+  local="0"
+fi
 
-if [ -z "$bucket" ] || [ -z "$aws_profile" ];
+if [ "$local" == "0" ]
+then
+  source .env
+else
+  source .env.local
+fi
+
+if [ -z "$bucket" ] || [ -z "$aws_profile" ] || [ -z "$stack_name" ];
 then
   echo "$NO_ENV_ERROR"
   exit 1
 fi
 
-s3="aws s3api"
-if [ -n "$local" ]
+if [ "$local" == "0" ]
 then
-  s3="$s3 --endpoint http://localhost:4572"
+  s3="aws s3api --profile $aws_profile"
+  lambda="aws lambda --profile $aws_profile"
+else
+  local_s3_endpoint="http://localhost:4572"
+  echo "using local s3 endpoint at $local_s3_endpoint"
+  s3="aws s3api --endpoint $local_s3_endpoint"
 fi
-

@@ -5,8 +5,7 @@
   "subClassOf": "tradle.Form",
   "properties": {
     "firstName": {
-      "type": "string",
-      "description": "- the first of your many names\n"
+      "type": "string"
     },
     "secondName": {
       "type": "string"

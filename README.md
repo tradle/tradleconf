@@ -19,18 +19,21 @@ Fork this module to create/edit/deploy your own custom Tradle models
 ## Usage
 
 1. write your models in `./models`, each model in a separate json file with the file name [myModel.id].json (see [./models/my.custom.NameForm.json](./models/my.custom.NameForm.json) for an example)
-2. build your models with `npm run build` (merge + validate)
-3. define your styles in `./styles.json` (see ./styles.sample.json). Styles must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model
-4. create a `.env` file a la [.env.sample](./.env.sample)
-5. deploy with `npm run deploy`
+1. build your models with `npm run build` (merge + validate)
+1. define your style in `./style.json` (see [./style.sample.json](./style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model. 
+1. set your bot's configuration in `./conf.json` (see [./bot-conf.sample.json](./bot-conf.sample.json)).
+1. create a `.env` file a la [.env.sample](./.env.sample)
+1. deploy with `npm run deploy`
 
-Note: do NOT edit `./models.json` directly as it will be overwritten when you merge
+Note: do NOT edit `./models.json` directly as it will be overwritten by `npm run mergemodels`
+
+To deploy locally, create a `.env.local` file and deploy with `local=1 npm run deploy`
 
 ## Scripts
 
 - `npm run mergemodels`: merges models from `./models` with values in `./values` and outputs `./models.json`
-- `npm run validate`: validate your models and styles
-- `npm run build`: merge + validate your models, validate your styles
-- `npm run deploy`: deploy your models and styles to your Tradle MyCloud's S3 bucket
+- `npm run validate`: validate your models and style
+- `npm run build`: merge + validate your models, validate your style
+- `npm run deploy`: deploy your models and style to your Tradle MyCloud's S3 bucket
 - `npm run deploy:models`: deploy your models
-- `npm run deploy:styles`: deploy your styles
+- `npm run deploy:style`: deploy your style
