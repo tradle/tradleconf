@@ -10,6 +10,8 @@
   "author": "Mark Vayngrib <mark@tradle.io> (http://github.com/mvayngrib)",
   "license": "MIT",
   "scripts": {
+    "init": "./init.sh",
+    "start": "./start.sh",
     "lint": "eslint --quiet --ext .json --ext .js .",
     "validate:models": "validate-model ./conf/models.json --depends-on @tradle/models --depends-on @tradle/custom-models",
     "validate:style": "node ./validate-style.js ./conf/style.json",
@@ -25,6 +27,7 @@
     "deploy:models": "./push-to-s3.sh conf/models.json",
     "deploy:style": "./push-to-s3.sh conf/style.json",
     "deploy:botconf": "./push-to-s3.sh conf/bot.json",
+    "deploy:local": "local=1 npm run deploy",
     "postdeploy": "./postdeploy.sh",
     "load": "./load-from-s3.sh"
   },
