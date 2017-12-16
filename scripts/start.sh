@@ -5,7 +5,7 @@ IFS=$'\n\t'
 
 if [ ! -f ".env" ];
 then
-  source ./init.sh
+  source ./scripts/init.sh
 fi
 
 npm run build

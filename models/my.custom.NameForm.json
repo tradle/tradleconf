@@ -1,16 +1,14 @@
 {
   "type": "tradle.Model",
   "id": "my.custom.NameForm",
-  "title": "Your Namey Name1",
+  "title": "Name",
   "subClassOf": "tradle.Form",
   "properties": {
-    "firstName": {
+    "givenName": {
+
       "type": "string"
     },
-    "secondName": {
-      "type": "string"
-    },
-    "nameOfTheWind": {
+    "nameYouWishYouHad": {
       "type": "string"
     }
   }

@@ -24,6 +24,7 @@ this assumes you already deployed Tradle MyCloud to AWS
 
 ### The first time
 
+1. run `npm install` in this directory
 1. load your deployment information by running `npm run init`. This will create a file called `.env`
 1. replace the sample models in `./models` with your own. Put each model in a separate json file with the file name is [yourModel.id].json (see [./models/my.custom.NameForm.json](./models/my.custom.NameForm.json) for an example)
 1. validate and build your models pack with `npm run build:models`

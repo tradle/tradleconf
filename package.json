@@ -1,7 +1,7 @@
 {
   "name": "@tradle/configure-tradle",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "lib/index.js",
   "description": "template for building, editing and deploying Tradle models, styles and configuration to your Tradle MyCloud",
   "repository": {
     "type": "git",
@@ -10,26 +10,26 @@
   "author": "Mark Vayngrib <mark@tradle.io> (http://github.com/mvayngrib)",
   "license": "MIT",
   "scripts": {
-    "init": "./init.sh",
-    "start": "./start.sh",
+    "init": "./scripts/init.sh",
+    "start": "./scripts/start.sh",
     "lint": "eslint --quiet --ext .json --ext .js .",
     "validate:models": "validate-model ./conf/models.json --depends-on @tradle/models --depends-on @tradle/custom-models",
-    "validate:style": "node ./validate-style.js ./conf/style.json",
-    "validate:botconf": "node ./validate-conf.js ./conf/bot.json",
+    "validate:style": "node ./lib/validate-style.js ./conf/style.json",
+    "validate:botconf": "node ./lib/validate-botconf.js ./conf/bot.json",
     "mergemodels": "npm run lint && pack-models -i ./models -o ./conf/models.json",
     "postpublish": "git push -u",
-    "build": "npm run build:style && npm run build:models",
+    "build": "npm run build:style && npm run build:models && npm run build:botconf",
     "build:models": "npm run mergemodels && npm run validate:models",
     "build:style": "npm run validate:style",
     "build:botconf": "npm run validate:botconf",
     "precommit": "npm run build && git add models.json",
-    "deploy": "./push-to-s3.sh conf/models.json conf/style.json conf/bot.json",
-    "deploy:models": "./push-to-s3.sh conf/models.json",
-    "deploy:style": "./push-to-s3.sh conf/style.json",
-    "deploy:botconf": "./push-to-s3.sh conf/bot.json",
+    "deploy": "./scripts/push-to-s3.sh conf/models.json conf/style.json conf/bot.json",
+    "deploy:models": "./scripts/push-to-s3.sh conf/models.json",
+    "deploy:style": "./scripts/push-to-s3.sh conf/style.json",
+    "deploy:botconf": "./scripts/push-to-s3.sh conf/bot.json",
     "deploy:local": "local=1 npm run deploy",
-    "postdeploy": "./postdeploy.sh",
-    "load": "./load-from-s3.sh"
+    "postdeploy": "./scripts/postdeploy.sh",
+    "load": "./scripts/load-from-s3.sh"
   },
   "keywords": [
     "tradle",
@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@tradle/models": "github:tradle/models",
-    "@tradle/validate-resource": "^2.13.0",
+    "@tradle/validate-resource": "^2.14.0",
     "minimist": "^1.2.0",
     "typeforce": "^1.10.6",
     "write-file-atomic": "^1.1.4"

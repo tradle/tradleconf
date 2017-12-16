@@ -3,7 +3,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-source ./load-env.sh
+source ./scripts/load-env.sh
 
 files=(
   "conf/style.json"

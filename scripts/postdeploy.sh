@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ./load-env.sh
+source ./scripts/load-env.sh
 
 echo "poking your Tradle MyCloud to pick up new configuration"
 echo "this may take 20-30 seconds"
