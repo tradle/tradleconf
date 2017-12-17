@@ -9,32 +9,36 @@ trim() {
 
 if [ -f ".env" ]
 then
-  read -p "This will overwrite your .env file. Continue? (y/n) " choice
+  echo "This will overwrite your .env and .env.local files. Continue? (y/n)"
+  read -p "> " choice
   if [ "$choice" != "y" ];then exit 0; fi
 fi
 
-read -p "What AWS profile will you be using? " profile
+echo "What AWS profile will you be using?"
+echo "Hint: you can usually find this information in ~/.aws/config"
+read -p "> " profile
 profile=$(trim $profile)
 
-echo ''
+echo ""
 echo "looking up your stacks on AWS..."
 stacks=$(aws --profile $profile cloudformation list-stacks \
   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
   | jq '.StackSummaries[].StackName' --raw-output)
 
 echo "There are the stacks you have in AWS"
-echo ''
+echo ""
 echo "$stacks"
-echo ''
-read -p "Which one is your Tradle stack? " stack_name
+echo ""
+echo "Which one is your Tradle stack?"
+read -p "> " stack_name
 
-echo ''
+echo ""
 echo "looking up your configuration bucket..."
 bucket=$(aws --profile $profile cloudformation list-stack-resources \
   --stack-name $stack_name \
   | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "PrivateConfBucket").PhysicalResourceId' --raw-output)
 
-echo ''
+echo ""
 echo "your configuration bucket is: $bucket"
 cat > .env <<EOF
 stack_name=$stack_name
@@ -48,7 +52,6 @@ aws_profile=$profile
 bucket="$stack_name-privateconfbucket"
 EOF
 
-echo ''
-echo "I wrote the following to .env:"
-echo ''
-cat .env
+echo ""
+echo "Wrote .env and .env.local"
+echo "Initialization complete!"
