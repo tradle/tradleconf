@@ -17,6 +17,7 @@ fork this module to create/edit/deploy your own custom Tradle models
 ## Prerequisites
 
 - [aws-cli](https://github.com/aws/aws-cli) - AWS command line client
+- [jq](https://stedolan.github.io/jq/download/) - command line JSON parser
 
 ## Usage
 
