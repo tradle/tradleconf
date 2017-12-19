@@ -21,11 +21,11 @@ profile=$(trim $profile)
 
 echo ""
 echo "looking up your stacks on AWS..."
-stacks=$(aws --profile $profile cloudformation list-stacks \
+stacks=$(aws --output json --profile $profile cloudformation list-stacks \
   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
   | jq '.StackSummaries[].StackName' --raw-output)
 
-echo "There are the stacks you have in AWS"
+echo "These are the stacks you have in AWS:"
 echo ""
 echo "$stacks"
 echo ""
@@ -34,7 +34,7 @@ read -p "> " stack_name
 
 echo ""
 echo "looking up your configuration bucket..."
-bucket=$(aws --profile $profile cloudformation list-stack-resources \
+bucket=$(aws --output json --profile $profile cloudformation list-stack-resources \
   --stack-name $stack_name \
   | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "PrivateConfBucket").PhysicalResourceId' --raw-output)
 
