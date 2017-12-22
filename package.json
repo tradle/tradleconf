@@ -41,7 +41,7 @@
   "homepage": "https://github.com/tradle/configure-tradle",
   "devDependencies": {
     "@tradle/custom-models": "github:tradle/custom-models#640158c",
-    "@tradle/models": "github:tradle/models#d7771ec",
+    "@tradle/models": "github:tradle/models#a270631",
     "@tradle/pack-models": "^2.0.0",
     "@tradle/validate-model": "^4.1.0",
     "eslint": "^3.15.0",
