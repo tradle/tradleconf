@@ -3,43 +3,89 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# COLORS: START
+
+_red=`tput setaf 1`
+_green=`tput setaf 2`
+_yellow=`tput setaf 3`
+_blue=`tput setaf 6`
+_plain=`tput sgr0`
+
+plain() {
+  echo "${_plain}$@"
+}
+
+error() {
+  echo "${_red}$@${_plain}"
+}
+
+success() {
+  echo "${_green}$@${_plain}"
+}
+
+ask() {
+  echo "${_green}$@${_plain}"
+}
+
+info() {
+  echo "${_blue}$@${_plain}"
+}
+
+warn() {
+  echo "${_yellow}$@${_plain}"
+}
+
+# COLORS: END
+
 trim() {
   echo $1 | xargs
 }
 
-if [ -f ".env" ]
-then
-  echo "This will overwrite your .env and .env.local files. Continue? (y/n)"
+askContinue() {
+  warn $@
   read -p "> " choice
   if [ "$choice" != "y" ];then exit 0; fi
+}
+
+if [ -f ".env" ]
+then
+  askContinue "This will overwrite your .env and .env.local files. Continue? (y/n)"
 fi
 
-echo "What AWS profile will you be using?"
-echo "Hint: you can usually find this information in ~/.aws/config"
+if [ -f "$HOME/.aws/config" ]
+then
+  plain "See below your profiles from your ~/.aws/config:"
+  plain ""
+  cat ~/.aws/config
+fi
+
+plain ""
+ask "What AWS profile will you be using?"
+
 read -p "> " profile
 profile=$(trim $profile)
 
-echo ""
-echo "looking up your stacks on AWS..."
+info ""
+info "looking up your stacks on AWS..."
 stacks=$(aws --output json --profile $profile cloudformation list-stacks \
   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
   | jq '.StackSummaries[].StackName' --raw-output)
 
-echo "These are the stacks you have in AWS:"
-echo ""
-echo "$stacks"
-echo ""
-echo "Which one is your Tradle stack?"
+plain "These are the stacks you have in AWS:"
+plain ""
+plain "$stacks"
+plain ""
+ask "Which one is your Tradle stack?"
 read -p "> " stack_name
 
-echo ""
-echo "looking up your configuration bucket..."
+info ""
+info "looking up your configuration bucket..."
 bucket=$(aws --output json --profile $profile cloudformation list-stack-resources \
   --stack-name $stack_name \
   | jq '.StackResourceSummaries[] | select(.LogicalResourceId == "PrivateConfBucket").PhysicalResourceId' --raw-output)
 
-echo ""
-echo "your configuration bucket is: $bucket"
+plain ""
+plain "your configuration bucket is: $bucket"
 cat > .env <<EOF
 stack_name=$stack_name
 aws_profile=$profile
@@ -52,10 +98,11 @@ aws_profile=$profile
 bucket="$stack_name-privateconfbucket"
 EOF
 
-echo ""
-echo "Wrote .env and .env.local"
-echo "Pulling current versions..."
+plain ""
+plain "Wrote .env and .env.local"
+plain ""
 
+warn "Would you like to load your currently deployed configuration?"
+askContinue "Note: this will overwrite your files in conf/"
+plain "Pulling current versions..."
 source ./scripts/load-from-s3.sh
-
-echo "Initialization complete!"
