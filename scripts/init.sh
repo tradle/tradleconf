@@ -54,4 +54,8 @@ EOF
 
 echo ""
 echo "Wrote .env and .env.local"
+echo "Pulling current versions..."
+
+source ./scripts/load-from-s3.sh
+
 echo "Initialization complete!"

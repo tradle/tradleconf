@@ -23,7 +23,7 @@
     "build:style": "npm run validate:style",
     "build:botconf": "npm run validate:botconf",
     "precommit": "npm run build && git add models.json",
-    "deploy": "./scripts/push-to-s3.sh conf/models.json conf/style.json conf/bot.json",
+    "deploy": "./scripts/deploy.sh",
     "deploy:models": "./scripts/push-to-s3.sh conf/models.json",
     "deploy:style": "./scripts/push-to-s3.sh conf/style.json",
     "deploy:botconf": "./scripts/push-to-s3.sh conf/bot.json",
