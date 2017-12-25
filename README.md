@@ -62,7 +62,7 @@ Validate your bot's configuration with `npm run build:botconf`
 
 #### Custom Terms & Conditions
 
-If you have Terms and Conditions you want your customers to accept prior to interacting with your bot, add them in `./terms-and-conditions.md` (see [./terms-and-conditions.sample.md](./terms-and-conditions.sample.md))
+If you have Terms and Conditions you want your customers to accept prior to interacting with your bot, add them in `./conf/terms-and-conditions.md` (see [./conf/terms-and-conditions.sample.md](./conf/terms-and-conditions.sample.md))
 
 ### Deploy
 
