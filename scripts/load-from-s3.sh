@@ -12,11 +12,19 @@ files=(
   "conf/terms-and-conditions.md"
 )
 
+tmp=$(mktemp)
+
 for key in ${files[@]}
 do
   echo "downloading $key"
-  eval $s3 get-object \
+  {
+    eval $s3 get-object \
     --bucket "$bucket" \
     --key "$key" \
-    "./$key" >/dev/null 2>&1 || echo "$key not found"
+    "$tmp" >/dev/null 2>&1 && \
+    cat "$tmp" | jq . > "./$key"
+  } || echo "$key not found"
 done
+
+echo "done!"
+rm -f $tmp
