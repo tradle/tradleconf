@@ -1,7 +1,6 @@
 {
   "name": "@tradle/configure-tradle",
   "version": "1.0.0",
-  "main": "lib/index.js",
   "description": "template for building, editing and deploying Tradle models, styles and configuration to your Tradle MyCloud",
   "repository": {
     "type": "git",
