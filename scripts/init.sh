@@ -60,9 +60,10 @@ then
 fi
 
 plain ""
-ask "What AWS profile will you be using?"
+ask "Which AWS profile will you be using?"
 
 read -p "> " profile
+profile=${profile:-default}
 profile=$(trim $profile)
 
 info ""
@@ -103,6 +104,6 @@ plain "Wrote .env and .env.local"
 plain ""
 
 warn "Would you like to load your currently deployed configuration?"
-askContinue "Note: this will overwrite your files in conf/"
+askContinue "Note: this will overwrite your local files in conf/"
 plain "Pulling current versions..."
 source ./scripts/load-from-s3.sh
