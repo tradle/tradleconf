@@ -7,6 +7,10 @@ command_exists () {
   type "$1" &> /dev/null;
 }
 
+echoerr() {
+  echo "$@" 1>&2;
+}
+
 getmd5() {
   if command_exists md5; then
     md5 -q "$1"
@@ -14,7 +18,7 @@ getmd5() {
     md5sum "$1" | awk '{ print $1 }'
   else
     # give up
-    echo ""
+    echoerr "md5, md5sum commands not found, unable to prevent push of identical data"
   fi
 }
 
