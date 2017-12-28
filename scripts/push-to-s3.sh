@@ -29,7 +29,7 @@ for key in "$@"; do
     echo "pushing $key"
     obj_head=$(eval $s3 head-object \
       --bucket "$bucket" \
-      --key "$key" || echo '{}')
+      --key "$key" 2>/dev/null || echo '{}')
 
     # 2nd jq is to strip quotes
     etag=$(echo "$obj_head" | jq .ETag --raw-output | jq . --raw-output)
