@@ -1,6 +1,7 @@
 #!/bin/bash
 
 NO_ENV_ERROR="expected .env file with variables \"bucket\", \"aws_profile\" and \"stack_name\""
+export AWS_DEFAULT_OUTPUT="json"
 
 if [ ! -f ".env" ];
 then

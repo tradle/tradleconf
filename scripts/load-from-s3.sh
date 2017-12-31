@@ -2,6 +2,7 @@
 
 set -euo pipefail
 IFS=$'\n\t'
+export AWS_DEFAULT_OUTPUT="json"
 
 source ./scripts/load-env.sh
 

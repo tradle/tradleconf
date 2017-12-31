@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export AWS_DEFAULT_OUTPUT="json"
 source ./scripts/load-env.sh
 
 echo "poking your Tradle MyCloud to pick up new configuration"

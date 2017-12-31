@@ -2,6 +2,7 @@
 
 set -euo pipefail
 IFS=$'\n\t'
+export AWS_DEFAULT_OUTPUT="json"
 
 command_exists () {
   type "$1" &> /dev/null;
