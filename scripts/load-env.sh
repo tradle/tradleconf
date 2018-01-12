@@ -1,5 +1,14 @@
 #!/bin/bash
 
+command_exists () {
+  type "$1" &> /dev/null;
+}
+
+if ! command_exists aws; then
+  echo "aws cli not found! Make sure you install it and add it to your PATH"
+  exit 1
+fi
+
 NO_ENV_ERROR="expected .env file with variables \"bucket\", \"aws_profile\" and \"stack_name\""
 export AWS_DEFAULT_OUTPUT="json"
 
