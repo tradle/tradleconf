@@ -1,7 +1,7 @@
 {
   "name": "@tradle/conf",
   "version": "1.0.0",
-  "description": "template for building, editing and deploying Tradle models, styles and configuration to your Tradle MyCloud",
+  "description": "cli for managing your Tradle MyCloud instance",
   "repository": {
     "type": "git",
     "url": "https://github.com/tradle/configure-tradle"
