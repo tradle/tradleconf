@@ -1,0 +1,12 @@
+{
+  "_t": "tradle.Lens",
+  "model": "tradle.PersonalInfo",
+  "id": "my.custom.lens.PersonalInfo",
+  "properties": {
+    "country": {
+      "pin": [
+        "UK"
+      ]
+    }
+  }
+}
