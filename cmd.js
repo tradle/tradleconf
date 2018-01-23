@@ -18,7 +18,7 @@ const fs = require('fs')
 const path = require('path')
 const _ = require('lodash')
 const yn = require('yn')
-const { debug, prettify } = require('./lib/utils')
+const { debug, prettify, isValidProjectPath } = require('./lib/utils')
 const HELP = `
   Commands:
     validate
@@ -72,7 +72,7 @@ const normalizeOpts = opts => {
       throw new Error('expected "--project"')
     }
 
-    if (!fs.existsSync(path.resolve(project, 'serverless.yml'))) {
+    if (!isValidProjectPath(project)) {
       throw new Error('expected "--project" to point to serverless project dir')
     }
   }
@@ -140,8 +140,9 @@ if (!process.argv.slice(2).length) {
 program.parse(process.argv)
 const defaults = {
   programOpts: {
-    stackName: process.env.stack_name,
-    profile: process.env.aws_profile,
+    stackName: process.env.stackName,
+    profile: process.env.awsProfile,
+    project: process.env.project
   },
   commandOpts: {
     models: false,
