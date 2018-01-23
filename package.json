@@ -1,7 +1,7 @@
 {
   "name": "@tradle/conf",
   "version": "1.0.1",
-  "description": "cli for managing your Tradle MyCloud instance",
+  "description": "CLI for managing your Tradle MyCloud instance",
   "repository": {
     "type": "git",
     "url": "https://github.com/tradle/configure-tradle"
@@ -18,7 +18,8 @@
   },
   "keywords": [
     "tradle",
-    "models"
+    "mycloud",
+    "cli"
   ],
   "bugs": {
     "url": "https://github.com/tradle/configure-tradle/issues"

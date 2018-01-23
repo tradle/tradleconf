@@ -78,10 +78,10 @@ const normalizeOpts = opts => {
   }
 
   const command = program.args[0]
-  if (getCommandName(command) !== 'validate') {
-    const envType = local ? 'local' : 'remote'
-    debug(`targeting ${envType} environment`)
-  }
+  // if (getCommandName(command) !== 'validate') {
+  //   const envType = local ? 'local' : 'remote'
+  //   debug(`targeting ${envType} environment`)
+  // }
 
   if (commandOpts.all) {
     COMMAND_OPTS.forEach(opt => commandOpts[opt] = true)

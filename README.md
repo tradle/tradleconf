@@ -1,35 +1,28 @@
-# @tradle/models-template
+# @tradle/conf
 
-fork this module to create/edit/deploy your own custom Tradle models
+CLI for managing your Tradle MyCloud instance
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [Prerequisites](#prerequisites)
 - [Usage](#usage)
   - [Install and load current configuration](#install-and-load-current-configuration)
   - [Customize](#customize)
-    - [Custom Models](#custom-models)
+    - [Custom Models and Lenses](#custom-models-and-lenses)
     - [Custom Styles](#custom-styles)
     - [Custom Bot Configuration](#custom-bot-configuration)
     - [Custom Terms & Conditions](#custom-terms-&-conditions)
   - [Deploy](#deploy)
     - [To your local development environment](#to-your-local-development-environment)
     - [To the cloud](#to-the-cloud)
-  - [Express lane](#express-lane)
-- [Scripts](#scripts)
+  - [Lambda CLI](#lambda-cli)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## Prerequisites
-
-- [aws-cli](https://github.com/aws/aws-cli) - AWS command line client
-- [jq](https://stedolan.github.io/jq/download/) - command line JSON parser
-
 ## Usage
 
-this assumes you already deployed Tradle MyCloud to AWS
+this assumes you already deployed Tradle MyCloud to AWS, or are running a Tradle MyCloud development environment on your machine (see [@tradle/serverless](https://github.com/tradle/serverless))
 
 ### Install and load current configuration
 
@@ -86,3 +79,13 @@ Or if you only want to deploy a particular item:
 #### To the cloud
 
 Same as above, minus the `--local` flag
+
+### Lambda CLI
+
+Tradle MyCloud has a CLI lambda that understands a number of additional commands you can execute with:
+
+`tradleconf exec <command>`
+
+You can see a list of supported commands by executing the remote `help` command:
+
+`tradleconf exec help`
