@@ -30,10 +30,10 @@ this assumes you already deployed Tradle MyCloud to AWS, or are running a Tradle
 1. Initialize your configuration with `tradleconf init`. This will create a file called `.env`
 1. Pull your remote configuration in with `tradleconf load --all`. Or pull in a specific part of it, e.g.:
 
-`tradleconf load --models`
-`tradleconf load --style`
-`tradleconf load --bot`
-`tradleconf load --terms`
+`tradleconf load --models`  
+`tradleconf load --style`  
+`tradleconf load --bot`  
+`tradleconf load --terms`  
 
 ### Customize
 
@@ -47,7 +47,7 @@ Validate your models and lenses with `tradleconf validate --models`
 
 #### Custom Styles
 
-Define your provider's style in `./style.json` (see [./style.sample.json](./style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
+Define your provider's style in `./conf/style.json` (see [./conf/style.sample.json](./conf/style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
 
 Validate your style with `tradleconf validate --style`
 
