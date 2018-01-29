@@ -30,6 +30,7 @@
     "@tradle/merge-models": "^2.1.0",
     "@tradle/models": "github:tradle/models",
     "@tradle/models-pack": "^1.1.0",
+    "@tradle/qr-schema": "^1.2.0",
     "@tradle/validate-model": "^5.2.0",
     "@tradle/validate-resource": "^2.16.0",
     "aws-sdk": "^2.181.0",

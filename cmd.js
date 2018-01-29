@@ -3,8 +3,10 @@
 process.env.AWS_SDK_LOAD_CONFIG = true
 
 const updateNotifier = require('update-notifier')
-
 const pkg = require('./package.json')
+const DESC = {
+  key: 'key returned by create-data-bundle command'
+}
 
 updateNotifier({
   pkg,
@@ -48,10 +50,6 @@ const PROGRAM_OPTS = [
 
 const normalizeOpts = (...args) => {
   const command = args.pop()
-  if (!command) {
-    throw new Error(`command not found with name: ${process.argv[2]}`)
-  }
-
   const programOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.programOpts)
   if (program.debugBrk) {
     programOpts['debug-brk'] = true
@@ -85,7 +83,9 @@ const createAction = action => (...args) => {
 const run = fn => Promise.resolve()
   .then(fn)
   .then(result => {
-    if (typeof result !== 'undefined') {
+    if (result == null) {
+      console.log('OK')
+    } else {
       console.log(prettify(result))
     }
   })
@@ -158,13 +158,19 @@ const createDataBundleCommand = program
 
 const createDataClaimCommand = program
   .command('create-data-claim')
-  .option('-k, --key <key>', 'key returned by create-data-bundle command')
+  .option('-k, --key <key>', DESC.key)
   .action(createAction('createDataClaim'))
 
 const getDataBundleCommand = program
   .command('get-data-bundle')
   .option('-c, --claimId <claimId>', 'claim id returned by create-data-claim command')
+  .option('-k, --key <key>', DESC.key)
   .action(createAction('getDataBundle'))
+
+const listDataClaimsCommand = program
+  .command('list-data-claims')
+  .option('-k, --key <key>', DESC.key)
+  .action(createAction('listDataClaims'))
 
 const initCommand = program
   .command('init')
@@ -178,4 +184,7 @@ const execCommand = program
 const AWS = require('aws-sdk')
 const Conf = require('./')
 // re-parse with env vars set
-program.parse(process.argv)
+const parseResult = program.parse(process.argv)
+if (typeof parseResult.args[0] === 'string') {
+  throw new Error(`command not found with name: ${process.argv[2]}`)
+}
