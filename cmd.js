@@ -5,6 +5,7 @@ process.env.AWS_SDK_LOAD_CONFIG = true
 const updateNotifier = require('update-notifier')
 
 const pkg = require('./package.json')
+
 updateNotifier({
   pkg,
   updateCheckInterval: 60 * 60 * 1000 // 1 hr
@@ -14,33 +15,25 @@ require('dotenv').config({
   path: '.env'
 })
 
-const fs = require('fs')
-const path = require('path')
 const _ = require('lodash')
-const yn = require('yn')
 const { debug, prettify, isValidProjectPath } = require('./lib/utils')
 const HELP = `
   Commands:
     validate
     load
     deploy
+    create-data-bundle
+    create-data-claim
 
   To get help for a command, use --help, e.g.: tradleconf validate --help
 `
+
 const printHelp = () => console.log(HELP)
 const getCommandName = command => {
   if (typeof command === 'string') return command
 
   return command && command.name()
 }
-
-const COMMAND_OPTS = [
-  'all',
-  'bot',
-  'models',
-  'style',
-  'terms'
-]
 
 const NODE_FLAGS = [
   'debug',
@@ -53,61 +46,40 @@ const PROGRAM_OPTS = [
   'project'
 ].concat(NODE_FLAGS)
 
-const normalizeOpts = opts => {
+const normalizeOpts = (...args) => {
+  const command = args.pop()
+  if (!command) {
+    throw new Error(`command not found with name: ${process.argv[2]}`)
+  }
+
   const programOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.programOpts)
   if (program.debugBrk) {
     programOpts['debug-brk'] = true
   }
 
-  const commandOpts = _.defaults(_.pick(opts, COMMAND_OPTS), defaults.commandOpts)
-  if (_.every(commandOpts, val => !val)) {
-    commandOpts.all = true
+  const { local } = programOpts
+  if (command.name() !== 'validate') {
+    const envType = local ? 'local' : 'remote'
+    debug(`targeting ${envType} environment`)
   }
 
-  // opts = _.pickBy(opts, (value, key) => key in defaults)
-  // opts = _.defaults(opts, defaults)
-  const { local, project } = programOpts
-  if (local) {
-    if (!project) {
-      throw new Error('expected "--project"')
-    }
-
-    if (!isValidProjectPath(project)) {
-      throw new Error('expected "--project" to point to serverless project dir')
-    }
-  }
-
-  const command = program.args[0]
-  // if (getCommandName(command) !== 'validate') {
-  //   const envType = local ? 'local' : 'remote'
-  //   debug(`targeting ${envType} environment`)
-  // }
-
-  if (commandOpts.all) {
-    COMMAND_OPTS.forEach(opt => commandOpts[opt] = true)
-  }
-
-  commandOpts.args = program.args
+  const commandOpts = _.pick(command, command.options.map(o => o.name()))
+  commandOpts.args = args
   return {
     commandOpts,
-    programOpts: {
-      stackName: programOpts.stackName,
+    programOpts: _.extend(_.omit(programOpts, NODE_FLAGS), {
       lambda: new AWS.Lambda(),
-      project,
-      local,
       nodeFlags: _.pick(programOpts, NODE_FLAGS)
-    }
+    })
   }
 }
 
-const createAction = action => {
-  return opts => {
-    const { programOpts, commandOpts } = normalizeOpts(opts)
-    return run(() => {
-      const conf = new Conf(programOpts)
-      return conf[action](commandOpts)
-    })
-  }
+const createAction = action => (...args) => {
+  const { programOpts, commandOpts } = normalizeOpts(...args)
+  return run(() => {
+    const conf = new Conf(programOpts)
+    return conf[action](commandOpts)
+  })
 }
 
 const run = fn => Promise.resolve()
@@ -143,12 +115,6 @@ const defaults = {
     stackName: process.env.stackName,
     profile: process.env.awsProfile,
     project: process.env.project
-  },
-  commandOpts: {
-    models: false,
-    style: false,
-    terms: false,
-    bot: false
   }
 }
 
@@ -162,7 +128,7 @@ const deployCommand = program
   // .description('deploy ')
   .option('-m, --models', 'deploy models')
   .option('-s, --style', 'deploy style')
-  .option('-t, --terms', 'deploy models')
+  .option('-t, --terms', 'deploy terms')
   .option('-b, --bot', 'deploy bot configuration')
   .option('-a, --all', 'deploy all configuration')
   .action(createAction('deploy'))
@@ -171,7 +137,7 @@ const loadCommand = program
   .command('load')
   .option('-m, --models', 'load models')
   .option('-s, --style', 'load style')
-  .option('-t, --terms', 'load models')
+  .option('-t, --terms', 'load terms')
   .option('-b, --bot', 'load bot configuration')
   .option('-a, --all', 'load all configuration')
   .action(createAction('load'))
@@ -180,18 +146,33 @@ const validateCommand = program
   .command('validate')
   .option('-m, --models', 'validate models and lenses')
   .option('-s, --style', 'validate style')
-  .option('-t, --terms', 'validate models')
+  .option('-t, --terms', 'validate terms')
   .option('-b, --bot', 'validate bot configuration')
   .option('-a, --all', 'validate all configuration')
   .action(createAction('validate'))
 
-const execCommand = program
-  .command('exec <command>')
-  .action(createAction('exec'))
+const createDataBundleCommand = program
+  .command('create-data-bundle')
+  .option('-p, --path <path>', 'path to bundle to create')
+  .action(createAction('createDataBundle'))
+
+const createDataClaimCommand = program
+  .command('create-data-claim')
+  .option('-k, --key <key>', 'key returned by create-data-bundle command')
+  .action(createAction('createDataClaim'))
+
+const getDataBundleCommand = program
+  .command('get-data-bundle')
+  .option('-c, --claimId <claimId>', 'claim id returned by create-data-claim command')
+  .action(createAction('getDataBundle'))
 
 const initCommand = program
   .command('init')
   .action(createAction('init'))
+
+const execCommand = program
+  .command('exec <command>')
+  .action(createAction('exec'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
