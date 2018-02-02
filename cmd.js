@@ -3,6 +3,8 @@
 process.env.AWS_SDK_LOAD_CONFIG = true
 
 const updateNotifier = require('update-notifier')
+const Errors = require('@tradle/errors')
+const CustomErrors = require('./lib/errors')
 const pkg = require('./package.json')
 const DESC = {
   key: 'key returned by create-data-bundle command'
@@ -89,6 +91,7 @@ const run = fn => Promise.resolve()
       console.log(prettify(result))
     }
   })
+  .catch(err => Errors.ignore(err, CustomErrors.UserAborted))
   .catch(err => {
     console.error(err.stack)
     process.exitCode = 1
