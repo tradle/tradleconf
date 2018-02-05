@@ -50,8 +50,10 @@ const PROGRAM_OPTS = [
   'project'
 ].concat(NODE_FLAGS)
 
+let matchedCommand
+
 const normalizeOpts = (...args) => {
-  const command = args.pop()
+  const command = matchedCommand = args.pop()
   const programOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.programOpts)
   if (program.debugBrk) {
     programOpts['debug-brk'] = true
@@ -187,7 +189,9 @@ const execCommand = program
 const AWS = require('aws-sdk')
 const Conf = require('./')
 // re-parse with env vars set
-const parseResult = program.parse(process.argv)
-if (typeof parseResult.args[0] === 'string') {
+
+program.parse(process.argv)
+// if (typeof parseResult.args[0] === 'string') {
+if (!matchedCommand) {
   throw new Error(`command not found with name: ${process.argv[2]}`)
 }
