@@ -47,6 +47,7 @@ const NODE_FLAGS = [
 const PROGRAM_OPTS = [
   'profile',
   'local',
+  'remote',
   'project'
 ].concat(NODE_FLAGS)
 
@@ -59,7 +60,7 @@ const normalizeOpts = (...args) => {
     programOpts['debug-brk'] = true
   }
 
-  const { local } = programOpts
+  const { local, remote } = programOpts
   if (command.name() !== 'validate') {
     const envType = local ? 'local' : 'remote'
     debug(`targeting ${envType} environment`)
@@ -104,6 +105,7 @@ program
   .version(pkg.version)
   .option('-p, --profile', 'AWS profile to use')
   .option('-l, --local', 'target local development environment')
+  .option('-r, --remote', 'target remote environment')
   .option('-x, --project [path]', 'path to serverless project on disk')
   .option('--debug', 'invoke serverless function under the debugger')
   .option('--debug-brk', 'invoke serverless function under the debugger')
