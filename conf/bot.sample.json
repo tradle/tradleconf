@@ -10,6 +10,64 @@
     "autoVerify": false,
     "approveAllEmployees": true,
     "plugins": {
+      "lens": {
+        "nl.tradle.DigitalPassport": {
+          "tradle.PhotoID": "io.safere.lens.PhotoID"
+        }
+      },
+      "prefillForm": {
+        "nl.tradle.DigitalPassport": {
+          "tradle.PhotoID": {
+            "country": {
+              "id": "tradle.Country_NZ"
+            }
+          }
+        }
+      },
+      "complyAdvantage": {
+        "credentials": {
+          "apiKey": "..."
+        },
+        "products": {
+          "tradle.CordaKYC": {
+            "tradle.BusinessInformation": {
+              "fuzziness": 1,
+              "filter": {
+                "types": [
+                  "sanction"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "onfido": {
+        "apiKey": "..."
+      },
+      "openCorporates": {
+        "apiKey": "...",
+        "products": {
+          "tradle.CordaKYC": [
+            "tradle.BusinessInformation"
+          ]
+        }
+      },
+      "centrix": {
+        "credentials": {
+          "httpCredentials": {
+            "username": "...",
+            "password": "..."
+          },
+          "requestCredentials": {
+            "subscriberId": "...",
+            "userId": "...",
+            "userKey": "..."
+          }
+        },
+        "products": {
+          "nl.tradle.DigitalPassport": {}
+        }
+      },
       "customize-message": {
         "tradle.FormRequest": {
           "tradle.PhotoID": "Please click to scan your **ID document**",
@@ -28,10 +86,20 @@
   "tours": {
     "intro": {
       "_t": "tradle.Tour",
-      "message": "Take a quick tour of chat bot?",
+      "message": "Take a quick tour of this chat bot?",
       "pages": [
-        "https://tradle.io",
-        "https://imdb.com"
+        {
+          "title": "Ready for friendliness?",
+          "description": "Finally, you will be in control of your own private information!",
+          "img": "https://s3.amazonaws.com/tradle-public-images/friendly.png",
+          "imgStyle": {
+            "height": 150,
+            "width": 150
+          },
+          "backgroundColor": "#ffde1c",
+          "fontColor": "#004db5",
+          "level": 10
+        }
       ]
     }
   }

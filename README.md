@@ -17,6 +17,14 @@ CLI for managing your Tradle MyCloud instance
     - [To your local development environment](#to-your-local-development-environment)
     - [To the cloud](#to-the-cloud)
   - [Lambda CLI](#lambda-cli)
+  - [Built-in Plugins](#built-in-plugins)
+    - [Lens](#lens)
+    - [Prefill form](#prefill-form)
+    - [ComplyAdvantage](#complyadvantage)
+    - [OpenCorporates](#opencorporates)
+    - [Onfido](#onfido)
+    - [Centrix](#centrix)
+    - [Customize message](#customize-message)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -53,7 +61,7 @@ Validate your style with `tradleconf validate --style`
 
 #### Custom Bot Configuration
 
-Set your bot's configuration in `./conf/bot.json` (see [./conf/bot.sample.json](./conf/bot.sample.json)).
+Set your bot's configuration in `./conf/bot.json`. See [./conf/bot.sample.json](./conf/bot.sample.json) for an example. Also, see the [Plugins](#built-in-plugins) section for how to configure the currently available plugins.
 
 Validate your bot's configuration with `tradleconf validate --bot`
 
@@ -78,7 +86,7 @@ Or if you only want to deploy a particular item:
 
 #### To the cloud
 
-Same as above, minus the `--local` flag
+Same as above, minus the `--local` flag. You will be asked for confirmation unless you add the `--remote` flag.
 
 ### Lambda CLI
 
@@ -89,3 +97,178 @@ Tradle MyCloud has a CLI lambda that understands a number of additional commands
 You can see a list of supported commands by executing the remote `help` command:
 
 `tradleconf exec help`
+
+Note: make sure to quote your command if it has any whitespace, e.g.:
+
+`tradleconf exec "help setproductenabled"`  
+`tradleconf exec "addfriend https://bob.com --domain bob.com"`
+
+### Built-in Plugins
+
+Find below annotated examples from [./conf/bot.sample.json](./conf/bot.sample.json)
+
+#### Lens
+
+Purpose: request common forms with custom lenses
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "lens": {
+    // for the nl.tradle.DigitalPassport product...
+    "nl.tradle.DigitalPassport": {
+      // when requesting form tradle.PhotoID, specify lens io.safere.lens.PhotoID
+      "tradle.PhotoID": "io.safere.lens.PhotoID"
+    }
+  }
+}
+```
+
+#### Prefill form
+
+Purpose: prefill forms sent to the user with sensible defaults
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "prefillForm": {
+    // for the nl.tradle.DigitalPassport product...
+    "nl.tradle.DigitalPassport": {
+      // when requesting form tradle.PhotoID, prefill country to New Zealand
+      "tradle.PhotoID": {
+        "country": {
+          "id": "tradle.Country_NZ"
+        }
+      }
+    }
+  }
+}
+```
+
+#### ComplyAdvantage
+
+Purpose: upon receiving certain forms from the user, trigger checks using ComplyAdvantage API
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "complyAdvantage": {
+    "credentials": {
+      "apiKey": "..."
+    },
+    "products": {
+      // for the tradle.CordaKYC product...
+      "tradle.CordaKYC": {
+        // run a check based on data from the tradle.BusinessInformation form
+        // with the following ComplyAdvantage API settings:
+        "tradle.BusinessInformation": {
+          "fuzziness": 1,
+          "filter": {
+            "types": ["sanction"]
+          }
+        }
+      }
+    }
+  }
+} 
+```
+
+#### OpenCorporates
+
+Purpose: upon receiving certain forms from the user, trigger checks using OpenCorporates
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "openCorporates": {
+    "apiKey": "...",
+    "products": {
+      "tradle.CordaKYC": [
+        "tradle.BusinessInformation"
+      ]
+    }
+  }
+} 
+```
+
+#### Onfido
+
+Purpose: upon receiving certain forms from the user, trigger checks using Onfido
+
+Note: currently this is available only for the dummy product tradle.onfido.CustomerVerification
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "onfido": {
+    "apiKey": "..."
+  }
+}
+```
+
+#### Centrix
+
+Purpose: upon receiving certain forms from the user, trigger checks using Centrix
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "centrix": {
+    "credentials": {
+      "httpCredentials": {
+        "username": "...",
+        "password": "..."
+      },
+      "requestCredentials": {
+        "subscriberId": "...",
+        "userId": "...",
+        "userKey": "..."
+      }
+    },
+    "products": {
+      "nl.tradle.DigitalPassport": {}
+    }
+  }
+}
+```
+
+#### Customize message
+
+Purpose: customize the messages for various types sent to the user (e.g. form requests)
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "customize-message": {
+    "tradle.FormRequest": {
+      "tradle.PhotoID": "Please click to scan your **ID document**",
+      "tradle.Selfie": "Thank you. Now take a '**selfie**' photo of yourself that I can match against your ID document",
+      "tradle.Residence": {
+        "first": "Thank you. Now I need you to provide your **residence** information",
+        "nth": "Thank you. Do you have another **residence**? If yes, tap Add, otherwise tap Next"
+      }
+    }
+  }
+}
+```
