@@ -3,8 +3,10 @@
 process.env.AWS_SDK_LOAD_CONFIG = true
 
 const updateNotifier = require('update-notifier')
+const co = require('co')
 const Errors = require('@tradle/errors')
 const CustomErrors = require('./lib/errors')
+const logger = require('./lib/logger')
 const pkg = require('./package.json')
 const DESC = {
   key: 'key returned by create-data-bundle command'
@@ -32,7 +34,7 @@ const HELP = `
   To get help for a command, use --help, e.g.: tradleconf validate --help
 `
 
-const printHelp = () => console.log(HELP)
+const printHelp = () => logger.info(HELP)
 const getCommandName = command => {
   if (typeof command === 'string') return command
 
@@ -85,20 +87,30 @@ const createAction = action => (...args) => {
   })
 }
 
-const run = fn => Promise.resolve()
-  .then(fn)
-  .then(result => {
-    if (result == null) {
-      console.log('OK')
-    } else {
-      console.log(prettify(result))
-    }
-  })
-  .catch(err => Errors.ignore(err, CustomErrors.UserAborted))
-  .catch(err => {
-    console.error(err.stack)
+const run = co.wrap(function* (fn) {
+  let result
+  try {
+    result = yield fn()
+  } catch (err) {
     process.exitCode = 1
-  })
+    if (Errors.matches(err, 'developer')) {
+      logger.error(err.stack)
+    } else if (Errors.matches(err, CustomErrors.UserAborted)) {
+      logger.info('command canceled')
+    } else {
+      logger.error(err.message)
+      ;(matchedCommand || program).outputHelp()
+    }
+
+    return
+  }
+
+  if (result == null) {
+    logger.info('OK')
+  } else {
+    logger.info(prettify(result))
+  }
+})
 
 const program = require('commander')
 program
@@ -138,6 +150,7 @@ const deployCommand = program
   .option('-t, --terms', 'deploy terms')
   .option('-b, --bot', 'deploy bot configuration')
   .option('-a, --all', 'deploy all configuration')
+  .allowUnknownOption(false)
   .action(createAction('deploy'))
 
 const loadCommand = program
@@ -156,35 +169,42 @@ const validateCommand = program
   .option('-t, --terms', 'validate terms')
   .option('-b, --bot', 'validate bot configuration')
   .option('-a, --all', 'validate all configuration')
+  .allowUnknownOption(false)
   .action(createAction('validate'))
 
 const createDataBundleCommand = program
   .command('create-data-bundle')
   .option('-p, --path <path>', 'path to bundle to create')
+  .allowUnknownOption(false)
   .action(createAction('createDataBundle'))
 
 const createDataClaimCommand = program
   .command('create-data-claim')
   .option('-k, --key <key>', DESC.key)
+  .allowUnknownOption(false)
   .action(createAction('createDataClaim'))
 
 const getDataBundleCommand = program
   .command('get-data-bundle')
   .option('-c, --claimId <claimId>', 'claim id returned by create-data-claim command')
   .option('-k, --key <key>', DESC.key)
+  .allowUnknownOption(false)
   .action(createAction('getDataBundle'))
 
 const listDataClaimsCommand = program
   .command('list-data-claims')
   .option('-k, --key <key>', DESC.key)
+  .allowUnknownOption(false)
   .action(createAction('listDataClaims'))
 
 const initCommand = program
   .command('init')
+  .allowUnknownOption(false)
   .action(createAction('init'))
 
 const execCommand = program
   .command('exec <command>')
+  .allowUnknownOption(false)
   .action(createAction('exec'))
 
 // require AWS sdk after env variables are set
