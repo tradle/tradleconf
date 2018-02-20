@@ -68,7 +68,7 @@ const normalizeOpts = (...args) => {
     debug(`targeting ${envType} environment`)
   }
 
-  const commandOpts = _.pick(command, command.options.map(o => o.name()))
+  const commandOpts = _.pick(command, command.options.map(o => o.attributeName()))
   commandOpts.args = args
   return {
     commandOpts,
@@ -150,6 +150,7 @@ const deployCommand = program
   .option('-t, --terms', 'deploy terms')
   .option('-b, --bot', 'deploy bot configuration')
   .option('-a, --all', 'deploy all configuration')
+  .option('--dry-run', 'print but don\'t execute')
   .allowUnknownOption(false)
   .action(createAction('deploy'))
 
@@ -160,6 +161,7 @@ const loadCommand = program
   .option('-t, --terms', 'load terms')
   .option('-b, --bot', 'load bot configuration')
   .option('-a, --all', 'load all configuration')
+  .option('--dry-run', 'print but don\'t execute')
   .action(createAction('load'))
 
 const validateCommand = program
