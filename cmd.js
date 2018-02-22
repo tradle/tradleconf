@@ -209,6 +209,12 @@ const execCommand = program
   .allowUnknownOption(false)
   .action(createAction('exec'))
 
+const invokeCommand = program
+  .command('invoke')
+  .option('-f, --function-name <functionName>', 'invoke a lambda by name')
+  .allowUnknownOption(false)
+  .action(createAction('invoke'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const Conf = require('./')
