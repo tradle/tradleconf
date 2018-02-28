@@ -88,6 +88,10 @@ Or if you only want to deploy a particular item:
 
 Same as above, minus the `--local` flag. You will be asked for confirmation unless you add the `--remote` flag.
 
+### Destroy
+
+If murder is in your heart, you can destroy your Tradle MyCloud irreversibly using `tradleconf destroy`
+
 ### Lambda CLI
 
 Tradle MyCloud has a CLI lambda that understands a number of additional commands you can execute with:
