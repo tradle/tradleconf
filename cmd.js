@@ -215,6 +215,11 @@ const invokeCommand = program
   .allowUnknownOption(false)
   .action(createAction('invoke'))
 
+const destroyCommand = program
+  .command('destroy')
+  .allowUnknownOption(false)
+  .action(createAction('destroy'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const Conf = require('./')
