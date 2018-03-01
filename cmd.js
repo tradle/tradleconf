@@ -47,7 +47,6 @@ const NODE_FLAGS = [
 ]
 
 const PROGRAM_OPTS = [
-  'profile',
   'local',
   'remote',
   'project'
@@ -115,7 +114,6 @@ const run = co.wrap(function* (fn) {
 const program = require('commander')
 program
   .version(pkg.version)
-  .option('-p, --profile', 'AWS profile to use')
   .option('-l, --local', 'target local development environment')
   .option('-r, --remote', 'target remote environment')
   .option('-x, --project [path]', 'path to serverless project on disk')
@@ -202,6 +200,8 @@ const listDataClaimsCommand = program
 
 const initCommand = program
   .command('init')
+  // .option('-p, --profile <profile>', 'the AWS profile name, if you know it')
+  // .option('-s, --stack-name <stackName>', `your MyCloud's stack name in AWS, if you know it`)
   .allowUnknownOption(false)
   .action(createAction('init'))
 
