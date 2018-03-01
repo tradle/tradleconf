@@ -183,6 +183,7 @@ const createDataBundleCommand = program
 const createDataClaimCommand = program
   .command('create-data-claim')
   .option('-k, --key <key>', DESC.key)
+  .option('-c, --claimType <claimType>', '"prefill" or "bulk"')
   .allowUnknownOption(false)
   .action(createAction('createDataClaim'))
 
@@ -219,6 +220,11 @@ const destroyCommand = program
   .command('destroy')
   .allowUnknownOption(false)
   .action(createAction('destroy'))
+
+const infoCommand = program
+  .command('info')
+  .allowUnknownOption(false)
+  .action(createAction('info'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
