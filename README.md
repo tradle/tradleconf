@@ -179,6 +179,7 @@ Example config:
           }
         },
         // Create a property map you want to use for running this check.
+        // Property map's values are the property in the form and keys how they named in plugin.
         // Properties could be derived from different forms. 
         // Here is an example when data are derived from one form the tradle.BusinessInformation 
         // with the following ComplyAdvantage API settings:
