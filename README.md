@@ -172,12 +172,20 @@ Example config:
     "products": {
       // for the tradle.CordaKYC product...
       "tradle.CordaKYC": {
-        // run a check based on data from the tradle.BusinessInformation form
-        // with the following ComplyAdvantage API settings:
-        "tradle.BusinessInformation": {
+        "filter":  {
           "fuzziness": 1,
           "filter": {
             "types": ["sanction"]
+          }
+        },
+        // Create a property map you want to use for running this check.
+        // Properties could be derived from different forms. 
+        // Here is an example when data are derived from one form the tradle.BusinessInformation 
+        // with the following ComplyAdvantage API settings:
+        "propertyMap": {
+          "tradle.BusinessInformation": {
+            "companyName": "companyName",
+            "registrationDate": "registrationDate"
           }
         }
       }
