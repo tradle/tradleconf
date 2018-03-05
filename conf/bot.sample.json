@@ -10,6 +10,9 @@
     "autoVerify": false,
     "approveAllEmployees": true,
     "plugins": {
+      "termsAndConditions": {
+        "enabled": true
+      },
       "lens": {
         "nl.tradle.DigitalPassport": {
           "tradle.PhotoID": "io.safere.lens.PhotoID"
@@ -30,12 +33,18 @@
         },
         "products": {
           "tradle.CordaKYC": {
-            "tradle.BusinessInformation": {
+            "filter": {
               "fuzziness": 1,
               "filter": {
                 "types": [
                   "sanction"
                 ]
+              }
+            },
+            "propertyMap": {
+              "tradle.BusinessInformation": {
+                "companyName": "companyName",
+                "registrationDate": "registrationDate"
               }
             }
           }

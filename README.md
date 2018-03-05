@@ -16,8 +16,10 @@ CLI for managing your Tradle MyCloud instance
   - [Deploy](#deploy)
     - [To your local development environment](#to-your-local-development-environment)
     - [To the cloud](#to-the-cloud)
+  - [Destroy](#destroy)
   - [Lambda CLI](#lambda-cli)
   - [Built-in Plugins](#built-in-plugins)
+    - [Terms & Conditions](#terms-&-conditions)
     - [Lens](#lens)
     - [Prefill form](#prefill-form)
     - [ComplyAdvantage](#complyadvantage)
@@ -69,6 +71,8 @@ Validate your bot's configuration with `tradleconf validate --bot`
 
 If you have Terms and Conditions you want your customers to accept prior to interacting with your bot, add them in `./conf/terms-and-conditions.md` (see [./conf/terms-and-conditions.sample.md](./conf/terms-and-conditions.sample.md))
 
+You will also need to add a block in the `plugins` block in `conf/bot.json` to enable/disable the T's and C's. See the [plugin configuration](#terms-&-conditions) below.
+
 ### Deploy
 
 You can deploy your configuration to your local Tradle development environment running on your machine, or to your Tradle MyCloud running in AWS.
@@ -110,6 +114,22 @@ Note: make sure to quote your command if it has any whitespace, e.g.:
 ### Built-in Plugins
 
 Find below annotated examples from [./conf/bot.sample.json](./conf/bot.sample.json)
+
+#### Terms & Conditions
+
+Purpose: require new users to accept T's and C's before anything else
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "termsAndConditions": {
+    "enabled": true
+  }
+}
+```
 
 #### Lens
 
