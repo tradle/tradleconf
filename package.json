@@ -10,7 +10,7 @@
   "license": "MIT",
   "main": "./lib/index.js",
   "bin": {
-    "tradleconf": "./cmd.js"
+    "tradleconf": "./lib/cmd.js"
   },
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js .",
@@ -49,11 +49,15 @@
     "pify": "^3.0.0",
     "promptly": "^2.2.0",
     "shelljs": "^0.8.0",
+    "source-map-support": "^0.5.3",
     "tmp": "0.0.33",
+    "tslib": "^1.9.0",
     "update-notifier": "^2.3.0",
     "yn": "^2.0.0"
   },
   "devDependencies": {
+    "@types/lodash": "^4.14.104",
+    "@types/node": "^9.4.6",
     "husky": "^0.14.3"
   }
 }

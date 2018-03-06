@@ -15,10 +15,7 @@ module.exports = {
         "array-bracket-spacing": "error",
         "array-callback-return": "error",
         "arrow-body-style": "warn",
-        "arrow-parens": [
-            "error",
-            "as-needed"
-        ],
+        "arrow-parens": "off",
         "arrow-spacing": [
             "error",
             {
@@ -28,10 +25,7 @@ module.exports = {
         ],
         "block-scoped-var": "error",
         "block-spacing": "error",
-        "brace-style": [
-            "error",
-            "1tbs"
-        ],
+        "brace-style": "off",
         "callback-return": "error",
         "camelcase": "off",
         "capitalized-comments": "off",
@@ -61,7 +55,7 @@ module.exports = {
                 "allowKeywords": true
             }
         ],
-        "eol-last": "error",
+        "eol-last": "off",
         "eqeqeq": "warn",
         "func-call-spacing": "error",
         "func-name-matching": "error",
@@ -91,7 +85,7 @@ module.exports = {
             "unix"
         ],
         "lines-around-comment": "warn",
-        "lines-around-directive": "error",
+        "lines-around-directive": "off",
         "max-depth": "error",
         "max-len": "off",
         "max-lines": "warn",
@@ -203,7 +197,7 @@ module.exports = {
         "no-useless-rename": "error",
         "no-useless-return": "error",
         "no-var": "error",
-        "no-void": "error",
+        "no-void": "warn",
         "no-warning-comments": "warn",
         "no-whitespace-before-property": "error",
         "no-with": "error",
@@ -248,18 +242,15 @@ module.exports = {
         "sort-keys": "off",
         "sort-vars": "error",
         "space-before-blocks": "error",
-        "space-before-function-paren": "error",
+        "space-before-function-paren": "off",
         "space-in-parens": [
             "error",
             "never"
         ],
         "space-infix-ops": "off",
         "space-unary-ops": "error",
-        "spaced-comment": [
-            "error",
-            "always"
-        ],
-        "strict": "error",
+        "spaced-comment": "off",
+        "strict": "off",
         "symbol-description": "error",
         "template-curly-spacing": [
             "error",

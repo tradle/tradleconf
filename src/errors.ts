@@ -1,7 +1,7 @@
 
 const ex = require('error-ex')
 
-module.exports = {
+export const Errors = {
   UserAborted: ex('UserAborted'),
   InvalidInput: ex('InvalidInput'),
   InvalidEnvironment: ex('InvalidEnvironment')

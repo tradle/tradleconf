@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 
+require('source-map-support').install()
+
+// @ts-ignore
 process.env.AWS_SDK_LOAD_CONFIG = true
 
-const updateNotifier = require('update-notifier')
-const co = require('co')
-const Errors = require('@tradle/errors')
-const CustomErrors = require('./lib/errors')
-const logger = require('./lib/logger')
-const pkg = require('./package.json')
+import updateNotifier = require('update-notifier')
+import Errors = require('@tradle/errors')
+import { Errors as CustomErrors } from './errors'
+import { logger } from './logger'
+import { debug } from './utils'
+import { Conf } from './types'
+
+const pkg = require('../package.json')
 const DESC = {
   key: 'key returned by create-data-bundle command'
 }
@@ -21,8 +26,8 @@ require('dotenv').config({
   path: '.env'
 })
 
-const _ = require('lodash')
-const { debug, prettify, isValidProjectPath } = require('./lib/utils')
+import _ = require('lodash')
+import { prettify, isValidProjectPath } from './utils'
 const HELP = `
   Commands:
     validate
@@ -81,15 +86,15 @@ const normalizeOpts = (...args) => {
 const createAction = action => (...args) => {
   const { programOpts, commandOpts } = normalizeOpts(...args)
   return run(() => {
-    const conf = new Conf(programOpts)
+    const conf:Conf = createConf(programOpts)
     return conf[action](commandOpts)
   })
 }
 
-const run = co.wrap(function* (fn) {
+const run = async (fn) => {
   let result
   try {
-    result = yield fn()
+    result = await fn()
   } catch (err) {
     process.exitCode = 1
     if (Errors.matches(err, 'developer')) {
@@ -109,7 +114,7 @@ const run = co.wrap(function* (fn) {
   } else {
     logger.info(prettify(result))
   }
-})
+}
 
 const program = require('commander')
 program
@@ -250,7 +255,7 @@ Wrong: tradleconf log oniotlifecycle -s1d
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
-const Conf = require('./')
+const { createConf } = require('./')
 // re-parse with env vars set
 
 program.parse(process.argv)

@@ -1,10 +1,10 @@
-const _ = require('lodash')
-const builtInModels = require('./models')
-const mergeModels = require('@tradle/merge-models')
-const ModelsPack = require('@tradle/models-pack')
-const utils = require('./utils')
+import _ = require('lodash')
+import builtInModels = require('./models')
+import mergeModels = require('@tradle/merge-models')
+import ModelsPack = require('@tradle/models-pack')
+import * as utils from './utils'
 
-exports.modelsPack = ({ namespace, models, lenses }) => {
+export const modelsPack = ({ namespace, models, lenses }) => {
   // validate model set
   mergeModels()
     .add(builtInModels, { validate: false })
@@ -14,16 +14,16 @@ exports.modelsPack = ({ namespace, models, lenses }) => {
   utils.pack({ namespace, models, lenses })
 }
 
-exports.bot = conf => {
+export const bot = conf => {
   const { tours } = conf
   if (tours) {
     _.each(tours, tour => utils.validateResource(tour))
   }
 }
 
-exports.style = style => utils.validateResource(style)
+export const style = style => utils.validateResource(style)
 
-exports.terms = terms => {
+export const terms = terms => {
   if (!terms.length) {
     throw new Error('terms and conditions cannot be empty')
   }
