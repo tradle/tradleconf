@@ -305,3 +305,47 @@ Example config:
   }
 }
 ```
+
+#### Webhooks
+
+Purpose: subscribe to events, handle them outside MyCloud
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "webhooks": {
+    // optional. If provided, webhook requests will carry an hmac of the body
+    // in the x-webhook-auth header (see ./examples/webhook-handler.js)
+    "hmacSecret": "[a private random string]",
+    // subscriptions to events you want to receive
+    "subscriptions": [
+      // ... get notified about all inbound messages
+      {
+        "topic": "msg:i",
+        "endpoint": "https://example.com/tradle/webhook1"
+      },
+      // ... get notified about inbound messages of a particular time
+      {
+        "topic": "msg:i:tradle.PhotoID",
+        "endpoint": "https://example.com/tradle/webhook2"
+      },
+      // ... get notified when a resource is saved
+      {
+        "topic": "save",
+        "endpoint": "https://example.com/tradle/webhook3"
+      },
+      // ... get notified when a particular type of resource is saved
+      {
+        "topic": "save:tradle.Application",
+        "hmacSecret": "use a different hmacSecret per subscriptin if you want",
+        "endpoint": "https://example.com/tradle/webhook4"
+      }
+    ]
+  }
+}
+```
+
+See an example webhook processor in [./examples/webhook-handler.js](./examples/webhook-handler.js)
