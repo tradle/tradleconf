@@ -348,4 +348,10 @@ Example config:
 }
 ```
 
-See an example webhook processor in [./examples/webhook-handler.js](./examples/webhook-handler.js)
+See an example webhook processor in [./examples/webhooks](./examples/webhooks/index.js). To run it:
+
+```sh
+cd examples/webhooks
+npm install
+npm start
+```
