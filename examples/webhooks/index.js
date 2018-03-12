@@ -3,6 +3,8 @@ const co = require('co').wrap
 const Koa = require('koa')
 const bodyParser = require('koa-body')
 const Router = require('koa-router')
+const port = Number(process.argv[2] || 8000)
+const hmacSecret = process.argv[3]
 
 const getBody = () => co(function* (ctx, next) {
   console.log('getting body...')
@@ -53,12 +55,16 @@ const app = new Koa()
 
 app.use(bodyParser())
 app.use(getBody())
-app.use(checkHmac('myHmacSecretFromWebhooksPluginConf'))
+if (hmacSecret) {
+  app.use(checkHmac(hmacSecret))
+}
 
 const router = new Router()
 router.post('/', handleEvent)
 app.use(router.routes())
+app.listen(port)
 
-app.listen(8000)
-
-console.log('listening on port 8000')
+console.log(`listening on port ${port}`)
+if (hmacSecret) {
+  console.log(`will verify with hmac secret: ${hmacSecret}`)
+}
