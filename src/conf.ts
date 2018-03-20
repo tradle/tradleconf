@@ -475,7 +475,7 @@ export class Conf {
   }
 
   public tail = async (opts:any={}) => {
-    return this.log({ watch: true })
+    return this.log({ watch: true, ...opts })
   }
 
   public log = async (opts:any={}) => {

@@ -269,7 +269,18 @@ const infoCommand = program
   .allowUnknownOption(false)
   .action(createAction('info'))
 
-const logCommand = program
+const createLogCommand = (command, name) => command
+  .allowUnknownOption(false)
+  .option('-s, --start <time-expression>', 'see awslogs docs')
+  .option('-e, --end <time-expression>', 'see awslogs docs')
+  .option('-w, --watch', 'tail log')
+  .option('-t, --timestamp', 'prints the creation timestamp of each event.')
+  .option('-i, --ingestion-time', 'prints the ingestion time of each event.')
+  .option('-f, --filter-pattern', 'CloudWatch Logs filter pattern')
+  .option('-q, --query', 'CloudWatch Logs query pattern')
+  .action(createAction(name))
+
+const logCommand = createLogCommand(program
   .command('log [functionName]')
   .description(`view/tail a function's logs.
 
@@ -280,20 +291,11 @@ Make sure to put spaces between options.
 Right: tradleconf log oniotlifecycle -s 1d
 Wrong: tradleconf log oniotlifecycle -s1d
 
-`)
-  .allowUnknownOption(false)
-  .option('-s, --start <time-expression>', 'see awslogs docs')
-  .option('-e, --end <time-expression>', 'see awslogs docs')
-  .option('-w, --watch', 'tail log')
-  .option('-t, --timestamp', 'prints the creation timestamp of each event.')
-  .option('-i, --ingestion-time', 'prints the ingestion time of each event.')
-  .option('-f, --filter-pattern', 'CloudWatch Logs filter pattern')
-  .option('-q, --query', 'CloudWatch Logs query pattern')
-  .action(createAction('log'))
+`), 'log')
 
-const tailCommand = program
+const tailCommand = createLogCommand(program
   .command('tail [functionName]')
-  .description(`tail a function's logs. Equivalent to log -w`)
+  .description(`tail a function's logs. Equivalent to log -w`), 'tail')
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
