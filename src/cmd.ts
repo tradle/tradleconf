@@ -28,18 +28,43 @@ require('dotenv').config({
 
 import _ = require('lodash')
 import { prettify, isValidProjectPath } from './utils'
-const HELP = `
-  Commands:
-    validate
-    load
-    deploy
-    create-data-bundle
-    create-data-claim
 
-  To get help for a command, use --help, e.g.: tradleconf validate --help
-`
+// cons HELP = `
+//   Commands:
+//     validate
+//     load
+//     deploy
+//     create-data-bundle
+//     create-data-claim
 
-const printHelp = () => logger.info(HELP)
+//   To get help for a command, use --help, e.g.: tradleconf validate --help
+// `
+
+// const printHelp = () => logger.info(HELP)
+
+process.on('exit', () => {
+  debugger
+})
+
+const printHelp = () => {
+  const commands = program.commands
+    .filter(c => c.description())
+
+  logger.info(
+    commands
+      .map(c => `${c.name()}\n\n${getCommandHelp(c)}`)
+      .join('\n\n')
+  )
+}
+
+const getCommandHelp = c => {
+  const desc = c.description()
+  return desc
+    .split('\n')
+    .map(line => `\t${line}`)
+    .join('\n')
+}
+
 const getCommandName = command => {
   if (typeof command === 'string') return command
 
@@ -125,7 +150,7 @@ program
   .option('--debug', 'invoke serverless function under the debugger')
   .option('--debug-brk', 'invoke serverless function under the debugger')
 
-program.on('--help', printHelp)
+program.on('--help', () => logger.warn('\nuse the `help` command to get command-specific help'))
 if (!process.argv.slice(2).length) {
   program.outputHelp()
 }
@@ -147,7 +172,7 @@ if (profile) {
 
 const deployCommand = program
   .command('deploy')
-  // .description('deploy ')
+  .description(`push your local configuration`)
   .option('-m, --models', 'deploy models')
   .option('-s, --style', 'deploy style')
   .option('-t, --terms', 'deploy terms')
@@ -159,6 +184,7 @@ const deployCommand = program
 
 const loadCommand = program
   .command('load')
+  .description(`load the currently deployed configuration`)
   .option('-m, --models', 'load models')
   .option('-s, --style', 'load style')
   .option('-t, --terms', 'load terms')
@@ -169,6 +195,9 @@ const loadCommand = program
 
 const validateCommand = program
   .command('validate')
+  .description(`[DEPRECATED] validate your local models and lenses
+
+This command is deprecated. Validation is done cloud-side regardless.`)
   .option('-m, --models', 'validate models and lenses')
   .option('-s, --style', 'validate style')
   .option('-t, --terms', 'validate terms')
@@ -179,12 +208,14 @@ const validateCommand = program
 
 const createDataBundleCommand = program
   .command('create-data-bundle')
+  .description(`upload a data bundle`)
   .option('-p, --path <path>', 'path to bundle to create')
   .allowUnknownOption(false)
   .action(createAction('createDataBundle'))
 
 const createDataClaimCommand = program
   .command('create-data-claim')
+  .description(`create a claim stub for a data bundle`)
   .option('-k, --key <key>', DESC.key)
   .option('-c, --claimType <claimType>', '"prefill" or "bulk"')
   .allowUnknownOption(false)
@@ -192,6 +223,7 @@ const createDataClaimCommand = program
 
 const getDataBundleCommand = program
   .command('get-data-bundle')
+  .description(`get a data bundle by its claimId and key`)
   .option('-c, --claimId <claimId>', 'claim id returned by create-data-claim command')
   .option('-k, --key <key>', DESC.key)
   .allowUnknownOption(false)
@@ -199,12 +231,14 @@ const getDataBundleCommand = program
 
 const listDataClaimsCommand = program
   .command('list-data-claims')
+  .description(`list existing claim stubs for data bundles`)
   .option('-k, --key <key>', DESC.key)
   .allowUnknownOption(false)
   .action(createAction('listDataClaims'))
 
 const initCommand = program
   .command('init')
+  .description(`initialize your local configuration (re-generate your .env file)`)
   // .option('-p, --profile <profile>', 'the AWS profile name, if you know it')
   // .option('-s, --stack-name <stackName>', `your MyCloud's stack name in AWS, if you know it`)
   .allowUnknownOption(false)
@@ -212,22 +246,26 @@ const initCommand = program
 
 const execCommand = program
   .command('exec <command>')
+  .description(`execute a command on the remote cli`)
   .allowUnknownOption(false)
   .action(createAction('exec'))
 
 const invokeCommand = program
   .command('invoke')
+  .description(`invoke a function`)
   .option('-f, --function-name <functionName>', 'invoke a lambda by name')
   .allowUnknownOption(false)
   .action(createAction('invoke'))
 
 const destroyCommand = program
   .command('destroy')
+  .description(`destroy your deployment`)
   .allowUnknownOption(false)
   .action(createAction('destroy'))
 
 const infoCommand = program
   .command('info')
+  .description(`get some app links and other basic info for your deployment`)
   .allowUnknownOption(false)
   .action(createAction('info'))
 
@@ -253,13 +291,21 @@ Wrong: tradleconf log oniotlifecycle -s1d
   .option('-q, --query', 'CloudWatch Logs query pattern')
   .action(createAction('log'))
 
+const tailCommand = program
+  .command('tail [functionName]')
+  .description(`tail a function's logs. Equivalent to log -w`)
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')
 // re-parse with env vars set
 
+const helpCommand = program
+  .command('help')
+  .action(printHelp)
+
 program.parse(process.argv)
 // if (typeof parseResult.args[0] === 'string') {
 if (!matchedCommand) {
-  throw new Error(`command not found with name: ${process.argv[2]}`)
+  logger.error(`command not found with name: ${process.argv[2]}`)
 }

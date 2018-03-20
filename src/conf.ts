@@ -202,7 +202,9 @@ export class Conf {
   }
 
   public invoke = async (opts) => {
-    const { functionName, arg, local=this.local } = opts
+    let { functionName, arg, local=this.local } = opts
+    if (!functionName) functionName = await promptFn(this, 'which function?')
+
     let result
     try {
       const promise = local ? this._invokeLocal(opts) : this._invoke(opts)
@@ -472,6 +474,10 @@ export class Conf {
     return functions.map(f => f.slice(stackName.length + 1))
   }
 
+  public tail = async (opts:any={}) => {
+    return this.log({ watch: true })
+  }
+
   public log = async (opts:any={}) => {
     this._remoteOnly()
 
@@ -480,8 +486,7 @@ export class Conf {
     const { client, stackName } = this
     let functionName = opts.args[0]
     if (!functionName) {
-      const answers = await promptFn(this, 'which one do you want to log?')
-      functionName = answers.fn
+      functionName = await promptFn(this, 'which one do you want to log?')
     }
 
     const longName = getLongFunctionName({ stackName, functionName })
