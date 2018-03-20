@@ -13,6 +13,7 @@ import { emptyBucket } from './empty-bucket'
 import { models as builtInModels } from './models'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
+import { confirm } from './prompts'
 
 const debug = require('debug')('@tradle/conf')
 
@@ -65,10 +66,8 @@ const toEnvFile = obj => Object.keys(obj)
   .map(key => `${key}="${obj[key]}"`)
   .join('\n')
 
-const confirmOrAbort = async (msg?:string, question:string='Continue?') => {
-  if (msg) logger.warn(`WARNING: ${msg}`)
-
-  const confirmed = await promptly.confirm(colors.question(question))
+const confirmOrAbort = async (msg:string) => {
+  const confirmed = await confirm(msg)
   if (!confirmed) {
     throw new CustomErrors.UserAborted()
   }

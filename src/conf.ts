@@ -7,11 +7,15 @@ import _ = require('lodash')
 import co = require('co')
 import promisify = require('pify')
 // import YAML = require('js-yaml')
-import promptly = require('promptly')
 import AWS = require('aws-sdk')
 import _mkdirp = require('mkdirp')
 import shelljs = require('shelljs')
 import ModelsPack = require('@tradle/models-pack')
+import {
+  init as promptInit,
+  fn as promptFn,
+  confirm
+} from './prompts'
 import { AWSClients, ConfOpts, NodeFlags } from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
@@ -23,7 +27,6 @@ tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 const mkdirp = promisify(_mkdirp)
 const pfs = promisify(fs)
 const { debug, prettify, isValidProjectPath, toEnvFile, confirmOrAbort } = utils
-const prompt = question => promptly.prompt(colors.question(question))
 const AWS_CONF_PATH = `${os.homedir()}/.aws/config`
 const getFileNameForItem = item => `${item.id}.json`
 const read:any = file => fs.readFileSync(file, { encoding: 'utf8' })
@@ -325,68 +328,26 @@ export class Conf {
     return result
   }
 
-  public promptAWSProfile = async () => {
-    const awsConf = maybeRead(AWS_CONF_PATH)
-    if (awsConf) {
-      logger.info('See below your profiles from your ~/.aws/config:\n')
-      logger.info(awsConf)
-    }
-
-    return await prompt('Which AWS profile will you be using?')
-  }
-
-  public promptStackName = async () => {
-    const stackInfos = await this.getStacks()
-    const stackNames = stackInfos.map(({ name }) => name)
-    let stackName
-    do {
-      if (!stackName) {
-        logger.info('These are the stacks you have in AWS:\n')
-        logger.info(stackNames.join('\n'))
-        logger.info('\n')
-        stackName = await prompt('Which one is your Tradle stack?')
-      }
-
-      if (stackNames.includes(stackName)) {
-        break
-      }
-
-      logger.error(`You don't have a stack called "${stackName}"!`)
-      stackName = null
-    } while (true)
-
-    return stackName
-  }
-
   public init = async (opts={}) => {
-    if (exists('./.env')) {
-      await confirmOrAbort('This will overwrite your .env file')
-    }
+    const {
+      overwriteEnv,
+      awsProfile,
+      stackName,
+      projectPath
+    } = await promptInit(this)
 
-    const awsProfile = await this.promptAWSProfile()
+    if (overwriteEnv === false) return
+
     this.profile = awsProfile
+    this.stackName = stackName
     // force reload aws profile
     this.client = null
-    const stackName = await this.promptStackName()
-    const haveLocal = await prompt('Do you have a local development environment, a clone of https://github.com/tradle/serverless? (y/n)')
-    let projectPath
-    if (yn(haveLocal)) {
-      do {
-        let resp = await prompt('Please provide the path to your project directory, or type "s" to skip')
-        if (resp.replace(/["']/g).toLowerCase() === 's') break
 
-        if (isValidProjectPath(resp)) {
-          projectPath = path.resolve(resp)
-          break
-        }
-
-        logger.error('Provided path doesn\'t contain a serverless.yml')
-      } while (true)
-    }
-
+    const { apiBaseUrl } = await this.info()
     const env:any = {
       awsProfile,
-      stackName
+      stackName,
+      apiBaseUrl
     }
 
     if (projectPath) env.project = projectPath
@@ -394,7 +355,12 @@ export class Conf {
     write('.env', toEnvFile(env))
 
     logger.info('wrote .env')
-    await [paths.models, paths.lenses, paths.conf].map(dir => mkdirp(dir))
+    await Promise.all([
+      paths.models,
+      paths.lenses,
+      paths.conf
+    ].map(dir => mkdirp(dir)))
+
     logger.success('initialization complete!')
     // logger.info('Would you like to load your currently deployed configuration?')
     // const willLoad = await prompt('Note: this may overwrite your local files in ./conf, ./models and ./lenses (y/n)')
@@ -472,9 +438,8 @@ export class Conf {
     await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
     await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName})?`)
     const buckets = await utils.listStackBucketIds(this.client, stackName)
-    logger.warn(`About to delete buckets:`)
     buckets.forEach(id => logger.info(id))
-    await confirmOrAbort()
+    await confirmOrAbort('Delete these buckets?')
     for (const id of buckets) {
       logger.info(`emptying and deleting: ${id}`)
       utils.destroyBucket(this.client, id)
@@ -501,15 +466,10 @@ export class Conf {
     )
   }
 
-  public promptFunction = async (message:string) => {
+  public getFunctions = async () => {
     const { client, stackName } = this
-    logger.info('These are your functions:')
-    logger.info()
     const functions = await utils.listStackFunctionIds(client, stackName)
-    const shortNames = functions.map(f => f.slice(stackName.length + 1))
-    shortNames.forEach(name => logger.info(name))
-    logger.info()
-    return await prompt(message)
+    return functions.map(f => f.slice(stackName.length + 1))
   }
 
   public log = async (opts:any={}) => {
@@ -520,7 +480,8 @@ export class Conf {
     const { client, stackName } = this
     let functionName = opts.args[0]
     if (!functionName) {
-      functionName = await this.promptFunction('which one do you want to log?')
+      const answers = await promptFn(this, 'which one do you want to log?')
+      functionName = answers.fn
     }
 
     const longName = getLongFunctionName({ stackName, functionName })
@@ -554,7 +515,7 @@ export class Conf {
   private _invoke = async ({ functionName, arg, noWarning }) => {
     // confirm if remote was not explicitly specified
     if (!(this.remote || noWarning)) {
-      await confirmOrAbort(`You're about to execute an operation on your REMOTE deployment`)
+      await confirmOrAbort(`Targeting REMOTE deployment. Continue?`)
     }
 
     const {
