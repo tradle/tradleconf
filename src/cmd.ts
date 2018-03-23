@@ -5,8 +5,9 @@ require('source-map-support').install()
 // @ts-ignore
 process.env.AWS_SDK_LOAD_CONFIG = true
 
-import updateNotifier = require('update-notifier')
-import Errors = require('@tradle/errors')
+import updateNotifier from 'update-notifier'
+import Errors from '@tradle/errors'
+import chalk from 'chalk'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
 import { debug } from './utils'
@@ -29,30 +30,13 @@ require('dotenv').config({
 import _ = require('lodash')
 import { prettify, isValidProjectPath } from './utils'
 
-// cons HELP = `
-//   Commands:
-//     validate
-//     load
-//     deploy
-//     create-data-bundle
-//     create-data-claim
-
-//   To get help for a command, use --help, e.g.: tradleconf validate --help
-// `
-
-// const printHelp = () => logger.info(HELP)
-
-process.on('exit', () => {
-  debugger
-})
-
 const printHelp = () => {
   const commands = program.commands
     .filter(c => c.description())
 
   logger.info(
     commands
-      .map(c => `${c.name()}\n\n${getCommandHelp(c)}`)
+      .map(c => `${chalk.blue(c.name())}\n\n${chalk.white(getCommandHelp(c))}`)
       .join('\n\n')
   )
 }
@@ -135,7 +119,7 @@ const run = async (fn) => {
   }
 
   if (result == null) {
-    logger.info('OK')
+    // logger.info('OK')
   } else {
     logger.info(prettify(result))
   }

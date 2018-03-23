@@ -10,6 +10,7 @@ import promisify = require('pify')
 import AWS = require('aws-sdk')
 import _mkdirp = require('mkdirp')
 import shelljs = require('shelljs')
+import Listr = require('listr')
 import ModelsPack = require('@tradle/models-pack')
 import {
   init as promptInit,
@@ -345,24 +346,37 @@ export class Conf {
     // force reload aws profile
     this.client = null
 
-    const { apiBaseUrl } = await this.info()
     const env:any = {
       awsProfile,
-      stackName,
-      apiBaseUrl
+      stackName
     }
 
-    if (projectPath) env.project = projectPath
+    const tasks = new Listr([
+      {
+        title: 'loading deployment info',
+        task: async (ctx) => {
+          ctx.info = await this.info()
+        }
+      },
+      {
+        title: 'initializing local conf',
+        task: async (ctx) => {
+          env.apiBaseUrl = ctx.info.apiBaseUrl
+          if (projectPath) env.project = projectPath
 
-    write('.env', toEnvFile(env))
+          write('.env', toEnvFile(env))
 
-    logger.info('wrote .env')
-    await Promise.all([
-      paths.models,
-      paths.lenses,
-      paths.conf
-    ].map(dir => mkdirp(dir)))
+          // logger.info('wrote .env')
+          await Promise.all([
+            paths.models,
+            paths.lenses,
+            paths.conf
+          ].map(dir => mkdirp(dir)))
+        }
+      }
+    ])
 
+    await tasks.run()
     logger.success('initialization complete!')
     // logger.info('Would you like to load your currently deployed configuration?')
     // const willLoad = await prompt('Note: this may overwrite your local files in ./conf, ./models and ./lenses (y/n)')
