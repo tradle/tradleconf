@@ -473,7 +473,7 @@ export class Conf {
       noWarning: true
     })
 
-    const apiBaseUrl = await utils.getApiBaseUrl(this.client, process.env.stackName)
+    const apiBaseUrl = await utils.getApiBaseUrl(this.client, this.stackName)
     const info = await utils.get(`${apiBaseUrl}/info`)
     return Object.assign(
       { apiBaseUrl },
