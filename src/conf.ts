@@ -462,6 +462,7 @@ export class Conf {
     }
 
     await utils.deleteStack(this.client, stackName)
+    logger.info('Note: it may take a few minutes for your stack to be deleted')
   }
 
   public info = async () => {
