@@ -362,7 +362,7 @@ export class Conf {
         title: 'initializing local conf',
         task: async (ctx) => {
           env.apiBaseUrl = ctx.info.apiBaseUrl
-          if (projectPath) env.project = projectPath
+          if (projectPath) env.project = path.resolve(process.cwd(), projectPath)
 
           write('.env', toEnvFile(env))
 
