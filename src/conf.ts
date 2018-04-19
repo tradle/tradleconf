@@ -27,7 +27,7 @@ tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
 const mkdirp = promisify(_mkdirp)
 const pfs = promisify(fs)
-const { debug, prettify, isValidProjectPath, toEnvFile, confirmOrAbort } = utils
+const { prettify, isValidProjectPath, toEnvFile, confirmOrAbort } = utils
 const AWS_CONF_PATH = `${os.homedir()}/.aws/config`
 const getFileNameForItem = item => `${item.id}.json`
 const read:any = file => fs.readFileSync(file, { encoding: 'utf8' })
@@ -165,6 +165,10 @@ export class Conf {
       nodeFlags.inspect = true
     }
 
+    if (remote && nodeFlags.inspect) {
+      throw new CustomErrors.InvalidInput('--debug, --debug-brk are only supported for local operations')
+    }
+
     this.nodeFlags = nodeFlags
     this.profile = profile
     this.stackName = stackName
@@ -264,22 +268,22 @@ export class Conf {
     })
 
     if (opts.style && result.style) {
-      debug('loaded remote style')
+      logger.debug('loaded remote style')
       write(paths.style, result.style)
     }
 
     if (opts.bot && result.bot) {
-      debug('loaded remote bot conf')
+      logger.debug('loaded remote bot conf')
       write(paths.bot, result.bot)
     }
 
     if (opts.terms && result.termsAndConditions) {
-      debug('loaded remote terms and conditions')
+      logger.debug('loaded remote terms and conditions')
       write(paths.terms, result.termsAndConditions.value)
     }
 
     if (opts.models && result.modelsPack) {
-      debug('loaded remote models and lenses')
+      logger.debug('loaded remote models and lenses')
       this.writeModels(result.modelsPack)
     }
   }
@@ -308,7 +312,7 @@ export class Conf {
     const items = this.getDeployItems(opts)
     _.each(items, (value, key) => {
       if (typeof value !== 'undefined') {
-        debug(`validating: ${key}`)
+        logger.debug(`validating: ${key}`)
         validate[key](value)
       }
     })
@@ -441,15 +445,15 @@ export class Conf {
     required: []
   })
 
-  private _remoteOnly = () => {
+  private _ensureRemote = () => {
     if (this.local) {
       throw new CustomErrors.InvalidInput('not supported for local dev env')
     }
   }
 
   public destroy = async (opts) => {
-    this._remoteOnly()
-
+    this._ensureStackName()
+    this._ensureRemote()
     const { stackName } = this
     await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
     await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName})?`)
@@ -466,7 +470,8 @@ export class Conf {
   }
 
   public info = async () => {
-    this._remoteOnly()
+    this._ensureStackName()
+    this._ensureRemote()
 
     const links = await this._invoke({
       functionName: 'cli',
@@ -484,6 +489,7 @@ export class Conf {
   }
 
   public getFunctions = async () => {
+    this._ensureStackName()
     const { client, stackName } = this
     const functions = await utils.listStackFunctionIds(client, stackName)
     return functions.map(f => f.slice(stackName.length + 1))
@@ -494,7 +500,8 @@ export class Conf {
   }
 
   public log = async (opts:any={}) => {
-    this._remoteOnly()
+    this._ensureStackName()
+    this._ensureRemote()
 
     utils.checkCommandInPath('awslogs')
 
@@ -528,7 +535,7 @@ export class Conf {
 
   private _ensureStackName = () => {
     if (!this.stackName) {
-      throw new CustomErrors.InvalidInput('expected "stackName"')
+      throw new CustomErrors.InvalidInput(`don't know stack name. Did you forget to run "init"?`)
     }
   }
 
@@ -537,6 +544,8 @@ export class Conf {
     if (!(this.remote || noWarning)) {
       await confirmOrAbort(`Targeting REMOTE deployment. Continue?`)
     }
+
+    this._ensureStackName()
 
     const {
       StatusCode,
@@ -578,7 +587,7 @@ export class Conf {
   --path "${tmpInput.name}" \
   --output "${tmpOutput.name}"`
 
-    debug(`running command: ${command}`)
+    logger.debug(`running command: ${command}`)
     const result = shelljs.exec(command, { silent: true })
     shelljs.cd(pwd)
     const res = read(tmpOutput.name).trim()

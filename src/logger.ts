@@ -1,10 +1,24 @@
 import _ = require('lodash')
 import chalk = require('chalk')
 
+let level = 2
+const levels = {
+  // levels
+  error: 0,
+  warn: 1,
+  info: 2,
+  debug: 3,
+  // these are logged always
+  success: -Infinity,
+  question: -Infinity,
+}
+
 export interface IColors {
   error: string
   warn: string
   info: string
+  debug: string
+  // misc
   success: string
   question: string
 }
@@ -22,13 +36,22 @@ const methodColors = {
   warn: 'yellow',
   info: 'white',
   success: 'green',
-  question: 'whiteBright'
+  question: 'whiteBright',
+  debug: 'blue'
 }
 
 export const logger = <Logger>{}
 export const colors = <Colorizer>{}
+export const setLevel = value => {
+  level = value
+}
 
 _.forEach(methodColors, (color, loggerMethod) => {
-  logger[loggerMethod] = (...args) => console.log(chalk[color](...args))
+  logger[loggerMethod] = (...args) => {
+    if (level >= levels[loggerMethod]) {
+      console.log(chalk[color](...args))
+    }
+  }
+
   colors[loggerMethod] = (...args) => chalk[color](...args)
 })

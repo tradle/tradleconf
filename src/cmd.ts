@@ -10,7 +10,6 @@ import Errors from '@tradle/errors'
 import chalk from 'chalk'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
-import { debug } from './utils'
 import { Conf } from './types'
 
 const pkg = require('../package.json')
@@ -78,7 +77,7 @@ const normalizeOpts = (...args) => {
   const { local, remote } = programOpts
   if (command.name() !== 'validate') {
     const envType = local ? 'local' : 'remote'
-    debug(`targeting ${envType} environment`)
+    logger.debug(`targeting ${envType} environment`)
   }
 
   const commandOpts = _.pick(command, command.options.map(o => o.attributeName()))
