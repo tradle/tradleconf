@@ -139,6 +139,7 @@ export class Conf {
   private client: AWSClients
   private profile: string
   private stackName: string
+  private stackId: string
   private local?: boolean
   private remote?: boolean
   private project?: string
@@ -339,20 +340,22 @@ export class Conf {
     const {
       overwriteEnv,
       awsProfile,
-      stackName,
+      stack,
       projectPath
     } = await promptInit(this)
 
     if (overwriteEnv === false) return
 
     this.profile = awsProfile
-    this.stackName = stackName
+    this.stackName = stack.name
+    this.stackId = stack.id
     // force reload aws profile
     this.client = null
 
     const env:any = {
       awsProfile,
-      stackName
+      stackName: this.stackName,
+      stackId: this.stackId
     }
 
     const tasks = new Listr([

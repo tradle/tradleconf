@@ -61,12 +61,15 @@ export const init = (conf: Conf) => {
     },
     {
       type: 'list',
-      name: 'stackName',
+      name: 'stack',
       message: 'Which Tradle stack will you be configuring?',
       when: defaultWhen,
       choices: async ({ awsProfile }) => {
         const stackInfos = await conf.getStacks(awsProfile)
-        return stackInfos.map(({ name }) => name)
+        return stackInfos.map(({ name, id }) => ({
+          name,
+          value: { name, id }
+        }))
       }
     },
     {
