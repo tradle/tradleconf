@@ -472,23 +472,43 @@ export class Conf {
     logger.info('Note: it may take a few minutes for your stack to be deleted')
   }
 
+  public getApiBaseUrl = () => {
+    if (this.local) {
+      return null
+    }
+
+    return utils.getApiBaseUrl(this.client, this.stackName)
+  }
+
   public info = async () => {
     this._ensureStackName()
-    this._ensureRemote()
+    return await this._info()
+  }
 
-    const links = await this._invoke({
+  public _info = async () => {
+    const apiBaseUrl = this.getApiBaseUrl()
+    const getLinks = this.invokeAndReturn({
       functionName: 'cli',
       arg: 'links',
       noWarning: true
     })
 
-    const apiBaseUrl = await utils.getApiBaseUrl(this.client, this.stackName)
-    const info = await utils.get(`${apiBaseUrl}/info`)
+    const getInfo = this._getPublicInfo()
+    const [links, info] = await Promise.all([getLinks, getInfo])
     return Object.assign(
       { apiBaseUrl },
-      { links: links.result },
-      _.pick(info, ['version'])
+      { links: links },
+      _.pick(info, ['version', 'chainKey'])
     )
+  }
+
+  public _getPublicInfo = async () => {
+    const info = await this.invokeAndReturn({ functionName: 'info', arg: {} })
+    if (info.isBase64Encoded) {
+      info.body = new Buffer(info.body, 'base64')
+    }
+
+    return JSON.parse(info.body)
   }
 
   public getFunctions = async () => {
@@ -542,7 +562,11 @@ export class Conf {
     }
   }
 
-  private _invoke = async ({ functionName, arg, noWarning }) => {
+  private _invoke = async ({ functionName, arg={}, noWarning }: {
+    functionName: string
+    arg?: any
+    noWarning?: boolean
+  }) => {
     // confirm if remote was not explicitly specified
     if (!(this.remote || noWarning)) {
       await confirmOrAbort(`Targeting REMOTE deployment. Continue?`)
@@ -583,6 +607,7 @@ export class Conf {
 
     const pwd = process.cwd()
     shelljs.cd(project)
+    logger.debug('be patient, local invocations can be slow')
     const command =`IS_OFFLINE=1 node ${flagsStr} \
   "${project}/node_modules/.bin/sls" invoke local \
   -f "${functionName}" \
