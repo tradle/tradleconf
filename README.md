@@ -17,6 +17,7 @@ CLI for managing your Tradle MyCloud instance
     - [To your local development environment](#to-your-local-development-environment)
     - [To the cloud](#to-the-cloud)
   - [Destroy](#destroy)
+  - [Logging](#logging)
   - [Lambda CLI](#lambda-cli)
   - [Built-in Plugins](#built-in-plugins)
     - [Terms & Conditions](#terms-&-conditions)
@@ -27,6 +28,7 @@ CLI for managing your Tradle MyCloud instance
     - [Onfido](#onfido)
     - [Centrix](#centrix)
     - [Customize message](#customize-message)
+    - [Webhooks](#webhooks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -95,6 +97,15 @@ Same as above, minus the `--local` flag. You will be asked for confirmation unle
 ### Destroy
 
 If murder is in your heart, you can destroy your Tradle MyCloud irreversibly using `tradleconf destroy`
+
+### Logging
+
+```sh
+tradleconf log onmessage -s 5m # log onmessage since 5m ago
+tradleconf tail onmessage -s 5m # log onmessage since 5m ago, tail
+tradleconf log -s 5m # log some function (you'll get a chooser prompt)
+tradleconf log --help # get additional tips
+```
 
 ### Lambda CLI
 
