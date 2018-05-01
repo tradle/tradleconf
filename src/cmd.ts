@@ -144,13 +144,22 @@ const defaults = {
   programOpts: {
     stackName: process.env.stackName,
     profile: process.env.awsProfile,
+    region: process.env.region,
     project: process.env.project
   }
 }
 
-const { profile=defaults.programOpts.profile } = program
+const {
+  profile=defaults.programOpts.profile,
+  region=defaults.programOpts.region,
+} = program
+
 if (profile) {
   process.env.AWS_PROFILE = profile
+}
+
+if (region) {
+  process.env.AWS_REGION = region
 }
 
 const deployCommand = program

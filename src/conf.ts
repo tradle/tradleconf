@@ -363,6 +363,7 @@ export class Conf {
     this.client = null
 
     const env:any = {
+      region,
       awsProfile,
       stackName: this.stackName,
       stackId: this.stackId
