@@ -28,6 +28,7 @@ export type NodeFlags = {
 
 export type ConfOpts = {
   // client: AWSClients
+  region?: string
   profile?: string
   stackName?: string
   local?: boolean

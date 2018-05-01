@@ -135,8 +135,14 @@ const createImportDataUtilsMethod = ({
   })
 }
 
+type AWSConfigOpts = {
+  region?: string
+  profile?: string
+}
+
 export class Conf {
   private client: AWSClients
+  private region: string
   private profile: string
   private stackName: string
   private stackId: string
@@ -146,7 +152,7 @@ export class Conf {
   private nodeFlags?: NodeFlags
 
   constructor (opts: ConfOpts) {
-    const { profile, stackName, local, remote, project, nodeFlags={} } = opts
+    const { region, profile, stackName, local, remote, project, nodeFlags={} } = opts
 
     if (local && remote) {
       throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
@@ -171,6 +177,7 @@ export class Conf {
     }
 
     this.nodeFlags = nodeFlags
+    this.region = region
     this.profile = profile
     this.stackName = stackName
     this.local = local
@@ -339,6 +346,7 @@ export class Conf {
   public init = async (opts={}) => {
     const {
       overwriteEnv,
+      region,
       awsProfile,
       stack,
       projectPath
@@ -346,6 +354,8 @@ export class Conf {
 
     if (overwriteEnv === false) return
 
+    this.remote = true
+    this.region = region
     this.profile = awsProfile
     this.stackName = stack.name
     this.stackId = stack.id
@@ -362,7 +372,7 @@ export class Conf {
       {
         title: 'loading deployment info',
         task: async (ctx) => {
-          ctx.info = await this.info()
+          ctx.info = await this.getEndpointInfo()
         }
       },
       {
@@ -390,10 +400,20 @@ export class Conf {
     // if (!yn(willLoad)) return
   }
 
-  private _getAWSClient = (profile?: string) => {
-    if (!profile) profile = this.profile || process.env.awsProfile
+  private _getAWSClient = (opts:AWSConfigOpts={}) => {
+    const {
+      profile=this.profile || process.env.awsProfile,
+      region=this.region
+    } = opts
+
+    if (region) {
+      AWS.config.update({ region })
+    }
+
     if (profile) {
-      AWS.config.credentials = new AWS.SharedIniFileCredentials({ profile })
+      AWS.config.update({
+        credentials: new AWS.SharedIniFileCredentials({ profile })
+      })
     }
 
     const s3 = new AWS.S3()
@@ -410,8 +430,8 @@ export class Conf {
     }
   }
 
-  public getStacks = async (profile?:string) => {
-    const client = this._getAWSClient(profile)
+  public getStacks = async (opts={}) => {
+    const client = this._getAWSClient(opts)
     return await utils.listStacks(client)
   }
 
@@ -472,7 +492,7 @@ export class Conf {
     logger.info('Note: it may take a few minutes for your stack to be deleted')
   }
 
-  public getApiBaseUrl = () => {
+  public getApiBaseUrl = async () => {
     if (this.local) {
       return null
     }
@@ -486,29 +506,30 @@ export class Conf {
   }
 
   public _info = async () => {
-    const apiBaseUrl = this.getApiBaseUrl()
     const getLinks = this.invokeAndReturn({
       functionName: 'cli',
       arg: 'links',
       noWarning: true
     })
 
-    const getInfo = this._getPublicInfo()
+    const getInfo = this.getEndpointInfo()
     const [links, info] = await Promise.all([getLinks, getInfo])
     return Object.assign(
-      { apiBaseUrl },
-      { links: links },
-      _.pick(info, ['version', 'chainKey'])
+      { links },
+      _.pick(info, ['version', 'chainKey', 'apiBaseUrl'])
     )
   }
 
-  public _getPublicInfo = async () => {
+  public getEndpointInfo = async () => {
+    const getApiBaseUrl = this.getApiBaseUrl()
     const info = await this.invokeAndReturn({ functionName: 'info', arg: {} })
     if (info.isBase64Encoded) {
       info.body = new Buffer(info.body, 'base64')
     }
 
-    return JSON.parse(info.body)
+    const endpoint = JSON.parse(info.body)
+    endpoint.apiBaseUrl = await getApiBaseUrl
+    return endpoint
   }
 
   public getFunctions = async () => {

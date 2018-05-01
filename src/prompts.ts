@@ -5,6 +5,12 @@ import yn from 'yn'
 import inquirer from 'inquirer'
 import { isValidProjectPath } from './utils'
 import { Conf } from './types'
+import models from '@tradle/models-cloud'
+
+const regions = models['tradle.cloud.AWSRegion'].enum.map(({ id, title }) => ({
+  name: title,
+  value: id.replace(/[.]/g, '-')
+}))
 
 const PROFILE_REGEX = /^\[(?:[^\s]*?\s)?(.*)\]$/
 const getProfileName = line => line.match(PROFILE_REGEX)[1]
@@ -17,7 +23,7 @@ const parseConf = conf => ({
 const getProfiles = () => {
   let conf
   try {
-    conf = fs.readFileSync(`${os.homedir()}/.aws/config`, { encoding: 'utf8' })
+    conf = fs.readFileSync(`${os.homedir()}/.aws/credentials`, { encoding: 'utf8' })
   } catch (err) {
     return ['default']
   }
@@ -34,6 +40,12 @@ export const init = (conf: Conf) => {
       name: 'overwriteEnv',
       message: 'This will overwrite your .env file',
       when: () => fs.existsSync('./.env')
+    },
+    {
+      type: 'list',
+      name: 'region',
+      message: 'Which AWS region is your deployment in?',
+      choices: regions
     },
     {
       type: 'list',
@@ -64,8 +76,12 @@ export const init = (conf: Conf) => {
       name: 'stack',
       message: 'Which Tradle stack will you be configuring?',
       when: defaultWhen,
-      choices: async ({ awsProfile }) => {
-        const stackInfos = await conf.getStacks(awsProfile)
+      choices: async ({ region, awsProfile }) => {
+        const stackInfos = await conf.getStacks({
+          profile: awsProfile,
+          region
+        })
+
         return stackInfos.map(({ name, id }) => ({
           name,
           value: { name, id }
