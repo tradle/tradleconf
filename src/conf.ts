@@ -557,14 +557,18 @@ export class Conf {
     }
 
     const longName = getLongFunctionName({ stackName, functionName })
-    const passThrough = Object.keys(getOptsOnly(opts))
-    const awsLogsOpts = passThrough
+    const logOpts = getOptsOnly(opts)
+    if (this.profile) logOpts.profile = this.profile
+    if (this.region) logOpts['aws-region'] = this.region
+
+    const passThrough = Object.keys(logOpts)
+    const logOptsStr = passThrough
       .map(opt => {
         const key = utils.splitCamelCase(opt)
           .join('-')
           .toLowerCase()
 
-        const val = opts[opt]
+        const val = logOpts[opt]
         if (val === true) {
           return `--${key}`
         }
@@ -573,7 +577,7 @@ export class Conf {
       })
       .join(' ')
 
-    const cmd = `awslogs get /aws/lambda/${longName} ${awsLogsOpts}`
+    const cmd = `awslogs get /aws/lambda/${longName} ${logOptsStr}`
     logger.info(cmd)
     shelljs.exec(cmd)
   }
