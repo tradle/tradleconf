@@ -261,6 +261,18 @@ const infoCommand = program
   .allowUnknownOption(false)
   .action(createAction('info'))
 
+const disableCommand = program
+  .command('disable')
+  .description(`disable your stack (turn off the lambdas)`)
+  .allowUnknownOption(false)
+  .action(createAction('disable'))
+
+const enableCommand = program
+  .command('enable')
+  .description(`enable your stack (turn on the lambdas)`)
+  .allowUnknownOption(false)
+  .action(createAction('enable'))
+
 const createLogCommand = (command, name) => command
   .allowUnknownOption(false)
   .option('-s, --start <time-expression>', 'see awslogs docs')

@@ -582,6 +582,18 @@ export class Conf {
     shelljs.exec(cmd)
   }
 
+  public disable = async () => {
+    return await this.exec({
+      args: ['setenvvar --key DISABLED --value 1']
+    })
+  }
+
+  public enable = async () => {
+    return await this.exec({
+      args: ['setenvvar --key DISABLED']
+    })
+  }
+
   private _ensureStackName = () => {
     if (!this.stackName) {
       throw new CustomErrors.InvalidInput(`don't know stack name. Did you forget to run "init"?`)
