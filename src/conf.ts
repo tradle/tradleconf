@@ -489,8 +489,17 @@ export class Conf {
       utils.destroyBucket(this.client, id)
     }
 
-    await utils.deleteStack(this.client, stackName)
-    logger.info('Note: it may take a few minutes for your stack to be deleted')
+    const tasks = new Listr([
+      {
+        title: 'deleting stack',
+        task: async (ctx) => {
+          // logger.info('Note: it may take a few minutes for your stack to be deleted')
+          await utils.deleteStack(this.client, stackName)
+          await utils.wait(5000)
+          await utils.awaitStackDelete(this.client, stackName)
+        }
+      }
+    ])
   }
 
   public getApiBaseUrl = async () => {

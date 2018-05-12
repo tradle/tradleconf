@@ -7,6 +7,7 @@ import promptly = require('promptly')
 import chalk = require('chalk')
 import shelljs = require('shelljs')
 import fetch = require('node-fetch')
+import _AWS from 'aws-sdk'
 import ModelsPack = require('@tradle/models-pack')
 import _validateResource = require('@tradle/validate-resource')
 import { emptyBucket } from './empty-bucket'
@@ -14,6 +15,11 @@ import { models as builtInModels } from './models'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
 import { confirm } from './prompts'
+
+type AWS = {
+  s3: _AWS.S3
+  cloudformation: _AWS.CloudFormation
+}
 
 const debug = require('debug')('@tradle/conf')
 
@@ -74,7 +80,7 @@ const confirmOrAbort = async (msg:string) => {
 }
 
 const acceptAll = (item:any) => true
-const listStackResources = async (aws, StackName, filter=acceptAll) => {
+const listStackResources = async (aws: AWS, StackName: string, filter=acceptAll) => {
   let resources = []
   const opts:any = { StackName }
   while (true) {
@@ -91,11 +97,11 @@ const listStackResources = async (aws, StackName, filter=acceptAll) => {
   return resources
 }
 
-const listStackResourcesByType = (type, aws, stackName) => {
+const listStackResourcesByType = (type, aws: AWS, stackName:string) => {
   return listStackResources(aws, stackName, ({ ResourceType }) => type === ResourceType)
 }
 
-const listStackResourceIdsByType = async (type, aws, stackName) => {
+const listStackResourceIdsByType = async (type, aws: AWS, stackName:string) => {
   const resources = await listStackResourcesByType(type, aws, stackName)
   return resources.map(r => r.PhysicalResourceId)
 }
@@ -105,13 +111,17 @@ const listStackBucketIds = listStackResourceIdsByType.bind(null, 'AWS::S3::Bucke
 const listStackFunctions = listStackResourcesByType.bind(null, 'AWS::Lambda::Function')
 const listStackFunctionIds = listStackResourceIdsByType.bind(null, 'AWS::Lambda::Function')
 
-const destroyBucket = async (aws, Bucket) => {
+const destroyBucket = async (aws: AWS, Bucket: string) => {
   await emptyBucket(aws.s3, Bucket)
   await aws.s3.deleteBucket({ Bucket }).promise()
 }
 
-const deleteStack = async (aws, StackName) => {
+const deleteStack = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.deleteStack({ StackName }).promise()
+}
+
+const awaitStackDelete = async (aws: AWS, StackName:string) => {
+  return await aws.cloudformation.waitFor('stackDeleteComplete', { StackName }).promise()
 }
 
 const listStacks = async (aws) => {
@@ -139,10 +149,10 @@ const listStacks = async (aws) => {
   return stackInfos
 }
 
-const getApiBaseUrl = async (aws, StackName) => {
+const getApiBaseUrl = async (aws: AWS, StackName:string) => {
   const result = await aws.cloudformation.describeStacks({ StackName }).promise()
   const { Outputs } = result.Stacks[0]
-  const endpoint = Outputs.find(x => x.OutputKey.match(/^ServiceEndpoint/))
+  const endpoint = Outputs.find(x => /^ServiceEndpoint/.test(x.OutputKey))
   return endpoint.OutputValue
 }
 
@@ -153,6 +163,8 @@ const checkCommandInPath = cmd => {
     throw new CustomErrors.InvalidEnvironment(`Please install: ${cmd}`)
   }
 }
+
+const wait = millis => new Promise(resolve => setTimeout(resolve, millis))
 
 export {
   debug,
@@ -172,7 +184,9 @@ export {
   listStackFunctionIds,
   destroyBucket,
   deleteStack,
+  awaitStackDelete,
   getApiBaseUrl,
   splitCamelCase,
-  checkCommandInPath
+  checkCommandInPath,
+  wait
 }
