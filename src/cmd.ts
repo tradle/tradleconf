@@ -55,6 +55,8 @@ const getCommandName = command => {
 }
 
 const NODE_FLAGS = [
+  'inspect',
+  'inspect-brk',
   'debug',
   'debug-brk'
 ]

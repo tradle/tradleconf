@@ -22,6 +22,7 @@ export type AWSClients = {
 
 export type NodeFlags = {
   inspect?: boolean
+  ['inspect-brk']?: boolean
   debug?: boolean
   ['debug-brk']?: boolean
 }

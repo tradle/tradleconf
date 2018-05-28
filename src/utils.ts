@@ -165,6 +165,26 @@ const checkCommandInPath = cmd => {
 }
 
 const wait = millis => new Promise(resolve => setTimeout(resolve, millis))
+const normalizeNodeFlags = flags => {
+  if (!(flags.inspect || flags['inspect-brk'] || flags.debug || flags['debug-brk'])) return
+
+  const nodeVersion = Number(process.version.slice(1, 2))
+  if (nodeVersion >= 8) {
+    if (flags.debug) {
+      delete flags.debug
+      flags.inspect = true
+    }
+
+    if (flags['debug-brk']) {
+      delete flags['debug-brk']
+      flags['inspect-brk'] = true
+    }
+  } else {
+    if (flags.debug || flags['debug-brk']) {
+      flags.inspect = true
+    }
+  }
+}
 
 export {
   debug,
@@ -188,5 +208,6 @@ export {
   getApiBaseUrl,
   splitCamelCase,
   checkCommandInPath,
-  wait
+  wait,
+  normalizeNodeFlags
 }

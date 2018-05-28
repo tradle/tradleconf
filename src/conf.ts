@@ -168,12 +168,9 @@ export class Conf {
       }
     }
 
-    if (!nodeFlags.inspect && (nodeFlags.debug || nodeFlags['debug-brk'])) {
-      nodeFlags.inspect = true
-    }
-
-    if (remote && nodeFlags.inspect) {
-      throw new CustomErrors.InvalidInput('--debug, --debug-brk are only supported for local operations')
+    utils.normalizeNodeFlags(nodeFlags)
+    if (remote && !_.isEmpty(nodeFlags)) {
+      throw new CustomErrors.InvalidInput('node debugging flags are only supported for local operations')
     }
 
     this.nodeFlags = nodeFlags
@@ -644,7 +641,7 @@ export class Conf {
     const { project, nodeFlags } = this
     const flagsStr = Object.keys(nodeFlags)
       .filter(key => nodeFlags[key])
-      .map(key => `--${key}="${nodeFlags[key]}"`)
+      .map(key => `--${key}`)
       .join(' ')
 
     if (typeof arg !== 'string') arg = JSON.stringify(arg)
@@ -656,7 +653,10 @@ export class Conf {
     const pwd = process.cwd()
     shelljs.cd(project)
     logger.debug('be patient, local invocations can be slow')
-    const command =`IS_OFFLINE=1 node ${flagsStr} \
+    const envVars:any = _.pick(process.env, ['SERVERLESS_OFFLINE_APIGW'])
+    if (!envVars.IS_OFFLINE) envVars.IS_OFFLINE = '1'
+
+    const command =`${stringifyEnv(envVars)} node ${flagsStr} \
   "${project}/node_modules/.bin/sls" invoke local \
   -f "${functionName}" \
   -l false \
@@ -674,3 +674,5 @@ export class Conf {
 }
 
 export const createConf = (opts: ConfOpts) => new Conf(opts)
+
+const stringifyEnv = props => Object.keys(props).map(key => `${key}="${props[key]}"`).join(' ')

@@ -1,7 +1,7 @@
 import _ = require('lodash')
 import chalk = require('chalk')
 
-let level = 2
+let level = 4
 const levels = {
   // levels
   error: 0,
@@ -34,10 +34,10 @@ export type Logger = {
 const methodColors = {
   error: 'red',
   warn: 'yellow',
-  info: 'white',
+  info: 'grey',
   success: 'green',
-  question: 'whiteBright',
-  debug: 'blue'
+  question: 'cyan',
+  debug: 'magenta'
 }
 
 export const logger = <Logger>{}
