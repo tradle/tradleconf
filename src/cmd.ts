@@ -132,6 +132,8 @@ program
   .option('-l, --local', 'target local development environment')
   .option('-r, --remote', 'target remote environment')
   .option('-x, --project [path]', 'path to serverless project on disk')
+  .option('--inspect', 'invoke serverless function under the debugger')
+  .option('--inspect-brk', 'invoke serverless function under the debugger')
   .option('--debug', 'invoke serverless function under the debugger')
   .option('--debug-brk', 'invoke serverless function under the debugger')
 
