@@ -12,7 +12,7 @@ CLI for managing your Tradle MyCloud instance
     - [Custom Models and Lenses](#custom-models-and-lenses)
     - [Custom Styles](#custom-styles)
     - [Custom Bot Configuration](#custom-bot-configuration)
-    - [Custom Terms & Conditions](#custom-terms-&-conditions)
+    - [Custom Terms and Conditions](#custom-terms-and-conditions)
   - [Deploy](#deploy)
     - [To your local development environment](#to-your-local-development-environment)
     - [To the cloud](#to-the-cloud)
@@ -20,7 +20,7 @@ CLI for managing your Tradle MyCloud instance
   - [Logging](#logging)
   - [Lambda CLI](#lambda-cli)
   - [Built-in Plugins](#built-in-plugins)
-    - [Terms & Conditions](#terms-&-conditions)
+    - [Terms and Conditions](#terms-and-conditions)
     - [Lens](#lens)
     - [Prefill form](#prefill-form)
     - [ComplyAdvantage](#complyadvantage)
@@ -69,7 +69,7 @@ Set your bot's configuration in `./conf/bot.json`. See [./conf/bot.sample.json](
 
 Validate your bot's configuration with `tradleconf validate --bot`
 
-#### Custom Terms & Conditions
+#### Custom Terms and Conditions
 
 If you have Terms and Conditions you want your customers to accept prior to interacting with your bot, add them in `./conf/terms-and-conditions.md` (see [./conf/terms-and-conditions.sample.md](./conf/terms-and-conditions.sample.md))
 
@@ -126,7 +126,7 @@ Note: make sure to quote your command if it has any whitespace, e.g.:
 
 Find below annotated examples from [./conf/bot.sample.json](./conf/bot.sample.json)
 
-#### Terms & Conditions
+#### Terms and Conditions
 
 Purpose: require new users to accept T's and C's before anything else
 
@@ -251,7 +251,7 @@ Example config:
 
 Purpose: upon receiving certain forms from the user, trigger checks using Onfido
 
-Note: currently this is available only for the dummy product tradle.onfido.CustomerVerification
+Note: currently this is available only for the products tradle.onfido.CustomerVerification and tradle.pg.CustomerOnboarding. Will be generally available soon.
 
 Example config:
 
@@ -277,6 +277,7 @@ Example config:
   // ...
   "centrix": {
     "credentials": {
+      "test": true, // use test server
       "httpCredentials": {
         "username": "...",
         "password": "..."
