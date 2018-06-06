@@ -120,6 +120,7 @@ You can see a list of supported commands by executing the remote `help` command:
 Note: make sure to quote your command if it has any whitespace, e.g.:
 
 `tradleconf exec "help setproductenabled"`  
+`tradleconf exec "setproductenabled tradle.CurrentAccount false"`  
 `tradleconf exec "addfriend https://bob.com --domain bob.com"`
 
 ### Built-in Plugins
@@ -129,6 +130,8 @@ Find below annotated examples from [./conf/bot.sample.json](./conf/bot.sample.js
 #### Terms and Conditions
 
 Purpose: require new users to accept T's and C's before anything else
+
+Prerequisite: deploy terms and conditions as described [above](#custom-terms-and-conditions)
 
 Example config:
 
