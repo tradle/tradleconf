@@ -14,7 +14,8 @@
   },
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js --ignore-path .gitignore .",
-    "precommit": "npm run lint"
+    "precommit": "npm run lint && tsc",
+    "prepublish": "tsc"
   },
   "keywords": [
     "tradle",
