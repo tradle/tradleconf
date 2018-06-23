@@ -2,39 +2,42 @@
 
 CLI for managing your Tradle MyCloud instance
 
+This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are running a Tradle MyCloud development environment on your machine (see [@tradle/serverless](https://github.com/tradle/serverless))
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [Usage](#usage)
-  - [Install and load current configuration](#install-and-load-current-configuration)
-  - [Customize](#customize)
-    - [Custom Models and Lenses](#custom-models-and-lenses)
-    - [Custom Styles](#custom-styles)
-    - [Custom Bot Configuration](#custom-bot-configuration)
-    - [Custom Terms and Conditions](#custom-terms-and-conditions)
-  - [Deploy](#deploy)
-    - [To your local development environment](#to-your-local-development-environment)
-    - [To the cloud](#to-the-cloud)
-  - [Destroy](#destroy)
-  - [Logging](#logging)
-  - [Lambda CLI](#lambda-cli)
-  - [Built-in Plugins](#built-in-plugins)
-    - [Terms and Conditions](#terms-and-conditions)
-    - [Lens](#lens)
-    - [Prefill form](#prefill-form)
-    - [ComplyAdvantage](#complyadvantage)
-    - [OpenCorporates](#opencorporates)
-    - [Onfido](#onfido)
-    - [Centrix](#centrix)
-    - [Customize message](#customize-message)
-    - [Webhooks](#webhooks)
+- [Install and load current configuration](#install-and-load-current-configuration)
+- [Customize](#customize)
+  - [Custom Models and Lenses](#custom-models-and-lenses)
+  - [Custom Styles](#custom-styles)
+  - [Custom Bot Configuration (and plugins)](#custom-bot-configuration-and-plugins)
+  - [Custom Terms and Conditions](#custom-terms-and-conditions)
+- [Deploy](#deploy)
+  - [To your local development environment](#to-your-local-development-environment)
+  - [To the cloud](#to-the-cloud)
+- [Destroy](#destroy)
+- [Logging](#logging)
+- [Common Commands](#common-commands)
+  - [Get web/mobile app links, deployment info, blockchain address](#get-webmobile-app-links-deployment-info-blockchain-address)
+  - [Load remote models, styles and configuration](#load-remote-models-styles-and-configuration)
+  - [Push bot/plugins configuration](#push-botplugins-configuration)
+  - [Disable Tradle](#disable-tradle)
+- [Lambda CLI](#lambda-cli)
+- [Built-in Plugins](#built-in-plugins)
+  - [Terms and Conditions](#terms-and-conditions)
+  - [Lens](#lens)
+  - [Prefill form](#prefill-form)
+  - [ComplyAdvantage](#complyadvantage)
+  - [OpenCorporates](#opencorporates)
+  - [Onfido](#onfido)
+  - [Centrix](#centrix)
+  - [FacialRecognition](#facialrecognition)
+  - [Customize message](#customize-message)
+  - [Webhooks](#webhooks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-## Usage
-
-this assumes you already deployed Tradle MyCloud to AWS, or are running a Tradle MyCloud development environment on your machine (see [@tradle/serverless](https://github.com/tradle/serverless))
 
 ### Install and load current configuration
 
@@ -63,11 +66,9 @@ Define your provider's style in `./conf/style.json` (see [./conf/style.sample.js
 
 Validate your style with `tradleconf validate --style`
 
-#### Custom Bot Configuration
+#### Custom Bot Configuration (and plugins)
 
 Set your bot's configuration in `./conf/bot.json`. See [./conf/bot.sample.json](./conf/bot.sample.json) for an example. Also, see the [Plugins](#built-in-plugins) section for how to configure the currently available plugins.
-
-Validate your bot's configuration with `tradleconf validate --bot`
 
 #### Custom Terms and Conditions
 
@@ -106,6 +107,59 @@ tradleconf tail onmessage -s 5m # log onmessage since 5m ago, tail
 tradleconf log -s 5m # log some function (you'll get a chooser prompt)
 tradleconf log --help # get additional tips
 ```
+
+### Common Commands
+
+#### Get web/mobile app links, deployment info, blockchain address
+
+`tradleconf info --remote`
+
+sample response:
+
+```json
+{
+  "links": {
+    "result": {
+      "mobile": "https://link.tradle.io/chat?provider=569a4dc1fc69f6137dede81ca0ff77c1a5feb0f4a7bdc73e0007f5ed3a1d1f60&host=https%3A%2F%2Ftv5n42vd5f.execute-api.us-east-1.amazonaws.com%2Fdev",
+      "web": "https://app.tradle.io/#/chat?provider=569a4dc1fc69f6137dede81ca0ff77c1a5feb0f4a7bdc73e0007f5ed3a1d1f60&host=https%3A%2F%2Ftv5n42vd5f.execute-api.us-east-1.amazonaws.com%2Fdev",
+      "employeeOnboarding": "https://app.tradle.io/#/applyForProduct?provider=569a4dc1fc69f6137dede81ca0ff77c1a5feb0f4a7bdc73e0007f5ed3a1d1f60&host=https%3A%2F%2Ftv5n42vd5f.execute-api.us-east-1.amazonaws.com%2Fdev&product=tradle.EmployeeOnboarding"
+    }
+  },
+  "version": {
+    "commit": "c403d33",
+    "version": "1.0.0",
+    "branch": "master"
+  },
+  "chainKey": {
+    "type": "ethereum",
+    "pub": "04d7ad3d714dac85ee6f91381eeb688c0d8766c274400a4ecae6a29896ee83e4221f880fc0d2bc6adc0647c043e0683daada1d2ccf7a9e3e7170400ed63b69e7fa",
+    "fingerprint": "fe134e1332f37b8bb8df74c0aa60c2d4b3e6e1f4",
+    "networkName": "rinkeby"
+  },
+  "apiBaseUrl": "https://tv5n42vd5f.execute-api.us-east-1.amazonaws.com/dev"
+}
+```
+
+#### Load remote models, styles and configuration
+
+`tradleconf load --remote`
+
+#### Push bot/plugins configuration 
+
+`tradleconf deploy --remote --bot`
+
+#### Disable Tradle
+
+If for some reason or other, you need to disable your deployment temporarily, you can run:
+
+`tradleconf disable ---remote`
+
+This will turn most of your cloud functions off. Mobile/web clients will be unable to reach your MyCloud.
+
+To re-enable your deployment, you run:
+
+`tradleconf enable --remote`
+
 
 ### Lambda CLI
 
