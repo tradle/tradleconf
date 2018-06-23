@@ -14,7 +14,7 @@
   },
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js --ignore-path .gitignore .",
-    "precommit": "npm run lint && tsc",
+    "precommit": "tsc && lint-staged",
     "prepublish": "tsc"
   },
   "keywords": [
@@ -62,6 +62,13 @@
   "devDependencies": {
     "@types/lodash": "^4.14.104",
     "@types/node": "^9.4.6",
-    "husky": "^0.14.3"
+    "husky": "^0.14.3",
+    "lint-staged": "^7.2.0"
+  },
+  "lint-staged": {
+    "README.md": [
+      "doctoc",
+      "git add"
+    ]
   }
 }
