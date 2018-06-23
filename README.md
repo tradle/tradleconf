@@ -191,7 +191,7 @@ Example config:
 
 #### ComplyAdvantage
 
-Purpose: upon receiving certain forms from the user, trigger checks using ComplyAdvantage API
+Purpose: upon receiving certain forms from the user, trigger checks using Comply Advantage API
 
 Example config:
 
@@ -297,6 +297,31 @@ Example config:
   }
 }
 ```
+
+#### FacialRecognition
+
+Purpose: upon receiving PhotoID and Selfie forms, trigger checks using NtechLab Facial Recognition
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "facial-recognition": {
+    "url": "http://...", // URL ntechlab server
+    "token": "...",
+    "threshold": "strict"
+  }
+}
+```
+To test it you need to run local tunnel
+
+`lt -p 4572 -s pick-a-hostname`
+
+It will return url that you pass as a parameter to your local server
+
+`S3_PUBLIC_FACING_HOST=https://pick-a-hostname.localtunnel.me node --debug --inspect --max_old_space_size=4096 ./node_modules/.bin/sls offline start`
 
 #### Customize message
 
