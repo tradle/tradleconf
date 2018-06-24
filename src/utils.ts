@@ -21,8 +21,6 @@ type AWS = {
   cloudformation: _AWS.CloudFormation
 }
 
-const debug = require('debug')('@tradle/conf')
-
 const get = async (url) => {
   const res = await fetch(url)
   if (res.statusCode > 300) {
@@ -187,7 +185,6 @@ const normalizeNodeFlags = flags => {
 }
 
 export {
-  debug,
   get,
   getNamespace,
   pack,

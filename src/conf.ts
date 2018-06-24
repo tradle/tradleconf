@@ -66,6 +66,7 @@ const DEPLOYABLES = [
   'bot',
   'style',
   'models',
+  'modelsPack',
   'terms'
 ]
 
@@ -316,6 +317,11 @@ export class Conf {
   public validate = async (opts) => {
     const items = this.getDeployItems(opts)
     _.each(items, (value, key) => {
+      if (!validate[key]) {
+        logger.info(`validation for ${key} will be done in cloud-side on deploy`)
+        return
+      }
+
       if (typeof value !== 'undefined') {
         logger.debug(`validating: ${key}`)
         validate[key](value)
@@ -523,7 +529,7 @@ export class Conf {
     const getInfo = this.getEndpointInfo()
     const [links, info] = await Promise.all([getLinks, getInfo])
     return Object.assign(
-      { links },
+      { links: links.result },
       _.pick(info, ['version', 'chainKey', 'apiBaseUrl'])
     )
   }
@@ -603,7 +609,7 @@ export class Conf {
 
   private _ensureStackName = () => {
     if (!this.stackName) {
-      throw new CustomErrors.InvalidInput(`don't know stack name. Did you forget to run "init"?`)
+      throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory?`)
     }
   }
 
