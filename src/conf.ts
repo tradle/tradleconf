@@ -595,6 +595,12 @@ export class Conf {
     shelljs.exec(cmd)
   }
 
+  public balance = async () => {
+    return await this.exec({
+      args: ['balance']
+    })
+  }
+
   public disable = async () => {
     return await this.exec({
       args: ['setenvvar --key DISABLED --value 1']

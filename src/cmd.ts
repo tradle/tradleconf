@@ -277,6 +277,12 @@ const enableCommand = program
   .allowUnknownOption(false)
   .action(createAction('enable'))
 
+const balanceCommand = program
+  .command('balance')
+  .description(`check the balance on your blockchain key`)
+  .allowUnknownOption(false)
+  .action(createAction('balance'))
+
 const createLogCommand = (command, name) => command
   .allowUnknownOption(false)
   .option('-s, --start <time-expression>', 'see awslogs docs')
