@@ -1,6 +1,6 @@
 {
   "name": "@tradle/conf",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "CLI for managing your Tradle MyCloud instance",
   "repository": {
     "type": "git",
