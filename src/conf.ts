@@ -147,13 +147,14 @@ export class Conf {
   private profile: string
   private stackName: string
   private stackId: string
+  private namespace: string
   private local?: boolean
   private remote?: boolean
   private project?: string
   private nodeFlags?: NodeFlags
 
   constructor (opts: ConfOpts) {
-    const { region, profile, stackName, local, remote, project, nodeFlags={} } = opts
+    const { region, profile, namespace, stackName, local, remote, project, nodeFlags={} } = opts
 
     if (local && remote) {
       throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
@@ -176,6 +177,7 @@ export class Conf {
 
     this.nodeFlags = nodeFlags
     this.region = region
+    this.namespace = namespace
     this.profile = profile
     this.stackName = stackName
     this.local = local
@@ -253,7 +255,7 @@ export class Conf {
       const models = read.models()
       const lenses = read.lenses()
       if (models.length || lenses.length) {
-        parts.modelsPack = utils.pack({ models, lenses })
+        parts.modelsPack = utils.pack({ models, lenses, namespace: this.namespace })
       }
     }
 
@@ -383,6 +385,11 @@ export class Conf {
         title: 'initializing local conf',
         task: async (ctx) => {
           env.apiBaseUrl = ctx.info.apiBaseUrl
+          env.namespace = ctx.info.org.domain
+            .split('.')
+            .reverse()
+            .join('.')
+
           if (projectPath) env.project = path.resolve(process.cwd(), projectPath)
 
           write('.env', toEnvFile(env))

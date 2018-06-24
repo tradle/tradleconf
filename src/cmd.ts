@@ -149,6 +149,7 @@ const defaults = {
     stackName: process.env.stackName,
     profile: process.env.awsProfile,
     region: process.env.region,
+    namespace: process.env.namespace,
     project: process.env.project
   }
 }
