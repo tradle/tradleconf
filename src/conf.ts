@@ -350,16 +350,23 @@ export class Conf {
 
   public init = async (opts={}) => {
     const {
+      haveLocal,
+      haveRemote,
       overwriteEnv,
       region,
       awsProfile,
-      stack,
+      stack={},
       projectPath
     } = await promptInit(this)
 
     if (overwriteEnv === false) return
 
-    this.remote = true
+    if (!(haveLocal || haveRemote)) {
+      logger.warn("Aborting. Re-run `tradleconf init` when you've either deployed a MyCloud, or have a local development environment, or both")
+      return
+    }
+
+    this.remote = haveRemote
     this.region = region
     this.profile = awsProfile
     this.stackName = stack.name
@@ -367,44 +374,56 @@ export class Conf {
     // force reload aws profile
     this.client = null
 
-    const env:any = {
+    const env:any = utils.pickNonNull({
       region,
       awsProfile,
       stackName: this.stackName,
-      stackId: this.stackId
+      stackId: this.stackId,
+      project: projectPath && path.resolve(process.cwd(), projectPath)
+    })
+
+    const saveEnv = async () => {
+      write('.env', toEnvFile(env))
+
+      // logger.info('wrote .env')
+      await Promise.all([
+        paths.models,
+        paths.lenses,
+        paths.conf
+      ].map(dir => mkdirp(dir)))
     }
 
-    const tasks = new Listr([
-      {
-        title: 'loading deployment info',
-        task: async (ctx) => {
-          ctx.info = await this.getEndpointInfo()
-        }
-      },
-      {
-        title: 'initializing local conf',
-        task: async (ctx) => {
-          env.apiBaseUrl = ctx.info.apiBaseUrl
-          env.namespace = ctx.info.org.domain
-            .split('.')
-            .reverse()
-            .join('.')
+    const saveEnvTask = {
+      title: 'saving .env',
+      task: saveEnv
+    }
 
-          if (projectPath) env.project = path.resolve(process.cwd(), projectPath)
+    if (haveRemote) {
+      const tasks = new Listr([
+        {
+          title: 'loading deployment info',
+          task: async (ctx) => {
+            ctx.info = await this.getEndpointInfo()
+          }
+        },
+        {
+          title: 'initializing local conf',
+          task: async (ctx) => {
+            env.apiBaseUrl = ctx.info.apiBaseUrl
+            env.namespace = ctx.info.org.domain
+              .split('.')
+              .reverse()
+              .join('.')
+          }
+        },
+        saveEnvTask
+      ])
 
-          write('.env', toEnvFile(env))
+      await tasks.run()
+    } else {
+      await saveEnv()
+    }
 
-          // logger.info('wrote .env')
-          await Promise.all([
-            paths.models,
-            paths.lenses,
-            paths.conf
-          ].map(dir => mkdirp(dir)))
-        }
-      }
-    ])
-
-    await tasks.run()
     logger.success('initialization complete!')
     // logger.info('Would you like to load your currently deployed configuration?')
     // const willLoad = await prompt('Note: this may overwrite your local files in ./conf, ./models and ./lenses (y/n)')
@@ -621,7 +640,8 @@ export class Conf {
   }
 
   private _ensureStackName = () => {
-    if (!this.stackName) {
+    if (this.remote && !this.stackName) {
+      debugger
       throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory?`)
     }
   }

@@ -32,15 +32,54 @@ const getProfiles = () => {
   return profiles.includes('default') ? profiles : ['default'].concat(profiles)
 }
 
-export const init = (conf: Conf) => {
+type PromptList = any[]
+
+export const init = async (conf: Conf) => {
   const defaultWhen = answers => answers.overwriteEnv !== false
-  return inquirer.prompt([
+  const chooseFlow:PromptList = [
     {
       type: 'confirm',
       name: 'overwriteEnv',
       message: 'This will overwrite your .env file',
       when: () => fs.existsSync('./.env')
     },
+    {
+      type: 'confirm',
+      name: 'haveRemote',
+      message: 'Have you already deployed your MyCloud to AWS?'
+    }
+  ]
+
+  const getLocal:PromptList = [
+    {
+      type: 'confirm',
+      name: 'haveLocal',
+      message: 'Do you have a local development environment? (a clone of https://github.com/tradle/serverless)'
+    },
+    {
+      type: 'input',
+      name: 'projectPath',
+      message: 'Enter the path to your local development environment (a clone of https://github.com/tradle/serverless)',
+      when: answers => defaultWhen(answers) && answers.haveLocal,
+      validate: local => {
+        if (!isValidProjectPath(local)) {
+          return 'Provided path doesn\'t contain a serverless.yml, please try again'
+        }
+
+        return true
+      }
+    }
+  ]
+
+  const flow = await inquirer.prompt(chooseFlow)
+  if (!flow.haveRemote) {
+    return {
+      ...flow,
+      ...(await inquirer.prompt(getLocal))
+    }
+  }
+
+  const getRemoteAndLocal:PromptList = [
     {
       type: 'list',
       name: 'region',
@@ -88,20 +127,12 @@ export const init = (conf: Conf) => {
         }))
       }
     },
-    {
-      type: 'input',
-      name: 'projectPath',
-      message: '(optional) Enter the path to your local development environment (a clone of https://github.com/tradle/serverless). Press <Enter> to skip',
-      when: defaultWhen,
-      validate: local => {
-        if (yn(local) && !isValidProjectPath(local)) {
-          return 'Provided path doesn\'t contain a serverless.yml'
-        }
+  ].concat(getLocal)
 
-        return true
-      }
-    }
-  ])
+  return {
+    ...flow,
+    ...(await inquirer.prompt(getRemoteAndLocal))
+  }
 }
 
 export const fn = (conf: Conf, message: string) => {

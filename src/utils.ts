@@ -208,3 +208,5 @@ export {
   wait,
   normalizeNodeFlags
 }
+
+export const pickNonNull = obj => _.pickBy(obj, val => val != null)
