@@ -6,16 +6,19 @@ import tmp = require('tmp')
 import _ = require('lodash')
 import co = require('co')
 import promisify = require('pify')
+import promiseRetry from 'promise-retry'
 // import YAML = require('js-yaml')
 import AWS = require('aws-sdk')
 import _mkdirp = require('mkdirp')
 import shelljs = require('shelljs')
 import Listr = require('listr')
+import Errors from '@tradle/errors'
 import ModelsPack = require('@tradle/models-pack')
 import {
   init as promptInit,
   fn as promptFn,
-  confirm
+  confirm,
+  update,
 } from './prompts'
 import { AWSClients, ConfOpts, NodeFlags } from './types'
 import { Errors as CustomErrors } from './errors'
@@ -59,7 +62,22 @@ const readDirOfJSONs = dir => {
 const normalizeError = err => {
   if (err instanceof Error) return err
 
-  return new Error(JSON.stringify(err))
+  const { name, message='unspecified' } = err
+  let normalized
+  if (name && name in global) {
+    const ctor = global[name]
+    try {
+      normalized = new ctor(name)
+    } catch (err) {}
+  }
+
+  if (!normalized) {
+    normalized = new Error(message)
+  }
+
+  _.extend(normalized, err)
+  return normalized
+  // return new Error(JSON.stringify(err))
 }
 
 const DEPLOYABLES = [
@@ -154,7 +172,7 @@ export class Conf {
   private nodeFlags?: NodeFlags
 
   constructor (opts: ConfOpts) {
-    const { region, profile, namespace, stackName, local, remote, project, nodeFlags={} } = opts
+    const { region, profile, namespace, stackId, stackName, local, remote, project, nodeFlags={} } = opts
 
     if (local && remote) {
       throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
@@ -180,8 +198,9 @@ export class Conf {
     this.namespace = namespace
     this.profile = profile
     this.stackName = stackName
+    this.stackId = stackId
     this.local = local
-    this.remote = remote
+    this.remote = remote || !project
     this.project = project
 
     let client
@@ -334,7 +353,8 @@ export class Conf {
   public exec = async (opts) => {
     const res = await this.invoke({
       functionName: functions.cli,
-      arg: opts.args[0]
+      arg: opts.args[0],
+      noWarning: opts.noWarning
     })
 
     // invoke() returns { error, result }
@@ -465,6 +485,11 @@ export class Conf {
     return await utils.listStacks(client)
   }
 
+  public waitForStackUpdate = async (stackId=this.stackId) => {
+    const client = this._getAWSClient()
+    return await utils.awaitStackUpdate(client, stackId)
+  }
+
   public createDataBundle = async ({ path }) => {
     let bundle
     try {
@@ -498,14 +523,18 @@ export class Conf {
     required: []
   })
 
-  private _ensureRemote = () => {
+  private _ensureRemote = (strict=true) => {
     if (this.local) {
       throw new CustomErrors.InvalidInput('not supported for local dev env')
+    }
+
+    if (strict && !this.remote) {
+      throw new CustomErrors.InvalidInput(`please specify -r, --remote or -l, --local to indicate whether you're targeting your remote or local deployment`)
     }
   }
 
   public destroy = async (opts) => {
-    this._ensureStackName()
+    this._ensureStackNameKnown()
     this._ensureRemote()
     const { stackName } = this
     await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
@@ -541,7 +570,7 @@ export class Conf {
   }
 
   public info = async () => {
-    this._ensureStackName()
+    this._ensureStackNameKnown()
     return await this._info()
   }
 
@@ -573,7 +602,7 @@ export class Conf {
   }
 
   public getFunctions = async () => {
-    this._ensureStackName()
+    this._ensureStackNameKnown()
     const { client, stackName } = this
     const functions = await utils.listStackFunctionIds(client, stackName)
     return functions.map(f => f.slice(stackName.length + 1))
@@ -584,8 +613,8 @@ export class Conf {
   }
 
   public log = async (opts:any={}) => {
-    this._ensureStackName()
-    this._ensureRemote()
+    this._ensureStackNameKnown()
+    this._ensureRemote(false)
 
     utils.checkCommandInPath('awslogs')
 
@@ -639,9 +668,109 @@ export class Conf {
     })
   }
 
-  private _ensureStackName = () => {
+  public query = async (query: string) => {
+    const queryString = JSON.stringify(query.replace(/[\s]/g, ' '))
+    return await this.exec({
+      args: [`graphql --query ${queryString}`]
+    })
+  }
+
+  public getMyIdentity = async () => {
+    return await this.invokeAndReturn({
+      functionName: 'cli',
+      arg: 'identity',
+      noWarning: true
+    })
+  }
+
+  public getMyPermalink = async () => {
+    const identity = await this.getMyIdentity()
+    return identity._permalink
+  }
+
+  public getCurrentVersion = async () => {
+    const { version } = await this.info()
+    return version
+  }
+
+  public listUpdates = async () => {
+    return await this.exec({
+      args: ['listupdates'],
+      noWarning: true
+    })
+  }
+
+  public requestUpdate = async ({ tag }) => {
+    this._ensureRemote(false)
+    await this.exec({
+      args: [`getupdate --tag "${tag}"`],
+      noWarning: true
+    })
+  }
+
+  public getUpdateInfo = async ({ tag }) => {
+    this._ensureRemote(false)
+    const result = await this.exec({
+      args: [`getupdateinfo --tag "${tag}"`],
+      noWarning: true
+    })
+
+    if (!result.update) {
+      throw new CustomErrors.NotFound(`update with version: ${tag}`)
+    }
+
+    return result
+  }
+
+  public update = async ({ tag, force }) => {
+    this._ensureRemote(false)
+    this._ensureStackNameKnown()
+
+    await update(this, { tag, force, stackId: this.stackId })
+  }
+
+  public applyUpdateAsCurrentUser = async (update) => {
+    this._ensureStackNameKnown()
+    const { templateUrl, notificationTopics } = update
+    // const opts = [
+    //   `--stack-name "${this.stackId}"`,
+    //   `--template-url "${templateUrl}"`,
+    //   '--capabilities CAPABILITY_NAMED_IAM',
+    // ]
+
+    // if (notificationTopics) {
+    //   const arns = notificationTopics.map(t => `"${t}"`).join(' ')
+    //   opts.push(`--notification-arns ${arns}`)
+    // }
+
+    // const { code, stderr, stdout } = shelljs.exec(
+    //   `aws cloudformation update-stack ${opts.join(' ')}`,
+    //   { silent: true }
+    // )
+
+    const params:AWS.CloudFormation.UpdateStackInput = {
+      StackName: this.stackId,
+      TemplateURL: templateUrl,
+      Capabilities: ['CAPABILITY_NAMED_IAM'],
+    }
+
+    if (notificationTopics) {
+      params.NotificationARNs = notificationTopics
+    }
+
+    await this.client.cloudformation.updateStack(params).promise()
+  }
+
+  public applyUpdateViaLambda = async (update) => {
+    const { templateUrl, notificationTopics } = update
+    return await this.invokeAndReturn({
+      functionName: 'updateStack',
+      arg: { templateUrl, notificationTopics }
+    })
+  }
+
+  private _ensureStackNameKnown = () => {
     if (this.remote && !this.stackName) {
-      debugger
       throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory?`)
     }
   }
@@ -656,7 +785,7 @@ export class Conf {
       await confirmOrAbort(`Targeting REMOTE deployment. Continue?`)
     }
 
-    this._ensureStackName()
+    this._ensureStackNameKnown()
 
     const {
       StatusCode,

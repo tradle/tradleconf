@@ -122,6 +122,10 @@ const awaitStackDelete = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.waitFor('stackDeleteComplete', { StackName }).promise()
 }
 
+const awaitStackUpdate = async (aws: AWS, StackName:string) => {
+  return await aws.cloudformation.waitFor('stackUpdateComplete', { StackName }).promise()
+}
+
 const listStacks = async (aws) => {
   const listStacksOpts:any = {
     StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
@@ -202,6 +206,7 @@ export {
   destroyBucket,
   deleteStack,
   awaitStackDelete,
+  awaitStackUpdate,
   getApiBaseUrl,
   splitCamelCase,
   checkCommandInPath,

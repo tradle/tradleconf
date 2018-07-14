@@ -51,6 +51,7 @@
     "mkdirp": "^0.5.1",
     "node-fetch": "^2.0.0",
     "pify": "^3.0.0",
+    "promise-retry": "^1.1.1",
     "promptly": "^2.2.0",
     "shelljs": "^0.8.0",
     "source-map-support": "^0.5.3",

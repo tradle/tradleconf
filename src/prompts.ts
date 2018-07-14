@@ -3,9 +3,14 @@ import os from 'os'
 import yn from 'yn'
 // import execa from 'execa'
 import inquirer from 'inquirer'
+import Listr from 'listr'
+import promiseRetry from 'promise-retry'
+import models from '@tradle/models-cloud'
+import Errors from '@tradle/errors'
+import { Errors as CustomErrors } from './errors'
+import { logger } from './logger'
 import { isValidProjectPath } from './utils'
 import { Conf } from './types'
-import models from '@tradle/models-cloud'
 
 const regions = models['tradle.cloud.AWSRegion'].enum.map(({ id, title }) => ({
   name: title,
@@ -156,4 +161,96 @@ export const confirm = (message: string) => {
     }
   ])
   .then(({ confirm }) => confirm)
+}
+
+export const update = async (conf: Conf, { stackId, tag, force }) => {
+  const getUpdateWithRetry = tag => {
+    let requested
+    // this might take a few tries as the update might need to be requested first
+    return promiseRetry(async (retry, number) => {
+      try {
+        return await conf.getUpdateInfo({ tag })
+      } catch (err) {
+        Errors.rethrow(err, ['developer', CustomErrors.InvalidInput])
+        if (!requested && Errors.matches(err, CustomErrors.NotFound)) {
+          requested = true
+          await conf.requestUpdate({ tag })
+        }
+
+        retry(err)
+      }
+    }, {
+      maxTimeout: 10000,
+      minTimeout: 5000,
+      retries: 10
+    })
+  }
+
+  if (!tag) {
+    const updates = await conf.listUpdates()
+    if (!updates.length) {
+      logger.info(`no updates available`)
+      return
+    }
+
+    if (updates.length === 1) {
+      tag = updates[0].tag
+      const { doUpdate } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'doUpdate',
+        message: `Update to version "${tag}" ?`,
+      }])
+
+      if (!doUpdate) return
+    } else {
+      const result = await inquirer.prompt([{
+        type: 'list',
+        name: 'tag',
+        message: 'Choose a version to update to',
+        choices: updates.map(u => u.tag),
+      }])
+
+      tag = result.tag
+    }
+  }
+
+  const applyUpdate = async ({ update }) => {
+    // logger.info(`applying update with template: ${update.templateUrl}`)
+    if (true) {
+      // logger.info('using current user role')
+      await conf.applyUpdateAsCurrentUser(update)
+    } else {
+      // logger.info('using updateStack-lambdaRole')
+      await conf.applyUpdateViaLambda(update)
+    }
+
+    await conf.waitForStackUpdate(stackId)
+  }
+
+  const ctx = await new Listr([
+    {
+      title: 'download update',
+      task: async ctx => {
+        ctx.resp = await getUpdateWithRetry(tag)
+      }
+    },
+    {
+      title: 'apply update (be patient, or else)',
+      task: async ctx => {
+        const { resp } = ctx
+        if (!resp) return
+
+        if (!force && resp.upToDate) {
+          ctx.upToDate = true
+          return
+        }
+
+        await applyUpdate(resp)
+      }
+    }
+  ]).run()
+
+  if (ctx.upToDate) {
+    logger.info(`your MyCloud is already up to date!`)
+  }
 }

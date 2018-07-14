@@ -97,6 +97,10 @@ const createAction = action => (...args) => {
   const { programOpts, commandOpts } = normalizeOpts(...args)
   return run(() => {
     const conf:Conf = createConf(programOpts)
+    if (!conf[action]) {
+      throw new CustomErrors.InvalidInput(`conf method not found: ${action}`)
+    }
+
     return conf[action](commandOpts)
   })
 }
@@ -147,6 +151,7 @@ program.parse(process.argv)
 const defaults = {
   programOpts: {
     stackName: process.env.stackName,
+    stackId: process.env.stackId,
     profile: process.env.awsProfile,
     region: process.env.region,
     namespace: process.env.namespace,
@@ -283,6 +288,20 @@ const balanceCommand = program
   .description(`check the balance on your blockchain key`)
   .allowUnknownOption(false)
   .action(createAction('balance'))
+
+const updateCommand = program
+  .command('update')
+  .option('-t, --tag <versionTag>')
+  .option('-f, --force', 'force update even if deployment is ahead of or equal to the specified version tag')
+  .description('updates your MyCloud to a given version')
+  .allowUnknownOption(false)
+  .action(createAction('update'))
+
+const listUpdatesCommand = program
+  .command('list-updates')
+  .description('list available updates for your MyCloud')
+  .allowUnknownOption(false)
+  .action(createAction('listUpdates'))
 
 const createLogCommand = (command, name) => command
   .allowUnknownOption(false)

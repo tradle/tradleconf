@@ -32,6 +32,7 @@ export type ConfOpts = {
   region?: string
   profile?: string
   stackName?: string
+  stackId?: string
   namespace?: string
   local?: boolean
   remote?: boolean
