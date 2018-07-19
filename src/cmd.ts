@@ -293,7 +293,7 @@ const updateCommand = program
   .command('update')
   .option('-t, --tag <versionTag>')
   .option('-f, --force', 'force update even if deployment is ahead of or equal to the specified version tag')
-  .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+  // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
   .description('updates your MyCloud to a given version')
   .allowUnknownOption(false)
   .action(createAction('update'))
