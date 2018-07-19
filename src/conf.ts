@@ -18,8 +18,8 @@ import {
   init as promptInit,
   fn as promptFn,
   confirm,
-  update,
 } from './prompts'
+import { update } from './update'
 import { AWSClients, ConfOpts, NodeFlags } from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
@@ -693,17 +693,25 @@ export class Conf {
     return version
   }
 
-  public listUpdates = async () => {
+  public listUpdates = async ({ provider }: {
+    provider?: string
+  }={}) => {
+    let command = 'listupdates'
+    if (provider) command = `${command} --provider ${provider}`
+
     return await this.exec({
-      args: ['listupdates'],
+      args: [command],
       noWarning: true
     })
   }
 
-  public requestUpdate = async ({ tag }) => {
+  public requestUpdate = async ({ tag, provider }) => {
     this._ensureRemote(false)
+    let command = `getupdate --tag "${tag}"`
+    if (provider) command = `${command} --provider ${provider}`
+
     await this.exec({
-      args: [`getupdate --tag "${tag}"`],
+      args: [command],
       noWarning: true
     })
   }
@@ -722,11 +730,11 @@ export class Conf {
     return result
   }
 
-  public update = async ({ tag, force }) => {
+  public update = async ({ tag, provider, force }) => {
     this._ensureRemote(false)
     this._ensureStackNameKnown()
 
-    await update(this, { tag, force, stackId: this.stackId })
+    await update(this, { tag, provider, force, stackId: this.stackId })
   }
 
   public applyUpdateAsCurrentUser = async (update) => {
