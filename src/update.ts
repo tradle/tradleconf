@@ -51,7 +51,7 @@ export const update = async (conf: Conf, { stackId, tag, provider, force }) => {
       const result = await inquirer.prompt([{
         type: 'list',
         name: 'tag',
-        message: 'Choose a version to update to',
+        message: 'Choose a version to update to (use arrow keys)',
         choices: updates.map(u => u.tag),
       }])
 
