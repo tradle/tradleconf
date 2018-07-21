@@ -2,13 +2,19 @@ import inquirer from 'inquirer'
 import Listr from 'listr'
 import promiseRetry from 'promise-retry'
 import Errors from '@tradle/errors'
-import { Conf } from './types'
+import { Conf, UpdateOpts } from './types'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
 
 const USE_CURRENT_USER_ROLE = true
 
-export const update = async (conf: Conf, { stackId, tag, provider, force }) => {
+export const update = async (conf: Conf, {
+  stackId,
+  tag,
+  provider,
+  showReleaseCandidates,
+  force,
+}: UpdateOpts) => {
   const getUpdateWithRetry = tag => {
     let requested
     // this might take a few tries as the update might need to be requested first
@@ -32,7 +38,11 @@ export const update = async (conf: Conf, { stackId, tag, provider, force }) => {
   }
 
   if (!tag) {
-    const updates = await conf.listUpdates({ provider })
+    let updates = await conf.listUpdates({ provider })
+    if (!showReleaseCandidates) {
+      updates = updates.filter(update => !isReleaseCandidateTag(update.tag))
+    }
+
     if (!updates.length) {
       logger.info(`no updates available`)
       return
@@ -100,3 +110,5 @@ export const update = async (conf: Conf, { stackId, tag, provider, force }) => {
     logger.info(`your MyCloud is already up to date!`)
   }
 }
+
+const isReleaseCandidateTag = (tag: string) => /-rc\.\d+$/.test(tag)

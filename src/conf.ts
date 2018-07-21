@@ -20,7 +20,7 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
-import { AWSClients, ConfOpts, NodeFlags } from './types'
+import { AWSClients, ConfOpts, NodeFlags, UpdateOpts } from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
@@ -730,11 +730,14 @@ export class Conf {
     return result
   }
 
-  public update = async ({ tag, provider, force }) => {
+  public update = async (opts: UpdateOpts) => {
     this._ensureRemote(false)
     this._ensureStackNameKnown()
 
-    await update(this, { tag, provider, force, stackId: this.stackId })
+    await update(this, {
+      stackId: this.stackId,
+      ...opts,
+    })
   }
 
   public applyUpdateAsCurrentUser = async (update) => {

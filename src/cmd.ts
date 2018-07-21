@@ -293,6 +293,7 @@ const updateCommand = program
   .command('update')
   .option('-t, --tag <versionTag>')
   .option('-f, --force', 'force update even if deployment is ahead of or equal to the specified version tag')
+  .option('-c, --show-release-candidates', 'set if you want to list release candidate versions')
   // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
   .description('updates your MyCloud to a given version')
   .allowUnknownOption(false)
@@ -331,6 +332,20 @@ Wrong: tradleconf log oniotlifecycle -s1d
 const tailCommand = createLogCommand(program
   .command('tail [functionName]')
   .description(`tail a function's logs. Equivalent to log -w`), 'tail')
+
+const graphiqlCommand = program
+  .command('graphiql')
+  .description('open GraphiQL in the browser')
+  .allowUnknownOption(false)
+  .action(run.bind(null, async () => {
+    matchedCommand = graphiqlCommand
+    const { apiBaseUrl } = process.env
+    if (!apiBaseUrl) {
+      throw new Error('did you forget to run init?')
+    }
+
+    await require('opn')(`${apiBaseUrl}/graphql`, { wait: false })
+  }))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

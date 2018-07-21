@@ -39,3 +39,11 @@ export type ConfOpts = {
   project?: string
   nodeFlags?: NodeFlags
 }
+
+export type UpdateOpts = {
+  stackId: string
+  tag: string
+  provider?: string
+  showReleaseCandidates?: boolean
+  force?: boolean
+}
