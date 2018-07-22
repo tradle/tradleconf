@@ -7,6 +7,7 @@ import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
 
 const USE_CURRENT_USER_ROLE = true
+const MIN_VERSION = '01.01.0f'
 
 export const update = async (conf: Conf, {
   stackId,
@@ -35,6 +36,13 @@ export const update = async (conf: Conf, {
       minTimeout: 5000,
       retries: 10
     })
+  }
+
+  const version = await conf.getCurrentVersion()
+  if (!(version.sortableTag && version.sortableTag > MIN_VERSION)) {
+    logger.info(`you have an old version of MyCloud which doesn't support the new update mechanism
+Please update manually this one time. See instructions on https://github.com/tradle/serverless`)
+    return
   }
 
   if (!tag) {
