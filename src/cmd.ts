@@ -299,6 +299,14 @@ const updateCommand = program
   .allowUnknownOption(false)
   .action(createAction('update'))
 
+// const requestUpdateCommand = program
+//   .command('request-update')
+//   .option('-t, --tag <versionTag>')
+//   // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+//   .description('request an update for a given version')
+//   .allowUnknownOption(false)
+//   .action(createAction('requestUpdate'))
+
 const listUpdatesCommand = program
   .command('list-updates')
   .description('list available updates for your MyCloud')

@@ -706,6 +706,8 @@ export class Conf {
   }
 
   public requestUpdate = async ({ tag, provider }) => {
+    if (!tag) throw new CustomErrors.InvalidInput('expected string "tag"')
+
     this._ensureRemote(false)
     let command = `getupdate --tag "${tag}"`
     if (provider) command = `${command} --provider ${provider}`

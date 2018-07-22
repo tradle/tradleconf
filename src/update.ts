@@ -77,7 +77,7 @@ export const update = async (conf: Conf, {
     }
   }
 
-  const ctx = await new Listr([
+  const promise = await new Listr([
     {
       title: 'download update (grab a coffee)',
       task: async ctx => {
@@ -105,6 +105,17 @@ export const update = async (conf: Conf, {
       }
     }
   ]).run()
+
+  let ctx
+  try {
+    ctx = await promise
+  } catch (err) {
+    if (Errors.matches(err, CustomErrors.NotFound)) {
+      logger.error('failed to fetch the requested update')
+    }
+
+    throw err
+  }
 
   if (ctx.upToDate && !ctx.willUpdate) {
     logger.info(`your MyCloud is already up to date!`)
