@@ -20,7 +20,7 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
-import { AWSClients, ConfOpts, NodeFlags, UpdateOpts } from './types'
+import { AWSClients, ConfOpts, NodeFlags, UpdateOpts, InvokeOpts } from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
@@ -248,7 +248,7 @@ export class Conf {
     return { result }
   }
 
-  public invokeAndReturn = async (opts) => {
+  public invokeAndReturn = async (opts: InvokeOpts) => {
     const { error, result } = await this.invoke(opts)
     if (error) throw error
     return result
@@ -591,7 +591,12 @@ export class Conf {
 
   public getEndpointInfo = async () => {
     const getApiBaseUrl = this.getApiBaseUrl()
-    const info = await this.invokeAndReturn({ functionName: 'info', arg: {} })
+    const info = await this.invokeAndReturn({
+      functionName: 'info',
+      arg: {},
+      noWarning: true
+    })
+
     if (info.isBase64Encoded) {
       info.body = new Buffer(info.body, 'base64')
     }
@@ -788,11 +793,7 @@ export class Conf {
     }
   }
 
-  private _invoke = async ({ functionName, arg={}, noWarning }: {
-    functionName: string
-    arg?: any
-    noWarning?: boolean
-  }) => {
+  private _invoke = async ({ functionName, arg={}, noWarning }: InvokeOpts) => {
     // confirm if remote was not explicitly specified
     if (!(this.remote || noWarning)) {
       await confirmOrAbort(`Targeting REMOTE deployment. Continue?`)
@@ -818,7 +819,7 @@ export class Conf {
     return JSON.parse(Payload.toString())
   }
 
-  private _invokeLocal = async ({ functionName, arg }) => {
+  private _invokeLocal = async ({ functionName, arg }: InvokeOpts) => {
     const { project, nodeFlags } = this
     const flagsStr = Object.keys(nodeFlags)
       .filter(key => nodeFlags[key])

@@ -47,3 +47,9 @@ export type UpdateOpts = {
   showReleaseCandidates?: boolean
   force?: boolean
 }
+
+export type InvokeOpts = {
+  functionName: string
+  arg?: any
+  noWarning?: boolean
+}
