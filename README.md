@@ -41,6 +41,8 @@ This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are
 
 ### Install and load current configuration
 
+Note: the below instructions are for managing a single MyCloud instance. If you are managing multiple instances, do so from separate directories.
+
 1. Install `tradleconf` globally: `npm install -g @tradle/conf`
 1. Create a new directory in which you will keep your configuration. In it, initialize your configuration with `tradleconf init`. This will create a file called `.env`
 1. Pull your remote configuration in with `tradleconf load --all`. Or pull in a specific part of it, e.g.:
