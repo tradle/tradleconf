@@ -1,3 +1,4 @@
+import sortBy from 'lodash/sortBy'
 import inquirer from 'inquirer'
 import Listr from 'listr'
 import promiseRetry from 'promise-retry'
@@ -70,7 +71,10 @@ Please update manually this one time. See instructions on https://github.com/tra
         type: 'list',
         name: 'tag',
         message: 'Choose a version to update to',
-        choices: updates.map(u => u.tag),
+        choices: sortBy(updates, 'sortableTag').map(u => ({
+          name: u.tag,
+          value: u.sortableTag
+        })),
       }])
 
       tag = result.tag
