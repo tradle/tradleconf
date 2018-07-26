@@ -538,7 +538,7 @@ export class Conf {
     this._ensureRemote()
     const { stackName } = this
     await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
-    await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName})?`)
+    await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`)
     const buckets = await utils.listStackBucketIds(this.client, stackName)
     buckets.forEach(id => logger.info(id))
     await confirmOrAbort('Delete these buckets?')
