@@ -114,6 +114,13 @@ export const destroyBucket = async (aws: AWS, Bucket: string) => {
   await aws.s3.deleteBucket({ Bucket }).promise()
 }
 
+export const disableStackTerminationProtection = async (aws: AWS, StackName:string) => {
+  return await aws.cloudformation.updateTerminationProtection({
+    StackName,
+    EnableTerminationProtection: false,
+  }).promise()
+}
+
 export const deleteStack = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.deleteStack({ StackName }).promise()
 }
