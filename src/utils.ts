@@ -10,6 +10,7 @@ import fetch = require('node-fetch')
 import _AWS from 'aws-sdk'
 import ModelsPack = require('@tradle/models-pack')
 import _validateResource = require('@tradle/validate-resource')
+import Errors from '@tradle/errors'
 import { emptyBucket } from './empty-bucket'
 import { models as builtInModels } from './models'
 import { logger, colors } from './logger'
@@ -111,7 +112,14 @@ export const listStackFunctionIds = listStackResourceIdsByType.bind(null, 'AWS::
 
 export const destroyBucket = async (aws: AWS, Bucket: string) => {
   await emptyBucket(aws.s3, Bucket)
-  await aws.s3.deleteBucket({ Bucket }).promise()
+  try {
+    await aws.s3.deleteBucket({ Bucket }).promise()
+  } catch (err) {
+    Errors.ignore(err, [
+      { code: 'ResourceNotFoundException' },
+      { code: 'NoSuchBucket' },
+    ])
+  }
 }
 
 export const disableStackTerminationProtection = async (aws: AWS, StackName:string) => {
@@ -122,7 +130,18 @@ export const disableStackTerminationProtection = async (aws: AWS, StackName:stri
 }
 
 export const deleteStack = async (aws: AWS, StackName:string) => {
-  return await aws.cloudformation.deleteStack({ StackName }).promise()
+  while (true) {
+    try {
+      return await aws.cloudformation.deleteStack({ StackName }).promise()
+    } catch (err) {
+      if (!err.message.includes('UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS')) {
+        throw err
+      }
+
+      // back off, try again
+      await wait(5000)
+    }
+  }
 }
 
 export const awaitStackDelete = async (aws: AWS, StackName:string) => {

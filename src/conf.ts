@@ -547,18 +547,17 @@ export class Conf {
       await utils.destroyBucket(this.client, id)
     }
 
+    logger.info('Note: it may take a few minutes for your stack to be deleted')
     await new Listr([
       {
         title: 'disabling termination protection',
         task: async (ctx) => {
           await utils.disableStackTerminationProtection(this.client, stackName)
-          await utils.wait(10000)
         }
       },
       {
         title: 'deleting stack',
         task: async (ctx) => {
-          logger.info('Note: it may take a few minutes for your stack to be deleted')
           await utils.deleteStack(this.client, stackName)
           await utils.wait(5000)
           await utils.awaitStackDelete(this.client, stackName)
