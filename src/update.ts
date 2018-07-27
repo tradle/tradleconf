@@ -6,6 +6,7 @@ import Errors from '@tradle/errors'
 import { Conf, UpdateOpts } from './types'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
+import { confirmOrAbort } from './utils'
 
 const USE_CURRENT_USER_ROLE = true
 const MIN_VERSION = '01.01.0f'
@@ -57,17 +58,29 @@ Please update manually this one time. See instructions on https://github.com/tra
       return
     }
 
+    updates = sortBy(updates, 'sortableTag')
     const result = await inquirer.prompt([{
       type: 'list',
       name: 'tag',
       message: 'Choose a version to update to',
-      choices: sortBy(updates, 'sortableTag').map(u => ({
-        name: u.tag,
-        value: u.tag
+      choices: updates.map(({ tag }) => ({
+        name: getChoiceTextForTag(tag),
+        value: tag
       })),
     }])
 
     tag = result.tag
+    if (!force) {
+      const idx = updates.findIndex(update => update.tag === tag)
+      if (idx !== -1) {
+        const transition = updates.slice(0, idx).find(update => isTransitionReleaseTag(update.tag))
+        if (transition) {
+          logger.info(`you must apply the transition version first: ${transition.tag}`)
+          await confirmOrAbort(`apply transition tag ${transition.tag} now?`)
+          tag = transition.tag
+        }
+      }
+    }
   }
 
   const triggerUpdate = async (update) => {
@@ -140,3 +153,15 @@ Please update manually this one time. See instructions on https://github.com/tra
 }
 
 const isReleaseCandidateTag = (tag: string) => /-rc\.\d+$/.test(tag)
+const isTransitionReleaseTag = (tag: string) => /-trans/.test(tag)
+const getChoiceTextForTag = (tag: string) => {
+  if (isTransitionReleaseTag(tag)) {
+    return `${tag} (transition version, must be applied before the version that follows)`
+  }
+
+  if (isReleaseCandidateTag(tag)) {
+    return `${tag} (release candidate with experimental fixes / features)`
+  }
+
+  return tag
+}
