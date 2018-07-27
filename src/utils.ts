@@ -20,6 +20,8 @@ import { confirm } from './prompts'
 type AWS = {
   s3: _AWS.S3
   cloudformation: _AWS.CloudFormation
+  // autoscaling: _AWS.AutoScaling
+  lambda: _AWS.Lambda
 }
 
 export const get = async (url) => {
@@ -81,7 +83,7 @@ export const confirmOrAbort = async (msg:string) => {
 const acceptAll = (item:any) => true
 export const listStackResources = async (aws: AWS, StackName: string, filter=acceptAll) => {
   let resources = []
-  const opts:any = { StackName }
+  const opts:_AWS.CloudFormation.ListStackResourcesInput = { StackName }
   while (true) {
     let {
       StackResourceSummaries,
@@ -152,8 +154,8 @@ export const awaitStackUpdate = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.waitFor('stackUpdateComplete', { StackName }).promise()
 }
 
-export const listStacks = async (aws) => {
-  const listStacksOpts:any = {
+export const listStacks = async (aws: AWS) => {
+  const listStacksOpts:_AWS.CloudFormation.ListStacksInput = {
     StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
   }
 
@@ -176,6 +178,31 @@ export const listStacks = async (aws) => {
 
   return stackInfos
 }
+
+// export const deleteAutoScalingTargets = async (aws: AWS, StackName: string) => {
+//   let params: _AWS.ApplicationAutoScaling.DescribeScalableTargetsRequest = {
+//     ServiceNamespace: 'dynamodb'
+//   }
+
+//   let targets:_AWS.ApplicationAutoScaling.ScalableTarget[] = []
+//   let batch:_AWS.ApplicationAutoScaling.DescribeScalableTargetsResponse
+//   do {
+//     batch = await aws.applicationAutoScaling.describeScalableTargets(params).promise()
+//     targets = targets.concat(batch.ScalableTargets)
+//   } while (batch.NextToken)
+
+//   const prefix = `table/${StackName}-`
+//   const targetsForStack = targets.filter(target => target.ResourceId.startsWith(prefix))
+//   if (!targetsForStack) return
+
+//   await Promise.all(targetsForStack.map(async ({ ResourceId, ServiceNamespace, ScalableDimension }) => {
+//     await aws.applicationAutoScaling.deregisterScalableTarget({
+//       ResourceId,
+//       ServiceNamespace,
+//       ScalableDimension,
+//     }).promise()
+//   }))
+// }
 
 export const getApiBaseUrl = async (aws: AWS, StackName:string) => {
   const result = await aws.cloudformation.describeStacks({ StackName }).promise()

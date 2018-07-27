@@ -562,9 +562,8 @@ export class Conf {
           await utils.wait(5000)
           await utils.awaitStackDelete(this.client, stackName)
         }
-      }
-    ])
-    .run()
+      },
+    ]).run()
   }
 
   public getApiBaseUrl = async () => {
@@ -737,7 +736,7 @@ export class Conf {
     })
 
     if (!result.update) {
-      throw new CustomErrors.NotFound(`update with version: ${tag}`)
+      throw new CustomErrors.NotFound(`not found: update with version: ${tag}`)
     }
 
     return result

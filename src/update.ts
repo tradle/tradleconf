@@ -57,28 +57,17 @@ Please update manually this one time. See instructions on https://github.com/tra
       return
     }
 
-    if (updates.length === 1) {
-      tag = updates[0].tag
-      const { doUpdate } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'doUpdate',
-        message: `Update to version ${tag} ?`,
-      }])
+    const result = await inquirer.prompt([{
+      type: 'list',
+      name: 'tag',
+      message: 'Choose a version to update to',
+      choices: sortBy(updates, 'sortableTag').map(u => ({
+        name: u.tag,
+        value: u.tag
+      })),
+    }])
 
-      if (!doUpdate) return
-    } else {
-      const result = await inquirer.prompt([{
-        type: 'list',
-        name: 'tag',
-        message: 'Choose a version to update to',
-        choices: sortBy(updates, 'sortableTag').map(u => ({
-          name: u.tag,
-          value: u.sortableTag
-        })),
-      }])
-
-      tag = result.tag
-    }
+    tag = result.tag
   }
 
   const triggerUpdate = async (update) => {
@@ -91,7 +80,7 @@ Please update manually this one time. See instructions on https://github.com/tra
 
   const promise = await new Listr([
     {
-      title: 'download update (grab a coffee)',
+      title: 'load update (grab a coffee)',
       task: async ctx => {
         const resp = await getUpdateWithRetry(tag)
         if (!resp) return
@@ -106,14 +95,30 @@ Please update manually this one time. See instructions on https://github.com/tra
       title: 'validate update',
       skip: ctx => !ctx.willUpdate,
       task: async ctx => {
-        await triggerUpdate(ctx.update)
+        try {
+          await triggerUpdate(ctx.update)
+        } catch (err) {
+          if (err.code === 'ValidationError' && err.message.includes('UPDATE_IN_PROGRESS')) {
+            throw new Error('stack is currently updating, please wait for it to finish before applying another update')
+          }
+
+          throw err
+        }
       }
     },
     {
       title: 'apply update (be patient, or else)',
       skip: ctx => !ctx.willUpdate,
       task: async ctx => {
-        await conf.waitForStackUpdate(stackId)
+        try {
+          await conf.waitForStackUpdate(stackId)
+        } catch (err) {
+          if (err.code === 'ResourceNotReady') {
+            throw new Error('failed to apply update')
+          }
+
+          throw err
+        }
       }
     }
   ]).run()
@@ -123,7 +128,7 @@ Please update manually this one time. See instructions on https://github.com/tra
     ctx = await promise
   } catch (err) {
     if (Errors.matches(err, CustomErrors.NotFound)) {
-      logger.error('failed to fetch the requested update')
+      throw new Error('failed to fetch the requested update')
     }
 
     throw err
