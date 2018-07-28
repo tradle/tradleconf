@@ -43,7 +43,7 @@ export type ConfOpts = {
 }
 
 export type UpdateOpts = {
-  stackId: string
+  stackName: string
   tag: string
   provider?: string
   showReleaseCandidates?: boolean
@@ -54,4 +54,8 @@ export type InvokeOpts = {
   functionName: string
   arg?: any
   noWarning?: boolean
+}
+
+export type WaitStackOpts = {
+  stackName: string
 }

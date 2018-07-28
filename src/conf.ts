@@ -20,7 +20,7 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
-import { AWSClients, ConfOpts, NodeFlags, UpdateOpts, InvokeOpts } from './types'
+import { AWSClients, ConfOpts, NodeFlags, UpdateOpts, InvokeOpts, WaitStackOpts } from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
@@ -485,9 +485,16 @@ export class Conf {
     return await utils.listStacks(client)
   }
 
-  public waitForStackUpdate = async (stackId=this.stackId) => {
+  public waitForStackUpdate = async (opts?:WaitStackOpts) => {
+    const { stackName=this.stackName } = opts || {}
     const client = this._getAWSClient()
-    return await utils.awaitStackUpdate(client, stackId)
+    await utils.awaitStackUpdate(client, stackName)
+  }
+
+  public waitForStackDelete = async (opts?:WaitStackOpts) => {
+    const { stackName=this.stackName } = opts || {}
+    const client = this._getAWSClient()
+    await utils.awaitStackDelete(this.client, stackName)
   }
 
   public createDataBundle = async ({ path }) => {
@@ -560,7 +567,7 @@ export class Conf {
         task: async (ctx) => {
           await utils.deleteStack(this.client, stackName)
           await utils.wait(5000)
-          await utils.awaitStackDelete(this.client, stackName)
+          await this.waitForStackDelete()
         }
       },
     ]).run()
@@ -747,7 +754,7 @@ export class Conf {
     this._ensureStackNameKnown()
 
     await update(this, {
-      stackId: this.stackId,
+      stackName: this.stackName,
       ...opts,
     })
   }
@@ -772,7 +779,7 @@ export class Conf {
     // )
 
     const params:AWS.CloudFormation.UpdateStackInput = {
-      StackName: this.stackId,
+      StackName: this.stackId || this.stackName,
       TemplateURL: templateUrl,
       Capabilities: ['CAPABILITY_NAMED_IAM'],
     }

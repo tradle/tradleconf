@@ -11,13 +11,16 @@ import { confirmOrAbort } from './utils'
 const USE_CURRENT_USER_ROLE = true
 const MIN_VERSION = '01.01.0f'
 
-export const update = async (conf: Conf, {
-  stackId,
-  tag,
-  provider,
-  showReleaseCandidates,
-  force,
-}: UpdateOpts) => {
+export const update = async (conf: Conf, opts: UpdateOpts) => {
+  const {
+    stackName,
+    provider,
+    showReleaseCandidates,
+    force,
+  } = opts
+
+  let { tag } = opts
+
   const getUpdateWithRetry = tag => {
     let requested
     // this might take a few tries as the update might need to be requested first
@@ -38,6 +41,21 @@ export const update = async (conf: Conf, {
       minTimeout: 5000,
       retries: 10
     })
+  }
+
+  const applyPrerequisiteTransitionTags = async ({ tag, updates }: {
+    tag: string
+    updates: any[]
+  }) => {
+    const idx = updates.findIndex(update => update.tag === tag)
+    if (idx === -1) return
+
+    const transition = updates.slice(0, idx).find(update => isTransitionReleaseTag(update.tag))
+    if (!transition) return
+
+    logger.info(`you must apply the transition version first: ${transition.tag}`)
+    await confirmOrAbort(`apply transition tag ${transition.tag} now?`)
+    await update(conf, { ...opts, tag: transition.tag })
   }
 
   const version = await conf.getCurrentVersion()
@@ -71,15 +89,7 @@ Please update manually this one time. See instructions on https://github.com/tra
 
     tag = result.tag
     if (!force) {
-      const idx = updates.findIndex(update => update.tag === tag)
-      if (idx !== -1) {
-        const transition = updates.slice(0, idx).find(update => isTransitionReleaseTag(update.tag))
-        if (transition) {
-          logger.info(`you must apply the transition version first: ${transition.tag}`)
-          await confirmOrAbort(`apply transition tag ${transition.tag} now?`)
-          tag = transition.tag
-        }
-      }
+      await applyPrerequisiteTransitionTags({ tag, updates })
     }
   }
 
@@ -93,7 +103,7 @@ Please update manually this one time. See instructions on https://github.com/tra
 
   const promise = await new Listr([
     {
-      title: 'load update (grab a coffee)',
+      title: `load update ${tag} (grab a coffee)`,
       task: async ctx => {
         const resp = await getUpdateWithRetry(tag)
         if (!resp) return
@@ -105,7 +115,7 @@ Please update manually this one time. See instructions on https://github.com/tra
       }
     },
     {
-      title: 'validate update',
+      title: `validate update`,
       skip: ctx => !ctx.willUpdate,
       task: async ctx => {
         try {
@@ -120,11 +130,11 @@ Please update manually this one time. See instructions on https://github.com/tra
       }
     },
     {
-      title: 'apply update (be patient, or else)',
+      title: `apply update (be patient, or else)`,
       skip: ctx => !ctx.willUpdate,
       task: async ctx => {
         try {
-          await conf.waitForStackUpdate(stackId)
+          await conf.waitForStackUpdate({ stackName })
         } catch (err) {
           if (err.code === 'ResourceNotReady') {
             throw new Error('failed to apply update')

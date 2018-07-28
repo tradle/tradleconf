@@ -93,7 +93,7 @@ const normalizeOpts = (...args) => {
   }
 }
 
-const createAction = action => (...args) => {
+const createAction = (action: keyof Conf) => (...args) => {
   const { programOpts, commandOpts } = normalizeOpts(...args)
   return run(() => {
     const conf:Conf = createConf(programOpts)
@@ -101,6 +101,7 @@ const createAction = action => (...args) => {
       throw new CustomErrors.InvalidInput(`conf method not found: ${action}`)
     }
 
+    // @ts-ignore
     return conf[action](commandOpts)
   })
 }
