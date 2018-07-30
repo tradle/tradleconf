@@ -300,6 +300,15 @@ const updateCommand = program
   .allowUnknownOption(false)
   .action(createAction('update'))
 
+const rollbackCommand = program
+  .command('rollback')
+  .option('-t, --tag <versionTag>')
+  .option('-c, --show-release-candidates', 'set if you want to list release candidate versions')
+  // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+  .description('rolls your MyCloud back to a previous version')
+  .allowUnknownOption(false)
+  .action(createAction('rollback'))
+
 // const requestUpdateCommand = program
 //   .command('request-update')
 //   .option('-t, --tag <versionTag>')

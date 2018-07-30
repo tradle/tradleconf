@@ -20,7 +20,15 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
-import { AWSClients, ConfOpts, NodeFlags, UpdateOpts, InvokeOpts, WaitStackOpts } from './types'
+import { AWSClients,
+  ConfOpts,
+  NodeFlags,
+  UpdateOpts,
+  InvokeOpts,
+  WaitStackOpts,
+  VersionInfo,
+  GetUpdateInfoResp,
+} from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
@@ -705,19 +713,26 @@ export class Conf {
     return identity._permalink
   }
 
-  public getCurrentVersion = async () => {
+  public getCurrentVersion = async ():Promise<VersionInfo> => {
     const { version } = await this.info()
     return version
   }
 
   public listUpdates = async ({ provider }: {
     provider?: string
-  }={}) => {
+  }={}):Promise<VersionInfo[]> => {
     let command = 'listupdates'
     if (provider) command = `${command} --provider ${provider}`
 
     return await this.exec({
       args: [command],
+      noWarning: true
+    })
+  }
+
+  public listPreviousVersions = async ():Promise<VersionInfo[]> => {
+    return await this.exec({
+      args: [`listmyversions`],
       noWarning: true
     })
   }
@@ -735,7 +750,7 @@ export class Conf {
     })
   }
 
-  public getUpdateInfo = async ({ tag }) => {
+  public getUpdateInfo = async ({ tag }):Promise<GetUpdateInfoResp> => {
     this._ensureRemote(false)
     const result = await this.exec({
       args: [`getupdateinfo --tag "${tag}"`],
@@ -755,6 +770,17 @@ export class Conf {
 
     await update(this, {
       stackName: this.stackName,
+      ...opts,
+    })
+  }
+
+  public rollback = async (opts: UpdateOpts) => {
+    this._ensureRemote(false)
+    this._ensureStackNameKnown()
+
+    await update(this, {
+      stackName: this.stackName,
+      rollback: true,
       ...opts,
     })
   }

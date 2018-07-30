@@ -42,12 +42,18 @@ export type ConfOpts = {
   nodeFlags?: NodeFlags
 }
 
-export type UpdateOpts = {
+export interface UpdateOpts {
   stackName: string
   tag: string
   provider?: string
   showReleaseCandidates?: boolean
   force?: boolean
+  rollback?: boolean
+}
+
+export interface VersionInfo {
+  tag: string
+  sortableTag: string
 }
 
 export type InvokeOpts = {
@@ -58,4 +64,9 @@ export type InvokeOpts = {
 
 export type WaitStackOpts = {
   stackName: string
+}
+
+export interface GetUpdateInfoResp {
+  update: VersionInfo
+  upToDate: boolean
 }
