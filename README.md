@@ -33,6 +33,8 @@ This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are
   - [OpenCorporates](#opencorporates)
   - [Onfido](#onfido)
   - [Centrix](#centrix)
+  - [Document Checker](#document-checker)
+  - [Trueface](#trueface)
   - [FacialRecognition](#facialrecognition)
   - [Customize message](#customize-message)
   - [Webhooks](#webhooks)
@@ -349,6 +351,47 @@ Example config:
     },
     "products": {
       "nl.tradle.DigitalPassport": {}
+    }
+  }
+}
+```
+#### Document Checker
+
+Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "documentChecker": {
+    "account": "...",
+    "username": "...",
+    ["test": true]
+  }
+}
+```
+#### Trueface
+
+Purpose: Spoof detection for Selfie using Trueface
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "trueface": {
+    "url": "http://...",
+    "token": "...",
+    "products": {
+      "nl.tradle.DigitalPassport": [
+        "tradle.Selfie"
+      ],
+      "tradle.CertifiedID": [
+        "tradle.Selfie"
+      ]
     }
   }
 }
