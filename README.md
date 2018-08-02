@@ -353,6 +353,47 @@ Example config:
   }
 }
 ```
+#### Document Checker
+
+Purpose: Check authenticity of the Photo ID document.
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "documentChecker": {
+    "account": "...",
+    "username": "...",
+    ["test": true]
+  }
+}
+```
+#### Trueface
+
+Purpose: Checks if the Selfie is the original selfie and was not photoshoped, taken from some other photograph/video etc.
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "trueface": {
+    "url": "http://...",
+    "token": "...",
+    "products": {
+      "nl.tradle.DigitalPassport": [
+        "tradle.Selfie"
+      ],
+      "tradle.CertifiedID": [
+        "tradle.Selfie"
+      ]
+    }
+  }
+}
+```
 
 #### FacialRecognition
 
