@@ -15,7 +15,11 @@
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js --ignore-path .gitignore .",
     "precommit": "tsc && lint-staged",
-    "prepublish": "tsc"
+    "prepublish": "tsc",
+    "release": "standard-version",
+    "release:patch": "standard-version --release-as patch",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major"
   },
   "keywords": [
     "tradle",
@@ -66,12 +70,14 @@
     "@types/lodash": "^4.14.104",
     "@types/node": "^9.4.6",
     "husky": "^0.14.3",
-    "lint-staged": "^7.2.0"
+    "lint-staged": "^7.2.0",
+    "standard-version": "github:mvayngrib/standard-version#fixdeps"
   },
   "lint-staged": {
     "README.md": [
       "doctoc",
       "git add"
     ]
-  }
+  },
+  "standard-version": {}
 }
