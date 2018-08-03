@@ -77,13 +77,11 @@ The following sections are optional, e.g. if you don't have Custom Models, skip 
 
 See sample custom models in `./models-sample`. You can create your own in `./models` and lenses in `./lenses`. Put each model in a separate json file where the file name is [yourModel.id].json. See [./models-sample/my.custom.NameForm.json](./models-sample/my.custom.NameForm.json) and [./lenses-sample/my.custom.lens.PersonalInfo.json](./lenses-sample/my.custom.lens.PersonalInfo.json) for examples
 
-Validate your models and lenses with `tradleconf validate --models`
-
 #### Custom Styles
 
 Define your provider's style in `./conf/style.json` (see [./conf/style.sample.json](./conf/style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
 
-Validate your style with `tradleconf validate --style`
+See more custom style [examples](./examples/styles/)
 
 #### Custom Bot Configuration (and plugins)
 

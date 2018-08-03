@@ -1,0 +1,28 @@
+{
+  "_t": "tradle.StylesPack",
+  "backgroundImage": {
+    "url": "https://tradle-public-images.s3.amazonaws.com/bg/blue-underwater-gradient-opacity-15-860x484.png"
+  },
+  "logo": {
+    "url": "https://s3.amazonaws.com/tradle-public-images/safe-re.png"
+  },
+  "verifiedBorderColor": "#777777",
+  "logoNeedsText": true,
+  "splashscreen": {
+    "title": "Safe-Re",
+    "img": "https://s3.amazonaws.com/tradle-public-images/safe-re.png",
+    "backgroundColor": "#cfd3d1",
+    "imgStyle": {
+      "height": 200,
+      "width": 200
+    }
+  },
+  "myMessageBackgroundColor": "#018db0",
+  "contextBackgroundColor": "#018db0",
+  "productRowBgColor": "#018db0",
+  "linkColor": "#018db0",
+  "productRowTextColor": "#eeeeee",
+  "backgroundColor": "#cfd3d1",
+  "fontColor": "#fff",
+  "level": 10
+}
