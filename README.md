@@ -8,6 +8,9 @@ This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
+- [Prerequisites](#prerequisites)
+  - [AWS cli & credentials](#aws-cli-&-credentials)
+  - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Customize](#customize)
   - [Custom Models and Lenses](#custom-models-and-lenses)
@@ -40,6 +43,18 @@ This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are
   - [Webhooks](#webhooks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+### Prerequisites
+
+#### AWS cli & credentials
+
+1. [Install](http://docs.aws.amazon.com/cli/latest/userguide/installing.html)
+1. create a new IAM user with AdministratorAccess
+1. Configure your credentials: `aws configure` or `aws configure --profile <profileName>`. This will set up your AWS credentials in `~/.aws/`
+
+#### AWSLogs (optional)
+
+If you want to inspect logs from your lambda functions in realtime, you'll need [awslogs](https://github.com/jorgebastida/awslogs)
 
 ### Install and load current configuration
 
