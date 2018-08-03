@@ -2,13 +2,12 @@
 
 CLI for managing your Tradle MyCloud instance
 
-This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are running a Tradle MyCloud development environment on your machine (see [@tradle/serverless](https://github.com/tradle/serverless))
-
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
 - [Prerequisites](#prerequisites)
+  - [Launch a MyCloud instance](#launch-a-mycloud-instance)
   - [AWS cli & credentials](#aws-cli-&-credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
@@ -45,6 +44,16 @@ This guide assumes you either already deployed Tradle MyCloud to AWS, and/or are
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ### Prerequisites
+
+#### Launch a MyCloud instance
+
+- go to https://app.tradle.io
+- choose the Tradle channel on the Conversations screen
+- When "See a list of products" appears, click it and choose **MyCloud**  
+(at this point, you can follow along with the [Disney MyCloud launch](https://www.youtube.com/watch?v=Wp-uiAhDtzA) video)
+- fill out the MyCloud Configuration form. For the Region field, choose US East (Virginia), Asia Pacific (Singapore), or Asia Pacific (Sydney). If you need to launch in a different region, please submit an issue on this repository. For most, we can provision support at a moment's notice.
+- wait a few seconds and get a custom launch link
+- click it to open the AWS console. Check the checkbox at the bottom left and click Create at the bottom right. While you wait, read on.
 
 #### AWS cli & credentials
 
