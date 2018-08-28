@@ -7,5 +7,5 @@ export const Errors = {
   InvalidEnvironment: ex('InvalidEnvironment'),
   NotFound: ex('NotFound'),
   // UserError: ex('UserError'),
-  // ServerError: ex('ServerError')
+  ServerError: ex('ServerError'),
 }

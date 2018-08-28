@@ -602,7 +602,7 @@ export class Conf {
       noWarning: true
     })
 
-    const getInfo = this.getEndpointInfo()
+    const getInfo = this.remote ? this.getEndpointInfo() : Promise.resolve({})
     const [links, info] = await Promise.all([getLinks, getInfo])
     return Object.assign(
       { links: links.result },
@@ -617,6 +617,10 @@ export class Conf {
       arg: {},
       noWarning: true
     })
+
+    if (info.statusCode !== 200) {
+      throw new CustomErrors.ServerError(info.body)
+    }
 
     if (info.isBase64Encoded) {
       info.body = new Buffer(info.body, 'base64')
