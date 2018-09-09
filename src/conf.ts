@@ -40,6 +40,11 @@ tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 const mkdirp = promisify(_mkdirp)
 const pfs = promisify(fs)
 const { prettify, isValidProjectPath, toEnvFile, confirmOrAbort } = utils
+const silentLogger = Object.keys(logger).reduce((silent, method) => {
+  silent[method] = () => {}
+  return silent
+}, {})
+
 const AWS_CONF_PATH = `${os.homedir()}/.aws/config`
 const getFileNameForItem = item => `${item.id}.json`
 const read:any = file => fs.readFileSync(file, { encoding: 'utf8' })
@@ -106,7 +111,7 @@ const DEPLOY_ALL_OPTS = DEPLOYABLES.reduce((obj, prop) => {
 
 const getOptsOnly = opts => _.omit(opts, 'args')
 const normalizeDeployOpts = (opts, command='deploy') => {
-  if (opts.args.length) {
+  if (!_.isEmpty(opts.args)) {
     throw new CustomErrors.InvalidInput(`unknown arguments: ${opts.args.join(' ')}`)
   }
 
@@ -295,31 +300,32 @@ export class Conf {
   }
 
   public load = async (opts:any={}) => {
+    const opLogger = opts.logger || logger
     opts = normalizeDeployOpts(opts, 'load')
-    logger.info('loading: ', getDeployablesKeys(opts).join(', '))
-    if (opts.dryRun) return logger.info('dry run, not executing')
+    opLogger.info('loading: ', getDeployablesKeys(opts).join(', '))
+    if (opts.dryRun) return opLogger.info('dry run, not executing')
 
     const result = await this.exec({
       args: ['getconf --conf']
     })
 
     if (opts.style && result.style) {
-      logger.debug('loaded remote style')
+      opLogger.debug('loaded remote style')
       write(paths.style, result.style)
     }
 
     if (opts.bot && result.bot) {
-      logger.debug('loaded remote bot conf')
+      opLogger.debug('loaded remote bot conf')
       write(paths.bot, result.bot)
     }
 
     if (opts.terms && result.termsAndConditions) {
-      logger.debug('loaded remote terms and conditions')
+      opLogger.debug('loaded remote terms and conditions')
       write(paths.terms, result.termsAndConditions.value)
     }
 
     if (opts.models && result.modelsPack) {
-      logger.debug('loaded remote models and lenses')
+      opLogger.debug('loaded remote models and lenses')
       this.writeModels(result.modelsPack)
     }
   }
@@ -385,7 +391,8 @@ export class Conf {
       region,
       awsProfile,
       stack={},
-      projectPath
+      projectPath,
+      loadCurrentConf,
     } = await promptInit(this)
 
     if (overwriteEnv === false) return
@@ -428,7 +435,7 @@ export class Conf {
     }
 
     if (haveRemote) {
-      const tasks = new Listr([
+      const tasks = [
         {
           title: 'loading deployment info',
           task: async (ctx) => {
@@ -445,10 +452,17 @@ export class Conf {
               .join('.')
           }
         },
-        saveEnvTask
-      ])
+        saveEnvTask,
+      ]
 
-      await tasks.run()
+      if (loadCurrentConf) {
+        tasks.push({
+          title: 'loading remote configuration',
+          task: async () => this.load({ all: true, logger: silentLogger }),
+        })
+      }
+
+      await new Listr(tasks).run()
     } else {
       await saveEnv()
     }

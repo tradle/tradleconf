@@ -82,19 +82,6 @@ export const init = async (conf: Conf) => {
     }
   }
 
-  const loadCurrent:PromptList = [
-    {
-      type: 'confirm',
-      name: 'shouldLoadCurrentConf',
-      message: 'Would you like to pull your current configuration?',
-      validate: async should => {
-        if (should) {
-          await conf.load({ all: true })
-        }
-      }
-    },
-  ]
-
   const getRemoteAndLocal:PromptList = [
     {
       type: 'list',
@@ -149,7 +136,11 @@ export const init = async (conf: Conf) => {
     },
   ]
   .concat(getLocal)
-  .concat(loadCurrent)
+  .concat({
+    type: 'confirm',
+    name: 'loadCurrentConf',
+    message: 'Would you like to pull your current configuration?',
+  } as any)
 
   return {
     ...flow,
