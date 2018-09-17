@@ -93,10 +93,15 @@ const normalizeOpts = (...args) => {
   }
 }
 
-const createAction = action => (...args) => {
+const createAction = (action: keyof Conf) => (...args) => {
   const { programOpts, commandOpts } = normalizeOpts(...args)
   return run(() => {
     const conf:Conf = createConf(programOpts)
+    if (!conf[action]) {
+      throw new CustomErrors.InvalidInput(`conf method not found: ${action}`)
+    }
+
+    // @ts-ignore
     return conf[action](commandOpts)
   })
 }
@@ -116,6 +121,7 @@ const run = async (fn) => {
       ;(matchedCommand || program).outputHelp()
     }
 
+    process.exit()
     return
   }
 
@@ -147,8 +153,10 @@ program.parse(process.argv)
 const defaults = {
   programOpts: {
     stackName: process.env.stackName,
+    stackId: process.env.stackId,
     profile: process.env.awsProfile,
     region: process.env.region,
+    namespace: process.env.namespace,
     project: process.env.project
   }
 }
@@ -277,6 +285,64 @@ const enableCommand = program
   .allowUnknownOption(false)
   .action(createAction('enable'))
 
+const balanceCommand = program
+  .command('balance')
+  .description(`check the balance on your blockchain key`)
+  .allowUnknownOption(false)
+  .action(createAction('balance'))
+
+const versionCommand = program
+  .command('get-current-version')
+  .description(`check your current MyCloud version`)
+  .allowUnknownOption(false)
+  .action(createAction('getCurrentVersion'))
+
+const listPreviousVersionsCommand = program
+  .command('list-previous-versions')
+  .description('list previous versions of your MyCloud deployment')
+  .allowUnknownOption(false)
+  .action(createAction('listPreviousVersions'))
+
+const updateCommand = program
+  .command('update')
+  .option('-t, --tag <versionTag>')
+  .option('-f, --force', 'force update even if deployment is ahead of or equal to the specified version tag')
+  .option('-c, --show-release-candidates', 'set if you want to list release candidate versions')
+  // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+  .description('update your MyCloud')
+  .allowUnknownOption(false)
+  .action(createAction('update'))
+
+const updateManuallyCommand = program
+  .command('update-manually')
+  .option('-t, --template-url <templateUrl>', 'stack template url')
+  .description('[ADVANCED] update your MyCloud to a given stack template')
+  .allowUnknownOption(false)
+  .action(createAction('updateManually'))
+
+const rollbackCommand = program
+  .command('rollback')
+  .option('-t, --tag <versionTag>')
+  .option('-c, --show-release-candidates', 'set if you want to list release candidate versions')
+  // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+  .description('roll your MyCloud back to a version you previously deployed')
+  .allowUnknownOption(false)
+  .action(createAction('rollback'))
+
+// const requestUpdateCommand = program
+//   .command('request-update')
+//   .option('-t, --tag <versionTag>')
+//   // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+//   .description('request an update for a given version')
+//   .allowUnknownOption(false)
+//   .action(createAction('requestUpdate'))
+
+const listUpdatesCommand = program
+  .command('list-updates')
+  .description('list available updates for your MyCloud')
+  .allowUnknownOption(false)
+  .action(createAction('listUpdates'))
+
 const createLogCommand = (command, name) => command
   .allowUnknownOption(false)
   .option('-s, --start <time-expression>', 'see awslogs docs')
@@ -304,6 +370,20 @@ Wrong: tradleconf log oniotlifecycle -s1d
 const tailCommand = createLogCommand(program
   .command('tail [functionName]')
   .description(`tail a function's logs. Equivalent to log -w`), 'tail')
+
+const graphiqlCommand = program
+  .command('graphiql')
+  .description('open GraphiQL in the browser')
+  .allowUnknownOption(false)
+  .action(run.bind(null, async () => {
+    matchedCommand = graphiqlCommand
+    const { apiBaseUrl } = process.env
+    if (!apiBaseUrl) {
+      throw new Error('did you forget to run init?')
+    }
+
+    await require('opn')(`${apiBaseUrl}/graphql`, { wait: false })
+  }))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

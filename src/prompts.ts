@@ -1,11 +1,14 @@
 import fs from 'fs'
 import os from 'os'
-import yn from 'yn'
 // import execa from 'execa'
 import inquirer from 'inquirer'
+import Listr from 'listr'
+import models from '@tradle/models-cloud'
+import Errors from '@tradle/errors'
+import { Errors as CustomErrors } from './errors'
+import { logger } from './logger'
 import { isValidProjectPath } from './utils'
 import { Conf } from './types'
-import models from '@tradle/models-cloud'
 
 const regions = models['tradle.cloud.AWSRegion'].enum.map(({ id, title }) => ({
   name: title,
@@ -32,15 +35,54 @@ const getProfiles = () => {
   return profiles.includes('default') ? profiles : ['default'].concat(profiles)
 }
 
-export const init = (conf: Conf) => {
+type PromptList = any[]
+
+export const init = async (conf: Conf) => {
   const defaultWhen = answers => answers.overwriteEnv !== false
-  return inquirer.prompt([
+  const chooseFlow:PromptList = [
     {
       type: 'confirm',
       name: 'overwriteEnv',
       message: 'This will overwrite your .env file',
       when: () => fs.existsSync('./.env')
     },
+    {
+      type: 'confirm',
+      name: 'haveRemote',
+      message: 'Have you already deployed your MyCloud to AWS?'
+    }
+  ]
+
+  const getLocal:PromptList = [
+    {
+      type: 'confirm',
+      name: 'haveLocal',
+      message: 'Do you have a local development environment? (a clone of https://github.com/tradle/serverless)'
+    },
+    {
+      type: 'input',
+      name: 'projectPath',
+      message: 'Enter the path to your local development environment (a clone of https://github.com/tradle/serverless)',
+      when: answers => defaultWhen(answers) && answers.haveLocal,
+      validate: local => {
+        if (!isValidProjectPath(local)) {
+          return 'Provided path doesn\'t contain a serverless.yml, please try again'
+        }
+
+        return true
+      }
+    }
+  ]
+
+  const flow = await inquirer.prompt(chooseFlow)
+  if (!flow.haveRemote) {
+    return {
+      ...flow,
+      ...(await inquirer.prompt(getLocal))
+    }
+  }
+
+  const getRemoteAndLocal:PromptList = [
     {
       type: 'list',
       name: 'region',
@@ -82,26 +124,28 @@ export const init = (conf: Conf) => {
           region
         })
 
+        if (!stackInfos.length) {
+          throw new Error('no stacks found')
+        }
+
         return stackInfos.map(({ name, id }) => ({
           name,
           value: { name, id }
         }))
       }
     },
-    {
-      type: 'input',
-      name: 'projectPath',
-      message: '(optional) Enter the path to your local development environment (a clone of https://github.com/tradle/serverless). Press <Enter> to skip',
-      when: defaultWhen,
-      validate: local => {
-        if (yn(local) && !isValidProjectPath(local)) {
-          return 'Provided path doesn\'t contain a serverless.yml'
-        }
+  ]
+  .concat(getLocal)
+  .concat({
+    type: 'confirm',
+    name: 'loadCurrentConf',
+    message: 'Would you like to pull your current configuration?',
+  } as any)
 
-        return true
-      }
-    }
-  ])
+  return {
+    ...flow,
+    ...(await inquirer.prompt(getRemoteAndLocal))
+  }
 }
 
 export const fn = (conf: Conf, message: string) => {
@@ -126,3 +170,4 @@ export const confirm = (message: string) => {
   ])
   .then(({ confirm }) => confirm)
 }
+

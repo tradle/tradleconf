@@ -6,37 +6,68 @@ CLI for managing your Tradle MyCloud instance
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [Usage](#usage)
-  - [Install and load current configuration](#install-and-load-current-configuration)
-  - [Customize](#customize)
-    - [Custom Models and Lenses](#custom-models-and-lenses)
-    - [Custom Styles](#custom-styles)
-    - [Custom Bot Configuration](#custom-bot-configuration)
-    - [Custom Terms and Conditions](#custom-terms-and-conditions)
-  - [Deploy](#deploy)
-    - [To your local development environment](#to-your-local-development-environment)
-    - [To the cloud](#to-the-cloud)
-  - [Destroy](#destroy)
-  - [Logging](#logging)
-  - [Lambda CLI](#lambda-cli)
-  - [Built-in Plugins](#built-in-plugins)
-    - [Terms and Conditions](#terms-and-conditions)
-    - [Lens](#lens)
-    - [Prefill form](#prefill-form)
-    - [ComplyAdvantage](#complyadvantage)
-    - [OpenCorporates](#opencorporates)
-    - [Onfido](#onfido)
-    - [Centrix](#centrix)
-    - [Customize message](#customize-message)
-    - [Webhooks](#webhooks)
+- [Prerequisites](#prerequisites)
+  - [Launch a MyCloud instance](#launch-a-mycloud-instance)
+  - [AWS cli & credentials](#aws-cli-&-credentials)
+  - [AWSLogs (optional)](#awslogs-optional)
+- [Install and load current configuration](#install-and-load-current-configuration)
+- [Customize](#customize)
+  - [Custom Models and Lenses](#custom-models-and-lenses)
+  - [Custom Styles](#custom-styles)
+  - [Custom Bot Configuration (and plugins)](#custom-bot-configuration-and-plugins)
+  - [Custom Terms and Conditions](#custom-terms-and-conditions)
+- [Deploy](#deploy)
+  - [To your local development environment](#to-your-local-development-environment)
+  - [To the cloud](#to-the-cloud)
+- [Destroy](#destroy)
+- [Logging](#logging)
+- [Common Commands](#common-commands)
+  - [Get web/mobile app links, deployment info, blockchain address](#get-webmobile-app-links-deployment-info-blockchain-address)
+  - [Load remote models, styles and configuration](#load-remote-models-styles-and-configuration)
+  - [Push bot/plugins configuration](#push-botplugins-configuration)
+  - [Disable Tradle](#disable-tradle)
+- [Lambda CLI](#lambda-cli)
+- [Built-in Plugins](#built-in-plugins)
+  - [Terms and Conditions](#terms-and-conditions)
+  - [Lens](#lens)
+  - [Prefill form](#prefill-form)
+  - [ComplyAdvantage](#complyadvantage)
+  - [OpenCorporates](#opencorporates)
+  - [Onfido](#onfido)
+  - [Centrix](#centrix)
+  - [Document Checker](#document-checker)
+  - [Trueface](#trueface)
+  - [FacialRecognition](#facialrecognition)
+  - [Customize message](#customize-message)
+  - [Webhooks](#webhooks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## Usage
+### Prerequisites
 
-this assumes you already deployed Tradle MyCloud to AWS, or are running a Tradle MyCloud development environment on your machine (see [@tradle/serverless](https://github.com/tradle/serverless))
+#### Launch a MyCloud instance
+
+- go to https://app.tradle.io
+- choose the Tradle channel on the Conversations screen
+- When "See a list of products" appears, click it and choose **MyCloud**  
+(at this point, you can follow along with the [Disney MyCloud launch](https://www.youtube.com/watch?v=Wp-uiAhDtzA) video)
+- fill out the MyCloud Configuration form. For the Region field, choose US East (Virginia), Asia Pacific (Singapore), or Asia Pacific (Sydney). If you need to launch in a different region, please submit an issue on this repository. For most, we can provision support at a moment's notice.
+- wait a few seconds and get a custom launch link
+- click it to open the AWS console. Check the checkbox at the bottom left and click Create at the bottom right. While you wait, read on.
+
+#### AWS cli & credentials
+
+1. [Install](http://docs.aws.amazon.com/cli/latest/userguide/installing.html)
+1. create a new IAM user with AdministratorAccess
+1. Configure your credentials: `aws configure` or `aws configure --profile <profileName>`. This will set up your AWS credentials in `~/.aws/`
+
+#### AWSLogs (optional)
+
+If you want to inspect logs from your lambda functions in realtime, you'll need [awslogs](https://github.com/jorgebastida/awslogs)
 
 ### Install and load current configuration
+
+Note: the below instructions are for managing a single MyCloud instance. If you are managing multiple instances, do so from separate directories.
 
 1. Install `tradleconf` globally: `npm install -g @tradle/conf`
 1. Create a new directory in which you will keep your configuration. In it, initialize your configuration with `tradleconf init`. This will create a file called `.env`
@@ -55,19 +86,15 @@ The following sections are optional, e.g. if you don't have Custom Models, skip 
 
 See sample custom models in `./models-sample`. You can create your own in `./models` and lenses in `./lenses`. Put each model in a separate json file where the file name is [yourModel.id].json. See [./models-sample/my.custom.NameForm.json](./models-sample/my.custom.NameForm.json) and [./lenses-sample/my.custom.lens.PersonalInfo.json](./lenses-sample/my.custom.lens.PersonalInfo.json) for examples
 
-Validate your models and lenses with `tradleconf validate --models`
-
 #### Custom Styles
 
 Define your provider's style in `./conf/style.json` (see [./conf/style.sample.json](./conf/style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
 
-Validate your style with `tradleconf validate --style`
+See more custom style [examples](./examples/styles/)
 
-#### Custom Bot Configuration
+#### Custom Bot Configuration (and plugins)
 
 Set your bot's configuration in `./conf/bot.json`. See [./conf/bot.sample.json](./conf/bot.sample.json) for an example. Also, see the [Plugins](#built-in-plugins) section for how to configure the currently available plugins.
-
-Validate your bot's configuration with `tradleconf validate --bot`
 
 #### Custom Terms and Conditions
 
@@ -106,6 +133,59 @@ tradleconf tail onmessage -s 5m # log onmessage since 5m ago, tail
 tradleconf log -s 5m # log some function (you'll get a chooser prompt)
 tradleconf log --help # get additional tips
 ```
+
+### Common Commands
+
+#### Get web/mobile app links, deployment info, blockchain address
+
+`tradleconf info --remote`
+
+sample response:
+
+```json
+{
+  "links": {
+    "result": {
+      "mobile": "https://link.tradle.io/chat?provider=569a4dc1fc69f6137dede81ca0ff77c1a5feb0f4a7bdc73e0007f5ed3a1d1f60&host=https%3A%2F%2Ftv5n42vd5f.execute-api.us-east-1.amazonaws.com%2Fdev",
+      "web": "https://app.tradle.io/#/chat?provider=569a4dc1fc69f6137dede81ca0ff77c1a5feb0f4a7bdc73e0007f5ed3a1d1f60&host=https%3A%2F%2Ftv5n42vd5f.execute-api.us-east-1.amazonaws.com%2Fdev",
+      "employeeOnboarding": "https://app.tradle.io/#/applyForProduct?provider=569a4dc1fc69f6137dede81ca0ff77c1a5feb0f4a7bdc73e0007f5ed3a1d1f60&host=https%3A%2F%2Ftv5n42vd5f.execute-api.us-east-1.amazonaws.com%2Fdev&product=tradle.EmployeeOnboarding"
+    }
+  },
+  "version": {
+    "commit": "c403d33",
+    "version": "1.0.0",
+    "branch": "master"
+  },
+  "chainKey": {
+    "type": "ethereum",
+    "pub": "04d7ad3d714dac85ee6f91381eeb688c0d8766c274400a4ecae6a29896ee83e4221f880fc0d2bc6adc0647c043e0683daada1d2ccf7a9e3e7170400ed63b69e7fa",
+    "fingerprint": "fe134e1332f37b8bb8df74c0aa60c2d4b3e6e1f4",
+    "networkName": "rinkeby"
+  },
+  "apiBaseUrl": "https://tv5n42vd5f.execute-api.us-east-1.amazonaws.com/dev"
+}
+```
+
+#### Load remote models, styles and configuration
+
+`tradleconf load --remote`
+
+#### Push bot/plugins configuration 
+
+`tradleconf deploy --remote --bot`
+
+#### Disable Tradle
+
+If for some reason or other, you need to disable your deployment temporarily, you can run:
+
+`tradleconf disable ---remote`
+
+This will turn most of your cloud functions off. Mobile/web clients will be unable to reach your MyCloud.
+
+To re-enable your deployment, you run:
+
+`tradleconf enable --remote`
+
 
 ### Lambda CLI
 
@@ -297,6 +377,72 @@ Example config:
   }
 }
 ```
+#### Document Checker
+
+Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "documentChecker": {
+    "account": "...",
+    "username": "...",
+    ["test": true]
+  }
+}
+```
+#### Trueface
+
+Purpose: Spoof detection for Selfie using Trueface
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "trueface": {
+    "url": "http://...",
+    "token": "...",
+    "products": {
+      "nl.tradle.DigitalPassport": [
+        "tradle.Selfie"
+      ],
+      "tradle.CertifiedID": [
+        "tradle.Selfie"
+      ]
+    }
+  }
+}
+```
+
+#### FacialRecognition
+
+Purpose: upon receiving PhotoID and Selfie forms, trigger checks using NtechLab Facial Recognition
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "facial-recognition": {
+    "url": "http://...", // URL ntechlab server
+    "token": "...",
+    "threshold": "strict"
+  }
+}
+```
+To test it you need to run local tunnel
+
+`lt -p 4572 -s pick-a-hostname`
+
+It will return url that you pass as a parameter to your local server
+
+`S3_PUBLIC_FACING_HOST=https://pick-a-hostname.localtunnel.me node --debug --inspect --max_old_space_size=4096 ./node_modules/.bin/sls offline start`
 
 #### FacialRecognition
 
