@@ -8,7 +8,7 @@ CLI for managing your Tradle MyCloud instance
 
 - [Prerequisites](#prerequisites)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli-&-credentials)
+  - [AWS cli & credentials](#aws-cli--credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Customize](#customize)
@@ -38,6 +38,7 @@ CLI for managing your Tradle MyCloud instance
   - [Document Checker](#document-checker)
   - [Trueface](#trueface)
   - [FacialRecognition](#facialrecognition)
+  - [DocumentValidity](#documentvalidity)
   - [Customize message](#customize-message)
   - [Webhooks](#webhooks)
 
@@ -444,9 +445,9 @@ It will return url that you pass as a parameter to your local server
 
 `S3_PUBLIC_FACING_HOST=https://pick-a-hostname.localtunnel.me node --debug --inspect --max_old_space_size=4096 ./node_modules/.bin/sls offline start`
 
-#### FacialRecognition
+#### DocumentValidity
 
-Purpose: upon receiving PhotoID and Selfie forms, trigger checks using NtechLab Facial Recognition
+Purpose: upon receiving PhotoID form, check the validity of expiration date, viable age, countries of nationality and issuer if applicable
 
 Example config:
 
@@ -454,20 +455,11 @@ Example config:
 // ...
 "plugins": {
   // ...
-  "facial-recognition": {
-    "url": "http://...", // URL ntechlab server
-    "token": "...",
-    "threshold": "strict"
+  "documentValidity": {
   }
+  // ...
 }
 ```
-To test it you need to run local tunnel
-
-`lt -p 4572 -s pick-a-hostname`
-
-It will return url that you pass as a parameter to your local server
-
-`S3_PUBLIC_FACING_HOST=https://pick-a-hostname.localtunnel.me node --debug --inspect --max_old_space_size=4096 ./node_modules/.bin/sls offline start`
 
 #### Customize message
 
