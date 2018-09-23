@@ -1,5 +1,7 @@
 
 export const terms = terms => {
+  if (terms == null) return // unset & C
+
   if (!terms.length) {
     throw new Error('terms and conditions cannot be empty')
   }

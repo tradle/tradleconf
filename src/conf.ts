@@ -281,7 +281,8 @@ export class Conf {
     }
 
     if (opts.terms) {
-      parts.terms = read.terms()
+      // "null" for delete
+      parts.terms = read.terms() || null
     }
 
     if (opts.models) {
