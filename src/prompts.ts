@@ -171,3 +171,13 @@ export const confirm = (message: string) => {
   .then(({ confirm }) => confirm)
 }
 
+export const ask = (message: string) => {
+  return inquirer.prompt([
+    {
+      type: 'input',
+      name: 'answer',
+      message
+    }
+  ])
+  .then(({ answer }) => answer)
+}

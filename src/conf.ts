@@ -18,6 +18,7 @@ import {
   init as promptInit,
   fn as promptFn,
   confirm,
+  ask,
 } from './prompts'
 import { update } from './update'
 import { AWSClients,
@@ -830,7 +831,7 @@ export class Conf {
       params.NotificationARNs = notificationTopics
     }
 
-    await this.client.cloudformation.updateStack(params).promise()
+    await utils.updateStack(this.client, params)
   }
 
   public applyUpdateViaLambda = async (update) => {
@@ -839,6 +840,83 @@ export class Conf {
       functionName: 'updateStack',
       arg: { templateUrl, notificationTopics }
     })
+  }
+
+  public enableKYCServices = async ({ truefaceSpoof, rankOne }) => {
+    this._ensureRemote()
+
+    const bucket = await this._getPrivateConfBucket()
+    const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
+    const tfVerb = truefaceSpoof ? 'enable' : 'disable'
+    const roVerb = rankOne ? 'enable' : 'disable'
+
+    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
+
+    const enableSSH = yn(await ask('enable SSH into the instances?'))
+    const parameters = [
+      {
+        ParameterKey: 'S3PathToWriteDiscovery',
+        ParameterValue: discoveryObjPath
+      }
+    ]
+
+    if (truefaceSpoof) {
+      parameters.push({
+        ParameterKey: 'EnableTruefaceSpoof',
+        ParameterValue: 'true'
+      })
+    }
+
+    if (rankOne) {
+      parameters.push({
+        ParameterKey: 'EnableRankOne',
+        ParameterValue: 'true',
+      })
+    }
+
+    if (enableSSH) {
+      const key = await ask('what is the name of the SSH key you configured in AWS?')
+      parameters.push({
+        ParameterKey: 'KeyName',
+        ParameterValue: key
+      })
+    }
+
+    const tasks = [
+      {
+        title: 'validate template',
+        task: async (ctx) => {
+          const stackName = `${this.stackName}-services`
+          const stackId = await utils.getStackId(this.client, stackName)
+          const params = {
+            StackName: stackId || stackName,
+            Parameters: parameters,
+            TemplateURL: 'https://s3.eu-west-2.amazonaws.com/tradle.io/cf-templates/kyc-in-ecs/main.yml',
+          }
+
+          let method
+          if (stackId) {
+            method = 'updateStack'
+          } else {
+            method = 'createStack'
+          }
+
+          ctx.wait = await utils[method](this.client, params)
+        },
+      },
+      {
+        title: `create/update KYC services stack`,
+        task: ctx => ctx.wait(),
+      }
+    ]
+
+    await new Listr(tasks).run()
+  }
+
+  private _getPrivateConfBucket = async () => {
+    this._ensureStackNameKnown()
+    const buckets = await utils.listStackBucketIds(this.client, this.stackName)
+    return buckets.find(bucket => /tdl-.*?-ltd-.*?-privateconfbucket/.test(bucket))
   }
 
   private _ensureStackNameKnown = () => {

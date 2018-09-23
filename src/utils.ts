@@ -81,6 +81,7 @@ export const confirmOrAbort = async (msg:string) => {
 }
 
 const acceptAll = (item:any) => true
+
 export const listStackResources = async (aws: AWS, StackName: string, filter=acceptAll) => {
   let resources = []
   const opts:_AWS.CloudFormation.ListStackResourcesInput = { StackName }
@@ -134,7 +135,8 @@ export const disableStackTerminationProtection = async (aws: AWS, StackName:stri
 export const deleteStack = async (aws: AWS, StackName:string) => {
   while (true) {
     try {
-      return await aws.cloudformation.deleteStack({ StackName }).promise()
+      await aws.cloudformation.deleteStack({ StackName }).promise()
+      return () => awaitStackDelete(aws, StackName)
     } catch (err) {
       if (!err.message.includes('UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS')) {
         throw err
@@ -146,6 +148,42 @@ export const deleteStack = async (aws: AWS, StackName:string) => {
   }
 }
 
+export const createStack = async (aws: AWS, params: AWS.CloudFormation.CreateStackInput) => {
+  await aws.cloudformation.createStack(params).promise()
+  return () => awaitStackCreate(aws, params.StackName)
+}
+
+export const updateStack = async (aws: AWS, params: AWS.CloudFormation.UpdateStackInput) => {
+  await aws.cloudformation.updateStack(params).promise()
+  return () => awaitStackUpdate(aws, params.StackName)
+}
+
+const isUpdateableStatus = (status: AWS.CloudFormation.StackStatus) => {
+  return status.endsWith('_COMPLETE') && !status.startsWith('DELETE_')
+}
+
+export const getStackId = async (aws: AWS, stackName: string) => {
+  const stacks = await listStacks(
+    aws,
+    ({ StackName, StackStatus }) => StackName === stackName && isUpdateableStatus(StackStatus)
+  )
+
+  return stacks[0] && stacks[0].id
+}
+
+// export const createOrUpdateStack = async (aws: AWS, params: AWS.CloudFormation.UpdateStackInput) => {
+//   const StackId = await getStackId(aws, params.StackName)
+//   if (StackId) {
+//     await updateStack(aws, params)
+//   } else {
+//     await createStack(aws, params)
+//   }
+// }
+
+export const awaitStackCreate = async (aws: AWS, StackName:string) => {
+  return await aws.cloudformation.waitFor('stackCreateComplete', { StackName }).promise()
+}
+
 export const awaitStackDelete = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.waitFor('stackDeleteComplete', { StackName }).promise()
 }
@@ -154,7 +192,9 @@ export const awaitStackUpdate = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.waitFor('stackUpdateComplete', { StackName }).promise()
 }
 
-export const listStacks = async (aws: AWS) => {
+type FilterStackSummary = (item: AWS.CloudFormation.StackSummary) => boolean
+
+export const listStacks = async (aws: AWS, filter:FilterStackSummary=acceptAll) => {
   const listStacksOpts:_AWS.CloudFormation.ListStacksInput = {
     StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
   }
@@ -167,7 +207,7 @@ export const listStacks = async (aws: AWS) => {
       StackSummaries
     } = await aws.cloudformation.listStacks(listStacksOpts).promise()
 
-    stackInfos = stackInfos.concat(StackSummaries.map(({ StackId, StackName }) => ({
+    stackInfos = stackInfos.concat(StackSummaries.filter(filter).map(({ StackId, StackName }) => ({
       id: StackId,
       name: StackName
     })))

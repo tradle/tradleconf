@@ -385,6 +385,13 @@ const graphiqlCommand = program
     await require('opn')(`${apiBaseUrl}/graphql`, { wait: false })
   }))
 
+const enableKYCServices = program
+  .command('set-kyc-services')
+  .option('--trueface-spoof', 'enable / disable TrueFace Spoof')
+  .option('--rank-one', 'enable / disable RankOne')
+  .allowUnknownOption(false)
+  .action(createAction('enableKYCServices'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')
