@@ -1,15 +1,16 @@
-import path = require('path')
-import fs = require('fs')
-import _ = require('lodash')
-import co = require('co')
-import yn = require('yn')
-import promptly = require('promptly')
-import chalk = require('chalk')
-import shelljs = require('shelljs')
-import fetch = require('node-fetch')
+import crypto from 'crypto'
+import path from 'path'
+import fs from 'fs'
+import _ from 'lodash'
+import co from 'co'
+import yn from 'yn'
+import promptly from 'promptly'
+import chalk from 'chalk'
+import shelljs from 'shelljs'
+import fetch from 'node-fetch'
 import _AWS from 'aws-sdk'
-import ModelsPack = require('@tradle/models-pack')
-import _validateResource = require('@tradle/validate-resource')
+import ModelsPack from '@tradle/models-pack'
+import _validateResource from '@tradle/validate-resource'
 import Errors from '@tradle/errors'
 import { emptyBucket } from './empty-bucket'
 import { models as builtInModels } from './models'
@@ -22,6 +23,8 @@ type AWS = {
   cloudformation: _AWS.CloudFormation
   // autoscaling: _AWS.AutoScaling
   lambda: _AWS.Lambda
+  ecr: _AWS.ECR
+  ec2: _AWS.EC2
 }
 
 export const get = async (url) => {
@@ -282,3 +285,60 @@ export const normalizeNodeFlags = flags => {
 }
 
 export const pickNonNull = obj => _.pickBy(obj, val => val != null)
+
+const sha256 = (str: string, enc: crypto.HexBase64Latin1Encoding = 'hex') => {
+  return crypto.createHash('sha256').update(str).digest(enc)
+}
+
+const shortenString = (str: string, maxLength: number) => {
+  const tooLongBy = str.length - maxLength
+  if (tooLongBy <= 0) return str
+
+  if (str.length < 6) throw new Error(`string is too short: ${str}`)
+
+  return str.slice(0, maxLength - 6) + sha256(str).slice(0, 6)
+}
+
+export const getServicesStackName = (stackName: string) => {
+  const name = stackName.match(/^tdl-(.*?)-ltd-[a-zA-Z]+$/)[1]
+  const shortName = shortenString(name, 14)
+  return `${shortName}-srvcs` // max length 20 chars
+}
+
+export const canAccessECRRepos = async (aws: AWS, { accountId, repoNames }: {
+  accountId: string,
+  repoNames: string[]
+}) => {
+  try {
+    await aws.ecr.describeRepositories({
+      registryId: accountId,
+      repositoryNames: repoNames
+    }).promise()
+
+    return true
+  } catch (err) {
+    if (err.name === 'AccessDeniedException') {
+      return false
+    }
+
+    throw err
+  }
+}
+
+export const doKeyPairsExist = async (aws: AWS, names: string[]) => {
+  const params: AWS.EC2.DescribeKeyPairsRequest = {
+    KeyNames: names
+  }
+
+  try {
+    await aws.ec2.describeKeyPairs(params).promise()
+    return true
+  } catch (err) {
+    return false
+  }
+}
+
+export const listKeyPairs = async (aws: AWS) => {
+  const { KeyPairs } = await aws.ec2.describeKeyPairs().promise()
+  return KeyPairs.map(k => k.KeyName)
+}

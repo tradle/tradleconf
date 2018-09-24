@@ -2,13 +2,12 @@ import fs from 'fs'
 import os from 'os'
 // import execa from 'execa'
 import inquirer from 'inquirer'
-import Listr from 'listr'
 import models from '@tradle/models-cloud'
 import Errors from '@tradle/errors'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
-import { isValidProjectPath } from './utils'
-import { Conf } from './types'
+import { isValidProjectPath, doKeyPairsExist, listKeyPairs } from './utils'
+import { Conf, AWSClients } from './types'
 
 const regions = models['tradle.cloud.AWSRegion'].enum.map(({ id, title }) => ({
   name: title,
@@ -148,6 +147,18 @@ export const init = async (conf: Conf) => {
   }
 }
 
+// export const getKeyPair = (aws: AWSClients, message: string) => {
+//   return inquirer.prompt([
+//     {
+//       type: 'list',
+//       name: 'keyPair',
+//       message,
+//       choices: listKeyPairs(aws, )
+//     }
+//   ])
+//   .then(({ keyPair }) => keyPair)
+// }
+
 export const fn = (conf: Conf, message: string) => {
   return inquirer.prompt([
     {
@@ -180,4 +191,36 @@ export const ask = (message: string) => {
     }
   ])
   .then(({ answer }) => answer)
+}
+
+const getEC2KeyPair = async (client: AWSClients) => {
+  let key
+  const originalMessage = 'What is the name of the EC2 key pair you configured in AWS?'
+  let message = originalMessage
+  while (!key) {
+    key = await ask(message)
+    if (!(await doKeyPairsExist(client, [key]))) {
+      key = null
+      message = `Key pair not found. ${originalMessage}`
+    }
+  }
+
+  return key
+}
+
+export const chooseEC2KeyPair = async (client: AWSClients) => {
+  const know = await confirm('Do you know the name of the EC2 key pair you want to use?')
+  if (know) {
+    return getEC2KeyPair(client)
+  }
+
+  return inquirer.prompt([
+    {
+      type: 'list',
+      name: 'key',
+      message: 'Choose the key pair to set up for SSH access',
+      choices: () => listKeyPairs(client)
+    }
+  ])
+  .then(({ key }) => key)
 }

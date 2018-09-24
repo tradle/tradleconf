@@ -18,6 +18,8 @@ export type AWSClients = {
   apigateway: AWS.APIGateway
   // autoscaling: AWS.AutoScaling
   applicationAutoScaling: AWS.ApplicationAutoScaling
+  ecr: AWS.ECR
+  ec2: AWS.EC2
   AWS: any
   trace: any
 }

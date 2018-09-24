@@ -1,27 +1,29 @@
-import path = require('path')
-import fs = require('fs')
-import os = require('os')
-import yn = require('yn')
-import tmp = require('tmp')
-import _ = require('lodash')
-import co = require('co')
-import promisify = require('pify')
+import path from 'path'
+import fs from 'fs'
+import os from 'os'
+import yn from 'yn'
+import tmp from 'tmp'
+import _ from 'lodash'
+import co from 'co'
+import promisify from 'pify'
 import promiseRetry from 'promise-retry'
-// import YAML = require('js-yaml')
-import AWS = require('aws-sdk')
-import _mkdirp = require('mkdirp')
-import shelljs = require('shelljs')
-import Listr = require('listr')
+// import YAML from 'js-yaml'
+import AWS from 'aws-sdk'
+import _mkdirp from 'mkdirp'
+import shelljs from 'shelljs'
+import Listr from 'listr'
 import Errors from '@tradle/errors'
-import ModelsPack = require('@tradle/models-pack')
+import ModelsPack from '@tradle/models-pack'
 import {
   init as promptInit,
   fn as promptFn,
   confirm,
   ask,
+  chooseEC2KeyPair,
 } from './prompts'
 import { update } from './update'
-import { AWSClients,
+import {
+  AWSClients,
   ConfOpts,
   NodeFlags,
   UpdateOpts,
@@ -35,6 +37,7 @@ import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
 import { logger, colors } from './logger'
+import { TRADLE_ACCOUNT_ID } from './constants'
 
 tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
@@ -494,12 +497,16 @@ export class Conf {
     const s3 = new AWS.S3()
     const cloudformation = new AWS.CloudFormation()
     const lambda = new AWS.Lambda()
+    const ecr = new AWS.ECR()
+    const ec2 = new AWS.EC2()
     // const dynamodb = new AWS.DynamoDB()
     // const docClient = new AWS.DynamoDB.DocClient()
     return {
       s3,
       cloudformation,
       lambda,
+      ecr,
+      ec2,
       // dynamodb,
       // docClient
     }
@@ -852,7 +859,7 @@ export class Conf {
 
     await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
 
-    const enableSSH = yn(await ask('enable SSH into the instances?'))
+    const enableSSH = yn(await confirm('enable SSH into the instances?'))
     const parameters = [
       {
         ParameterKey: 'S3PathToWriteDiscovery',
@@ -875,7 +882,7 @@ export class Conf {
     }
 
     if (enableSSH) {
-      const key = await ask('what is the name of the SSH key you configured in AWS?')
+      const key = await chooseEC2KeyPair(this.client)
       parameters.push({
         ParameterKey: 'KeyName',
         ParameterValue: key
@@ -884,14 +891,34 @@ export class Conf {
 
     const tasks = [
       {
+        title: 'check access',
+        task: async (ctx) => {
+          const repoNames = []
+          if (rankOne) repoNames.push('roc-face')
+          if (truefaceSpoof) repoNames.push('trueface-spoof')
+
+          if (!repoNames.length) return
+
+          const can = await utils.canAccessECRRepos(this.client, {
+            accountId: TRADLE_ACCOUNT_ID,
+            repoNames,
+          })
+
+          if (!can) {
+            throw new CustomErrors.InvalidInput(`ask someone from Tradle for access to these repositories: ${repoNames.join(', ')}`)
+          }
+        }
+      },
+      {
         title: 'validate template',
         task: async (ctx) => {
-          const stackName = `${this.stackName}-services`
+          const stackName = utils.getServicesStackName(this.stackName)
           const stackId = await utils.getStackId(this.client, stackName)
-          const params = {
+          const params: AWS.CloudFormation.UpdateStackInput = {
             StackName: stackId || stackName,
             Parameters: parameters,
             TemplateURL: 'https://s3.eu-west-2.amazonaws.com/tradle.io/cf-templates/kyc-in-ecs/main.yml',
+            Capabilities: ['CAPABILITY_NAMED_IAM']
           }
 
           let method
