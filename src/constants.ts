@@ -1,0 +1,1 @@
+export const TRADLE_ACCOUNT_ID = "210041114155"
