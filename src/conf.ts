@@ -172,6 +172,11 @@ const createImportDataUtilsMethod = ({
   })
 }
 
+const REPO_NAMES = {
+  truefaceSpoof: 'trueface-spoof',
+  rankOne: 'rank-one'
+}
+
 type AWSConfigOpts = {
   region?: string
   profile?: string
@@ -858,6 +863,12 @@ export class Conf {
     const roVerb = rankOne ? 'enable' : 'disable'
 
     await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
+    const repoNames = [
+      truefaceSpoof && REPO_NAMES.truefaceSpoof,
+      rankOne && REPO_NAMES.rankOne,
+    ].filter(_.identity).join(', ')
+
+    await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
 
     const enableSSH = yn(await confirm('enable SSH into the instances?'))
     const parameters = [
@@ -890,25 +901,25 @@ export class Conf {
     }
 
     const tasks = [
-      {
-        title: 'check access',
-        task: async (ctx) => {
-          const repoNames = []
-          if (rankOne) repoNames.push('roc-face')
-          if (truefaceSpoof) repoNames.push('trueface-spoof')
+      // {
+      //   title: 'check access',
+      //   task: async (ctx) => {
+      //     const repoNames = []
+      //     if (rankOne) repoNames.push('roc-face')
+      //     if (truefaceSpoof) repoNames.push('trueface-spoof')
 
-          if (!repoNames.length) return
+      //     if (!repoNames.length) return
 
-          const can = await utils.canAccessECRRepos(this.client, {
-            accountId: TRADLE_ACCOUNT_ID,
-            repoNames,
-          })
+      //     const can = await utils.canAccessECRRepos(this.client, {
+      //       accountId: TRADLE_ACCOUNT_ID,
+      //       repoNames,
+      //     })
 
-          if (!can) {
-            throw new CustomErrors.InvalidInput(`ask someone from Tradle for access to these repositories: ${repoNames.join(', ')}`)
-          }
-        }
-      },
+      //     if (!can) {
+      //       throw new CustomErrors.InvalidInput(`ask someone from Tradle for access to these repositories: ${repoNames.join(', ')}`)
+      //     }
+      //   }
+      // },
       {
         title: 'validate template',
         task: async (ctx) => {
