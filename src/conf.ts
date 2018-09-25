@@ -941,6 +941,8 @@ export class Conf {
             method = 'updateStack'
           } else {
             method = 'createStack'
+            // @ts-ignore
+            params.DisableRollback = true
           }
 
           ctx.wait = await utils[method](this.client, params)
