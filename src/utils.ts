@@ -199,7 +199,7 @@ type FilterStackSummary = (item: AWS.CloudFormation.StackSummary) => boolean
 
 export const listStacks = async (aws: AWS, filter:FilterStackSummary=acceptAll) => {
   const listStacksOpts:_AWS.CloudFormation.ListStacksInput = {
-    StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
+    StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE']
   }
 
   let stackInfos = []

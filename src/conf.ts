@@ -174,7 +174,8 @@ const createImportDataUtilsMethod = ({
 
 const REPO_NAMES = {
   truefaceSpoof: 'trueface-spoof',
-  rankOne: 'rank-one'
+  rankOne: 'rank-one',
+  nginx: 'tradle-kyc-nginx-proxy',
 }
 
 type AWSConfigOpts = {
@@ -864,13 +865,14 @@ export class Conf {
 
     await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
     const repoNames = [
+      REPO_NAMES.nginx,
       truefaceSpoof && REPO_NAMES.truefaceSpoof,
       rankOne && REPO_NAMES.rankOne,
     ].filter(_.identity).join(', ')
 
     await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
 
-    const enableSSH = yn(await confirm('enable SSH into the instances?'))
+    const enableSSH = yn(await confirm('enable SSH into the instances?', false))
     const parameters = [
       {
         ParameterKey: 'S3PathToWriteDiscovery',
@@ -899,6 +901,8 @@ export class Conf {
         ParameterValue: key
       })
     }
+
+    await confirmOrAbort(`are you freaking ready?`)
 
     const tasks = [
       // {

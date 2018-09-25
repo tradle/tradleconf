@@ -171,12 +171,13 @@ export const fn = (conf: Conf, message: string) => {
   .then(({ fn }) => fn)
 }
 
-export const confirm = (message: string) => {
+export const confirm = (message: string, defaultValue=true) => {
   return inquirer.prompt([
     {
       type: 'confirm',
       name: 'confirm',
-      message
+      message,
+      default: defaultValue,
     }
   ])
   .then(({ confirm }) => confirm)
