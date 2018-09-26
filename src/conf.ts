@@ -17,11 +17,10 @@ import ModelsPack from '@tradle/models-pack'
 import {
   init as promptInit,
   fn as promptFn,
-  confirm,
-  ask,
-  chooseEC2KeyPair,
+  confirmOrAbort,
 } from './prompts'
 import { update } from './update'
+import { configureKYCServicesStack } from './kyc-services'
 import {
   AWSClients,
   ConfOpts,
@@ -43,7 +42,7 @@ tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
 const mkdirp = promisify(_mkdirp)
 const pfs = promisify(fs)
-const { prettify, isValidProjectPath, toEnvFile, confirmOrAbort } = utils
+const { prettify, isValidProjectPath, toEnvFile } = utils
 const silentLogger = Object.keys(logger).reduce((silent, method) => {
   silent[method] = () => {}
   return silent
@@ -170,12 +169,6 @@ const createImportDataUtilsMethod = ({
     functionName: functions.importDataUtils,
     arg: { method, data }
   })
-}
-
-const REPO_NAMES = {
-  truefaceSpoof: 'trueface-spoof',
-  rankOne: 'rank-one',
-  nginx: 'tradle-kyc-nginx-proxy',
 }
 
 type AWSConfigOpts = {
@@ -505,6 +498,7 @@ export class Conf {
     const lambda = new AWS.Lambda()
     const ecr = new AWS.ECR()
     const ec2 = new AWS.EC2()
+    const opsworks = new AWS.OpsWorks()
     // const dynamodb = new AWS.DynamoDB()
     // const docClient = new AWS.DynamoDB.DocClient()
     return {
@@ -513,6 +507,7 @@ export class Conf {
       lambda,
       ecr,
       ec2,
+      opsworks,
       // dynamodb,
       // docClient
     }
@@ -855,109 +850,16 @@ export class Conf {
     })
   }
 
-  public enableKYCServices = async ({ truefaceSpoof, rankOne }) => {
+  public enableKYCServices = async (opts) => {
     this._ensureRemote()
-
-    const bucket = await this._getPrivateConfBucket()
-    const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
-    const tfVerb = truefaceSpoof ? 'enable' : 'disable'
-    const roVerb = rankOne ? 'enable' : 'disable'
-
-    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
-    const repoNames = [
-      REPO_NAMES.nginx,
-      truefaceSpoof && REPO_NAMES.truefaceSpoof,
-      rankOne && REPO_NAMES.rankOne,
-    ].filter(_.identity).join(', ')
-
-    await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
-
-    const enableSSH = yn(await confirm('enable SSH into the instances?', false))
-    const parameters = [
-      {
-        ParameterKey: 'S3PathToWriteDiscovery',
-        ParameterValue: discoveryObjPath
-      }
-    ]
-
-    if (truefaceSpoof) {
-      parameters.push({
-        ParameterKey: 'EnableTruefaceSpoof',
-        ParameterValue: 'true'
-      })
-    }
-
-    if (rankOne) {
-      parameters.push({
-        ParameterKey: 'EnableRankOne',
-        ParameterValue: 'true',
-      })
-    }
-
-    if (enableSSH) {
-      const key = await chooseEC2KeyPair(this.client)
-      parameters.push({
-        ParameterKey: 'KeyName',
-        ParameterValue: key
-      })
-    }
-
-    await confirmOrAbort(`are you freaking ready?`)
-
-    const tasks = [
-      // {
-      //   title: 'check access',
-      //   task: async (ctx) => {
-      //     const repoNames = []
-      //     if (rankOne) repoNames.push('roc-face')
-      //     if (truefaceSpoof) repoNames.push('trueface-spoof')
-
-      //     if (!repoNames.length) return
-
-      //     const can = await utils.canAccessECRRepos(this.client, {
-      //       accountId: TRADLE_ACCOUNT_ID,
-      //       repoNames,
-      //     })
-
-      //     if (!can) {
-      //       throw new CustomErrors.InvalidInput(`ask someone from Tradle for access to these repositories: ${repoNames.join(', ')}`)
-      //     }
-      //   }
-      // },
-      {
-        title: 'validate template',
-        task: async (ctx) => {
-          const stackName = utils.getServicesStackName(this.stackName)
-          const stackId = await utils.getStackId(this.client, stackName)
-          const params: AWS.CloudFormation.UpdateStackInput = {
-            StackName: stackId || stackName,
-            Parameters: parameters,
-            TemplateURL: 'https://s3.eu-west-2.amazonaws.com/tradle.io/cf-templates/kyc-in-ecs/main.yml',
-            Capabilities: ['CAPABILITY_NAMED_IAM']
-          }
-
-          let method
-          if (stackId) {
-            method = 'updateStack'
-          } else {
-            method = 'createStack'
-            // @ts-ignore
-            params.DisableRollback = true
-          }
-
-          ctx.wait = await utils[method](this.client, params)
-        },
-      },
-      {
-        title: `create/update KYC services stack`,
-        task: ctx => ctx.wait(),
-      }
-    ]
-
-    await new Listr(tasks).run()
+    await configureKYCServicesStack(this, {
+      ...opts,
+      mycloudStackName: this.stackName,
+      client: this.client,
+    })
   }
 
-  private _getPrivateConfBucket = async () => {
+  public getPrivateConfBucket = async () => {
     this._ensureStackNameKnown()
     const buckets = await utils.listStackBucketIds(this.client, this.stackName)
     return buckets.find(bucket => /tdl-.*?-ltd-.*?-privateconfbucket/.test(bucket))

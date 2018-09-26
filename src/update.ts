@@ -8,7 +8,7 @@ import Errors from '@tradle/errors'
 import { Conf, UpdateOpts, VersionInfo, GetUpdateInfoResp } from './types'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
-import { confirmOrAbort } from './utils'
+import { confirmOrAbort } from './prompts'
 
 const USE_CURRENT_USER_ROLE = true
 const MIN_VERSION = '01.01.0f'

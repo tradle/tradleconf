@@ -20,6 +20,7 @@ export type AWSClients = {
   applicationAutoScaling: AWS.ApplicationAutoScaling
   ecr: AWS.ECR
   ec2: AWS.EC2
+  opsworks: AWS.OpsWorks
   AWS: any
   trace: any
 }

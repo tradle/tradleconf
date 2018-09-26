@@ -6,7 +6,13 @@ import models from '@tradle/models-cloud'
 import Errors from '@tradle/errors'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
-import { isValidProjectPath, doKeyPairsExist, listKeyPairs } from './utils'
+import {
+  isValidProjectPath,
+  doKeyPairsExist,
+  listKeyPairs,
+  listAZs,
+} from './utils'
+
 import { Conf, AWSClients } from './types'
 
 const regions = models['tradle.cloud.AWSRegion'].enum.map(({ id, title }) => ({
@@ -183,6 +189,13 @@ export const confirm = (message: string, defaultValue=true) => {
   .then(({ confirm }) => confirm)
 }
 
+export const confirmOrAbort = async (msg:string) => {
+  const confirmed = await confirm(msg)
+  if (!confirmed) {
+    throw new CustomErrors.UserAborted()
+  }
+}
+
 export const ask = (message: string) => {
   return inquirer.prompt([
     {
@@ -215,13 +228,50 @@ export const chooseEC2KeyPair = async (client: AWSClients) => {
     return getEC2KeyPair(client)
   }
 
+  return choose({
+    message: 'Choose the key pair to set up for SSH access',
+    choices: () => listKeyPairs(client),
+  })
+}
+
+export const choose = async ({ message, choices }) => {
   return inquirer.prompt([
     {
       type: 'list',
-      name: 'key',
-      message: 'Choose the key pair to set up for SSH access',
-      choices: () => listKeyPairs(client)
+      name: 'choice',
+      message,
+      choices: typeof choices === 'function' ? choices : () => choices,
     }
   ])
-  .then(({ key }) => key)
+  .then(({ choice }) => choice)
+}
+
+export const chooseRegion = async (opts?: {
+  message: string
+}) => {
+  const message = opts && opts.message || 'Choose a deployment region'
+  return choose({
+    message,
+    choices: regions,
+  })
+}
+
+export const chooseAZs = async (client: AWSClients, { region, count }: {
+  region: string
+  count: number
+}) => {
+  const azs = await listAZs(client, { region })
+  if (azs.length === count) return azs
+
+  const chosen = []
+  let choice
+  let message
+  while (chosen.length < count) {
+    message = `Choose an availability zone (${(chosen.length + 1)} of ${count})`
+    choice = await choose({ message, choices: azs })
+    azs.splice(azs.indexOf(choice), 1)
+    chosen.push(choice)
+  }
+
+  return chosen
 }

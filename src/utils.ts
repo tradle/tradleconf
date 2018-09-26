@@ -25,6 +25,7 @@ type AWS = {
   lambda: _AWS.Lambda
   ecr: _AWS.ECR
   ec2: _AWS.EC2
+  opsworks: _AWS.OpsWorks
 }
 
 export const get = async (url) => {
@@ -75,13 +76,6 @@ export const isValidProjectPath = project => {
 export const toEnvFile = obj => Object.keys(obj)
   .map(key => `${key}="${obj[key]}"`)
   .join('\n')
-
-export const confirmOrAbort = async (msg:string) => {
-  const confirmed = await confirm(msg)
-  if (!confirmed) {
-    throw new CustomErrors.UserAborted()
-  }
-}
 
 const acceptAll = (item:any) => true
 
@@ -341,4 +335,19 @@ export const doKeyPairsExist = async (aws: AWS, names: string[]) => {
 export const listKeyPairs = async (aws: AWS) => {
   const { KeyPairs } = await aws.ec2.describeKeyPairs().promise()
   return KeyPairs.map(k => k.KeyName)
+}
+
+// export const listRegions = async (aws: AWS) => {
+//   const { Regions } = await aws.ec2.describeRegions().promise()
+//   return Regions.map(r => r.RegionName)
+// }
+
+export const listAZs = async (aws: AWS, { region }) => {
+  const { AvailabilityZones } = await aws.ec2.describeAvailabilityZones().promise()
+  return AvailabilityZones.filter(a => a.RegionName === region)
+}
+
+export const getUsedEIPCount = async (aws: AWS) => {
+  const { ElasticIps } = await aws.opsworks.describeElasticIps().promise()
+  return ElasticIps.length
 }
