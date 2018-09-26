@@ -381,6 +381,10 @@ export class Conf {
     if (error) throw normalizeError(error)
 
     // cli lambda returns { error, result }
+    if (!result) {
+      throw new CustomErrors.ServerError('something went wrong, please wait a minute and try again')
+    }
+
     ;({ error, result } = result)
     if (error) throw normalizeError(error)
 
