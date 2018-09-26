@@ -8,7 +8,7 @@ CLI for managing your Tradle MyCloud instance
 
 - [Prerequisites](#prerequisites)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli--credentials)
+  - [AWS cli & credentials](#aws-cli-&-credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Customize](#customize)
@@ -16,6 +16,7 @@ CLI for managing your Tradle MyCloud instance
   - [Custom Styles](#custom-styles)
   - [Custom Bot Configuration (and plugins)](#custom-bot-configuration-and-plugins)
   - [Custom Terms and Conditions](#custom-terms-and-conditions)
+  - [Custom KYC Services](#custom-kyc-services)
 - [Deploy](#deploy)
   - [To your local development environment](#to-your-local-development-environment)
   - [To the cloud](#to-the-cloud)
@@ -36,7 +37,8 @@ CLI for managing your Tradle MyCloud instance
   - [Onfido](#onfido)
   - [Centrix](#centrix)
   - [Document Checker](#document-checker)
-  - [Trueface](#trueface)
+  - [TrueFace](#trueface)
+  - [RankOne](#rankone)
   - [FacialRecognition](#facialrecognition)
   - [DocumentValidity](#documentvalidity)
   - [Customize message](#customize-message)
@@ -102,6 +104,18 @@ Set your bot's configuration in `./conf/bot.json`. See [./conf/bot.sample.json](
 If you have Terms and Conditions you want your customers to accept prior to interacting with your bot, add them in `./conf/terms-and-conditions.md` (see [./conf/terms-and-conditions.sample.md](./conf/terms-and-conditions.sample.md))
 
 You will also need to add a block in the `plugins` block in `conf/bot.json` to enable/disable the T's and C's. See the [plugin configuration](#terms-&-conditions) below.
+
+#### Custom KYC Services
+
+Several of the services Tradle pre-integrates with need to be enabled explicitly before use, and are launched in a separate AWS cloudformation stack.
+
+To enable them, run:
+
+`tradleconf set-kyc-services --remote --trueface-spoof --rank-one`
+
+This will enable the TrueFace Spoof and RankOne facial comparison services for use with the "trueface" and "rankoneChecks" plugins (see [Plugins](#built-in-plugins) below).
+
+After the command completes (10-15 minutes), you'll be able to configure the respective plugins
 
 ### Deploy
 
@@ -380,6 +394,7 @@ Example config:
 ```
 #### Document Checker
 
+Provider: DocumentChecker
 Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.
 
 Example config:
@@ -395,9 +410,10 @@ Example config:
   }
 }
 ```
-#### Trueface
+#### TrueFace
 
-Purpose: Spoof detection for Selfie using Trueface
+Provider: TrueFace
+Purpose: detect whether a selfie is a spoof
 
 Example config:
 
@@ -416,6 +432,23 @@ Example config:
         "tradle.Selfie"
       ]
     }
+  }
+}
+```
+
+#### RankOne
+
+Provider: RankOne
+Purpose: compare photo id vs selfie photo for similarity
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "rankoneChecks": {
+    // no options at the moment
   }
 }
 ```
