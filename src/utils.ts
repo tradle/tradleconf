@@ -18,6 +18,8 @@ import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
 import { confirm } from './prompts'
 
+const MY_CLOUD_STACK_NAME_REGEX = /^tdl-(.*?)-ltd-([a-zA-Z]+)$/
+
 type AWS = {
   s3: _AWS.S3
   cloudformation: _AWS.CloudFormation
@@ -145,14 +147,36 @@ export const deleteStack = async (aws: AWS, StackName:string) => {
   }
 }
 
-export const createStack = async (aws: AWS, params: AWS.CloudFormation.CreateStackInput) => {
-  await aws.cloudformation.createStack(params).promise()
-  return () => awaitStackCreate(aws, params.StackName)
+export const createStackInRegion = async ({ region, params }: {
+  region: string
+  params: AWS.CloudFormation.CreateStackInput
+}) => {
+  return createStack({
+    cloudformation: new _AWS.CloudFormation({ region })
+  }, params)
 }
 
-export const updateStack = async (aws: AWS, params: AWS.CloudFormation.UpdateStackInput) => {
-  await aws.cloudformation.updateStack(params).promise()
-  return () => awaitStackUpdate(aws, params.StackName)
+export const updateStackInRegion = async ({ region, params }: {
+  region: string
+  params: AWS.CloudFormation.UpdateStackInput
+}) => {
+  return updateStack({
+    cloudformation: new _AWS.CloudFormation({ region })
+  }, params)
+}
+
+export const createStack = async ({ cloudformation }: {
+  cloudformation: _AWS.CloudFormation
+}, params: AWS.CloudFormation.CreateStackInput) => {
+  await cloudformation.createStack(params).promise()
+  return () => awaitStackCreate({ cloudformation }, params.StackName)
+}
+
+export const updateStack = async ({ cloudformation }: {
+  cloudformation: _AWS.CloudFormation
+}, params: AWS.CloudFormation.UpdateStackInput) => {
+  await cloudformation.updateStack(params).promise()
+  return () => awaitStackUpdate({ cloudformation }, params.StackName)
 }
 
 const isUpdateableStatus = (status: AWS.CloudFormation.StackStatus) => {
@@ -177,16 +201,36 @@ export const getStackId = async (aws: AWS, stackName: string) => {
 //   }
 // }
 
-export const awaitStackCreate = async (aws: AWS, StackName:string) => {
-  return await aws.cloudformation.waitFor('stackCreateComplete', { StackName }).promise()
+export const awaitStackCreate = async ({ cloudformation }: {
+  cloudformation: _AWS.CloudFormation
+}, stackName:string) => {
+  return waitFor({ cloudformation, event: 'stackCreateComplete', stackName })
 }
 
-export const awaitStackDelete = async (aws: AWS, StackName:string) => {
-  return await aws.cloudformation.waitFor('stackDeleteComplete', { StackName }).promise()
+export const awaitStackDelete = async ({ cloudformation }: {
+  cloudformation: _AWS.CloudFormation
+}, stackName:string) => {
+  return waitFor({ cloudformation, event: 'stackDeleteComplete', stackName })
 }
 
-export const awaitStackUpdate = async (aws: AWS, StackName:string) => {
-  return await aws.cloudformation.waitFor('stackUpdateComplete', { StackName }).promise()
+export const awaitStackUpdate = async ({ cloudformation }: {
+  cloudformation: _AWS.CloudFormation
+}, stackName:string) => {
+  return waitFor({ cloudformation, event: 'stackUpdateComplete', stackName })
+}
+
+export const waitFor = async ({ cloudformation, stackName, event }: {
+  cloudformation: _AWS.CloudFormation
+  stackName: string
+  event: 'stackCreateComplete' | 'stackUpdateComplete' | 'stackDeleteComplete'
+}) => {
+  try {
+    // @ts-ignore
+    return await cloudformation.waitFor(event, { StackName: stackName }).promise()
+  } catch (err) {
+    const url = getConsoleLinkForStacksInRegion({ region: cloudformation.config.region, status: 'failed' })
+    throw new CustomErrors.ServerError(`operation may have failed. Check your stacks here: ${url}`)
+  }
 }
 
 type FilterStackSummary = (item: AWS.CloudFormation.StackSummary) => boolean
@@ -293,10 +337,20 @@ const shortenString = (str: string, maxLength: number) => {
   return str.slice(0, maxLength - 6) + sha256(str).slice(0, 6)
 }
 
+const parseMyCloudStackName = (name: string) => {
+  const [shortName, stage] = name.match(MY_CLOUD_STACK_NAME_REGEX).slice(1)
+  return {
+    shortName,
+    stage,
+  }
+}
+
+export const isMyCloudStackName = (name: string) => MY_CLOUD_STACK_NAME_REGEX.test(name)
+
 export const getServicesStackName = (stackName: string) => {
-  const name = stackName.match(/^tdl-(.*?)-ltd-[a-zA-Z]+$/)[1]
-  const shortName = shortenString(name, 14)
-  return `${shortName}-srvcs` // max length 20 chars
+  const { shortName } = parseMyCloudStackName(stackName)
+  const shorterName = shortenString(shortName, 14)
+  return `${shorterName}-srvcs` // max length 20 chars
 }
 
 export const canAccessECRRepos = async (aws: AWS, { accountId, repoNames }: {
@@ -342,12 +396,27 @@ export const listKeyPairs = async (aws: AWS) => {
 //   return Regions.map(r => r.RegionName)
 // }
 
-export const listAZs = async (aws: AWS, { region }) => {
-  const { AvailabilityZones } = await aws.ec2.describeAvailabilityZones().promise()
-  return AvailabilityZones.filter(a => a.RegionName === region)
+export const listAZs = async ({ region }) => {
+  const ec2 = new _AWS.EC2({ region })
+  const { AvailabilityZones } = await ec2.describeAvailabilityZones({
+    Filters: [
+      {
+        Name: 'region-name',
+        Values: [region]
+      }
+    ]
+  }).promise()
+
+  return AvailabilityZones
+    .filter(a => a.RegionName === region)
+    .map(a => a.ZoneName)
 }
 
 export const getUsedEIPCount = async (aws: AWS) => {
-  const { ElasticIps } = await aws.opsworks.describeElasticIps().promise()
-  return ElasticIps.length
+  const { Addresses } = await aws.ec2.describeAddresses().promise()
+  return Addresses.length
+}
+
+export const getConsoleLinkForStacksInRegion = ({ region, status='active' }) => {
+  return `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks?filter=${status}`
 }

@@ -227,7 +227,7 @@ export class Conf {
       },
       get () {
         if (!client) {
-          client = this._getAWSClient()
+          client = this.createAWSClient()
         }
 
         return client
@@ -481,7 +481,7 @@ export class Conf {
     // if (!yn(willLoad)) return
   }
 
-  private _getAWSClient = (opts:AWSConfigOpts={}) => {
+  public createAWSClient = (opts:AWSConfigOpts={}) => {
     const {
       profile=this.profile || process.env.awsProfile,
       region=this.region
@@ -512,25 +512,26 @@ export class Conf {
       ecr,
       ec2,
       opsworks,
+      region: AWS.config.region,
       // dynamodb,
       // docClient
     }
   }
 
   public getStacks = async (opts={}) => {
-    const client = this._getAWSClient(opts)
+    const client = this.createAWSClient(opts)
     return await utils.listStacks(client)
   }
 
   public waitForStackUpdate = async (opts?:WaitStackOpts) => {
     const { stackName=this.stackName } = opts || {}
-    const client = this._getAWSClient()
+    const client = this.createAWSClient()
     await utils.awaitStackUpdate(client, stackName)
   }
 
   public waitForStackDelete = async (opts?:WaitStackOpts) => {
     const { stackName=this.stackName } = opts || {}
-    const client = this._getAWSClient()
+    const client = this.createAWSClient()
     await utils.awaitStackDelete(this.client, stackName)
   }
 
@@ -856,9 +857,11 @@ export class Conf {
 
   public enableKYCServices = async (opts) => {
     this._ensureRemote()
+    this._ensureRegionKnown()
     await configureKYCServicesStack(this, {
       ...opts,
       mycloudStackName: this.stackName,
+      mycloudRegion: this.region,
       client: this.client,
     })
   }
@@ -872,6 +875,12 @@ export class Conf {
   private _ensureStackNameKnown = () => {
     if (this.remote && !this.stackName) {
       throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory?`)
+    }
+  }
+
+  private _ensureRegionKnown = () => {
+    if (this.remote && !this.region) {
+      throw new CustomErrors.InvalidInput(`please re-run 'tradelconf init', your .env file is outdated`)
     }
   }
 

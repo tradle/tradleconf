@@ -18,12 +18,14 @@ import {
 } from './constants'
 
 const AZS_COUNT = 3
+const EIP_LIMIT = 5
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName }: {
+export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: {
   truefaceSpoof: boolean
   rankOne: boolean
   client: AWSClients
   mycloudStackName: string
+  mycloudRegion: string
 }) => {
   const servicesStackName = utils.getServicesStackName(mycloudStackName)
   const servicesStackId = await utils.getStackId(client, servicesStackName)
@@ -40,10 +42,24 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
   ].filter(nonNull).join(', ')
 
   await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
+  const region = mycloudRegion
   const azsCount = AZS_COUNT
-  const { region, availabilityZones } = exists
-    ? await getServicesStackInfo(client, { stackId: servicesStackId })
-    : await chooseRegionAndAZs(client, { count: azsCount })
+  const availabilityZones = exists
+    ? (await getServicesStackInfo(client, { stackId: servicesStackId })).availabilityZones
+    : await chooseAZs(client, { region, count: azsCount })
+
+  const usedEIPCount = await utils.getUsedEIPCount(client)
+  if (EIP_LIMIT - usedEIPCount < azsCount) {
+    await confirmOrAbort(`WARNING: your account has ${usedEIPCount} Elastic IPs in use in region ${region}.
+This stack will create ${azsCount} more. AWS's base limit is 5 per region, so this stack may fail.
+You can request a limit increase from AWS here: https://console.aws.amazon.com/support/v1#/case/create?issueType=service-limit-increase&limitType=service-code-vpc
+Continue?`)
+  }
+
+  // change regions
+  // if (region !== mycloudRegion) {
+  //   client = conf.createAWSClient({ region })
+  // }
 
   const enableSSH = yn(await confirm('enable SSH into the instances?', false))
   const parameters = availabilityZones.map((az, i) => ({
@@ -92,14 +108,14 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
 
         let method
         if (exists) {
-          method = 'updateStack'
+          method = 'updateStackInRegion'
         } else {
-          method = 'createStack'
+          method = 'createStackInRegion'
           // @ts-ignore
           params.DisableRollback = true
         }
 
-        ctx.wait = await utils[method](client, params)
+        ctx.wait = await utils[method]({ params, region })
       },
     },
     {
@@ -129,16 +145,28 @@ const getServicesStackInfo = async (client: AWSClients, { stackId }: {
 
 const getOutput = (Outputs: AWS.CloudFormation.Output[], key: string) => Outputs.find(o => o.OutputKey === key).OutputValue
 
-const chooseRegionAndAZs = async (client: AWSClients, { count }) => {
-  const usedEIPCount = await utils.getUsedEIPCount(client)
-  if (usedEIPCount > 2) {
-    await confirmOrAbort(`your account has ${usedEIPCount} elastic ips in use. This stack will create ${count} more. Keep in mind that AWS's base limit is 5 per account. You can easily get them to relax that limit, but if you haven't yet, there's a chance this stack will fail.`)
-  }
+// const chooseRegionAndAZs = async (client: AWSClients, { count, defaultRegion }: {
+//   count: number
+//   defaultRegion: string
+// }) => {
+//   let region
+//   if (defaultRegion) {
+//     const useSameRegion = await confirm('deploy in the same region as MyCloud?')
+//     if (useSameRegion) region = defaultRegion
+//   }
 
-  const region = await chooseRegion()
-  const availabilityZones = await chooseAZs(client, { region, count })
-  return {
-    region,
-    availabilityZones,
-  }
-}
+//   if (!region) {
+//     region = await chooseRegion({ default: defaultRegion })
+//   }
+
+//   // const usedEIPCount = await utils.getUsedEIPCount(client)
+//   // if (usedEIPCount > 2) {
+//   //   await confirmOrAbort(`your account has ${usedEIPCount} elastic ips in use. This stack will create ${count} more. Keep in mind that AWS's base limit is 5 per account. You can easily get them to relax that limit, but if you haven't yet, there's a chance this stack will fail.`)
+//   // }
+
+//   const availabilityZones = await chooseAZs(client, { region, count })
+//   return {
+//     region,
+//     availabilityZones,
+//   }
+// }

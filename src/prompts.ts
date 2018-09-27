@@ -11,6 +11,7 @@ import {
   doKeyPairsExist,
   listKeyPairs,
   listAZs,
+  isMyCloudStackName,
 } from './utils'
 
 import { Conf, AWSClients } from './types'
@@ -133,10 +134,12 @@ export const init = async (conf: Conf) => {
           throw new Error('no stacks found')
         }
 
-        return stackInfos.map(({ name, id }) => ({
-          name,
-          value: { name, id }
-        }))
+        return stackInfos
+          .filter(({ name }) => isMyCloudStackName(name))
+          .map(({ name, id }) => ({
+            name,
+            value: { name, id }
+          }))
       }
     },
   ]
@@ -215,7 +218,7 @@ const getEC2KeyPair = async (client: AWSClients) => {
     key = await ask(message)
     if (!(await doKeyPairsExist(client, [key]))) {
       key = null
-      message = `Key pair not found. ${originalMessage}`
+      message = `Key pair not found in region ${client.region}. ${originalMessage}`
     }
   }
 
@@ -234,25 +237,32 @@ export const chooseEC2KeyPair = async (client: AWSClients) => {
   })
 }
 
-export const choose = async ({ message, choices }) => {
+export const choose = async ({ message, choices, defaultValue }: {
+  message: string
+  choices: Function|any[]
+  defaultValue?: string
+}) => {
   return inquirer.prompt([
     {
       type: 'list',
       name: 'choice',
       message,
       choices: typeof choices === 'function' ? choices : () => choices,
+      default: defaultValue,
     }
   ])
   .then(({ choice }) => choice)
 }
 
 export const chooseRegion = async (opts?: {
-  message: string
+  default?: string
+  message?: string
 }) => {
   const message = opts && opts.message || 'Choose a deployment region'
   return choose({
     message,
     choices: regions,
+    defaultValue: opts && opts.default,
   })
 }
 
@@ -260,7 +270,7 @@ export const chooseAZs = async (client: AWSClients, { region, count }: {
   region: string
   count: number
 }) => {
-  const azs = await listAZs(client, { region })
+  const azs = await listAZs({ region })
   if (azs.length === count) return azs
 
   const chosen = []

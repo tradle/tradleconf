@@ -4,25 +4,26 @@ export { Conf }
 
 export type AWSClients = {
   s3: AWS.S3
-  dynamodb: AWS.DynamoDB
-  iot: AWS.Iot
-  iotData: AWS.IotData
-  sts: AWS.STS
-  sns: AWS.SNS
-  ses: AWS.SES
-  kms: AWS.KMS
-  docClient: AWS.DynamoDB.DocumentClient
+  // dynamodb: AWS.DynamoDB
+  // iot: AWS.Iot
+  // iotData: AWS.IotData
+  // sts: AWS.STS
+  // sns: AWS.SNS
+  // ses: AWS.SES
+  // kms: AWS.KMS
+  // docClient: AWS.DynamoDB.DocumentClient
   lambda: AWS.Lambda
   cloudformation: AWS.CloudFormation
-  xray: AWS.XRay
-  apigateway: AWS.APIGateway
+  // xray: AWS.XRay
+  // apigateway: AWS.APIGateway
   // autoscaling: AWS.AutoScaling
-  applicationAutoScaling: AWS.ApplicationAutoScaling
+  // applicationAutoScaling: AWS.ApplicationAutoScaling
   ecr: AWS.ECR
   ec2: AWS.EC2
   opsworks: AWS.OpsWorks
-  AWS: any
-  trace: any
+  // AWS: any
+  // trace: any
+  region: string
 }
 
 export type NodeFlags = {
