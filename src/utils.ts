@@ -124,6 +124,29 @@ export const destroyBucket = async (aws: AWS, Bucket: string) => {
   }
 }
 
+export const markBucketForDeletion = async (aws: AWS, Bucket: string) => {
+  const params: AWS.S3.PutBucketLifecycleConfigurationRequest = {
+    Bucket,
+    LifecycleConfiguration: {
+      Rules: [
+        {
+          Status: 'Enabled',
+          ID: 'expires-in-1-day',
+          Prefix: '',
+          Expiration: {
+            Days: 1,
+          },
+          NoncurrentVersionExpiration: {
+            NoncurrentDays: 1
+          }
+        }
+      ]
+    }
+  }
+
+  await aws.s3.putBucketLifecycleConfiguration(params).promise()
+}
+
 export const disableStackTerminationProtection = async (aws: AWS, StackName:string) => {
   return await aws.cloudformation.updateTerminationProtection({
     StackName,
@@ -131,11 +154,11 @@ export const disableStackTerminationProtection = async (aws: AWS, StackName:stri
   }).promise()
 }
 
-export const deleteStack = async (aws: AWS, StackName:string) => {
+export const deleteStack = async (aws: AWS, params:AWS.CloudFormation.DeleteStackInput) => {
   while (true) {
     try {
-      await aws.cloudformation.deleteStack({ StackName }).promise()
-      return () => awaitStackDelete(aws, StackName)
+      await aws.cloudformation.deleteStack(params).promise()
+      return () => awaitStackDelete(aws, params.StackName)
     } catch (err) {
       if (!err.message.includes('UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS')) {
         throw err

@@ -36,7 +36,7 @@ import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
 import { logger, colors } from './logger'
-import { TRADLE_ACCOUNT_ID } from './constants'
+import { TRADLE_ACCOUNT_ID, BIG_BUCKETS } from './constants'
 
 tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
@@ -584,10 +584,13 @@ export class Conf {
     const { stackName } = this
     await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
     await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`)
-    const buckets = await utils.listStackBucketIds(this.client, stackName)
+    let buckets = await utils.listStackBucketIds(this.client, stackName)
     buckets.forEach(id => logger.info(id))
     await confirmOrAbort('Delete these buckets?')
-    for (const id of buckets) {
+
+    const [big, small] = _.partition(buckets, id => BIG_BUCKETS.find(logical => id.includes(logical.toLowerCase())))
+
+    for (const id of small) {
       logger.info(`emptying and deleting: ${id}`)
       await utils.destroyBucket(this.client, id)
     }
@@ -603,12 +606,21 @@ export class Conf {
       {
         title: 'deleting stack',
         task: async (ctx) => {
-          await utils.deleteStack(this.client, stackName)
+          await utils.deleteStack(this.client, { StackName: stackName })
           await utils.wait(5000)
-          await this.waitForStackDelete()
+          try {
+            await this.waitForStackDelete()
+          } catch (err) {
+            await utils.deleteStack(this.client, { StackName: stackName, RetainResources: BIG_BUCKETS })
+          }
         }
       },
     ]).run()
+
+    await Promise.all(big.map(id => utils.markBucketForDeletion(this.client, id)))
+
+    logger.info(`The following buckets are too large to delete directly: ${big.join(', ')}.
+Instead, I've marked them for deletion by S3. They should be gone within a day or so`)
   }
 
   public getApiBaseUrl = async () => {

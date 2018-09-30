@@ -5,3 +5,5 @@ export const REPO_NAMES = {
   rankOne: 'rank-one',
   nginx: 'tradle-kyc-nginx-proxy',
 }
+
+export const BIG_BUCKETS = ['LogsBucket', 'ObjectsBucket']
