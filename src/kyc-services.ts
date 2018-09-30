@@ -119,7 +119,7 @@ Continue?`)
       },
     },
     {
-      title: `create/update KYC services stack`,
+      title: `create/update KYC services stack (this will take ~20 minutes)`,
       task: ctx => ctx.wait(),
     }
   ]
