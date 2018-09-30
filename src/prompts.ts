@@ -210,30 +210,25 @@ export const ask = (message: string) => {
   .then(({ answer }) => answer)
 }
 
-const getEC2KeyPair = async (client: AWSClients) => {
-  let key
-  const originalMessage = 'What is the name of the EC2 key pair you configured in AWS?'
-  let message = originalMessage
-  while (!key) {
-    key = await ask(message)
-    if (!(await doKeyPairsExist(client, [key]))) {
-      key = null
-      message = `Key pair not found in region ${client.region}. ${originalMessage}`
-    }
-  }
-
-  return key
-}
-
 export const chooseEC2KeyPair = async (client: AWSClients) => {
   const know = await confirm('Do you know the name of the EC2 key pair you want to use?')
   if (know) {
-    return getEC2KeyPair(client)
+    const key = await ask('What is the name of the EC2 key pair you configured in AWS?')
+    const exists = await doKeyPairsExist(client, [key])
+    if (exists) return key
+
+    logger.warn(`Key pair not found in region ${client.region}`)
+    return chooseEC2KeyPair(client)
+  }
+
+  const keyPairs = await listKeyPairs(client)
+  if (!keyPairs.length) {
+    throw new CustomErrors.InvalidInput(`No key pairs found in region: ${client.region}`)
   }
 
   return choose({
     message: 'Choose the key pair to set up for SSH access',
-    choices: () => listKeyPairs(client),
+    choices: keyPairs,
   })
 }
 
