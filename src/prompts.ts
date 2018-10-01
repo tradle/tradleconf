@@ -44,32 +44,22 @@ const getProfiles = () => {
 type PromptList = any[]
 
 export const init = async (conf: Conf) => {
-  const defaultWhen = answers => answers.overwriteEnv !== false
-  const chooseFlow:PromptList = [
-    {
-      type: 'confirm',
-      name: 'overwriteEnv',
-      message: 'This will overwrite your .env file',
-      when: () => fs.existsSync('./.env')
-    },
-    {
-      type: 'confirm',
-      name: 'haveRemote',
-      message: 'Have you already deployed your MyCloud to AWS?'
-    }
-  ]
+  if (fs.existsSync('./.env')) {
+    await confirmOrAbort('This will overwrite your .env file')
+  }
 
+  const haveRemote = await confirm('Have you already deployed your MyCloud to AWS?')
   const getLocal:PromptList = [
     {
       type: 'confirm',
       name: 'haveLocal',
-      message: 'Do you have a local development environment? (a clone of https://github.com/tradle/serverless)'
+      message: 'Do you have a local development environment? (a clone of https://github.com/tradle/serverless)',
     },
     {
       type: 'input',
       name: 'projectPath',
       message: 'Enter the path to your local development environment (a clone of https://github.com/tradle/serverless)',
-      when: answers => defaultWhen(answers) && answers.haveLocal,
+      when: answers => answers.haveLocal,
       validate: local => {
         if (!isValidProjectPath(local)) {
           return 'Provided path doesn\'t contain a serverless.yml, please try again'
@@ -80,10 +70,9 @@ export const init = async (conf: Conf) => {
     }
   ]
 
-  const flow = await inquirer.prompt(chooseFlow)
-  if (!flow.haveRemote) {
+  if (!haveRemote) {
     return {
-      ...flow,
+      haveRemote,
       ...(await inquirer.prompt(getLocal))
     }
   }
@@ -99,7 +88,6 @@ export const init = async (conf: Conf) => {
       type: 'list',
       name: 'awsProfile',
       message: 'Select your aws profile',
-      when: defaultWhen,
       choices: getProfiles()
         .map(profile => ({
           name: profile,
@@ -123,7 +111,6 @@ export const init = async (conf: Conf) => {
       type: 'list',
       name: 'stack',
       message: 'Which Tradle stack will you be configuring?',
-      when: defaultWhen,
       choices: async ({ region, awsProfile }) => {
         const stackInfos = await conf.getStacks({
           profile: awsProfile,
@@ -151,7 +138,7 @@ export const init = async (conf: Conf) => {
   } as any)
 
   return {
-    ...flow,
+    haveRemote,
     ...(await inquirer.prompt(getRemoteAndLocal))
   }
 }
