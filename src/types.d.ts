@@ -80,3 +80,8 @@ export interface ApplyUpdateOpts {
   templateUrl: string
   notificationTopics?: string[]
 }
+
+export interface Choice {
+  name: string
+  value: string
+}

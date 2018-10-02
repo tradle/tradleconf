@@ -110,7 +110,8 @@ ${previousTags.join('\n')}`)
     }
 
     const result = await inquirer.prompt([{
-      type: 'list',
+      type: 'rawlist',
+      pageSize: Infinity,
       name: 'tag',
       message,
       choices: choices.map(({ tag }) => ({

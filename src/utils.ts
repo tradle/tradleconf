@@ -443,3 +443,22 @@ export const getUsedEIPCount = async (aws: AWS) => {
 export const getConsoleLinkForStacksInRegion = ({ region, status='active' }) => {
   return `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks?filter=${status}`
 }
+
+export const updateEnvironments = async (aws: AWS, { functions, transform }: {
+  functions: string[]
+  transform: ({ name: string, env: any }) => any
+}) => {
+  const confs = await Promise.all(functions.map(FunctionName => aws.lambda.getFunctionConfiguration({ FunctionName }).promise()))
+  await Promise.all(functions.map(async (FunctionName, i) => {
+    const conf = confs[i]
+    const Variables = transform({
+      name: FunctionName,
+      env: conf.Environment.Variables
+    })
+
+    await aws.lambda.updateFunctionConfiguration({
+      FunctionName,
+      Environment: { Variables }
+    }).promise()
+  }))
+}

@@ -675,8 +675,12 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
   public getFunctions = async () => {
     this._ensureStackNameKnown()
     const { client, stackName } = this
-    const functions = await utils.listStackFunctionIds(client, stackName)
-    return functions.map(f => f.slice(stackName.length + 1))
+    return await utils.listStackFunctionIds(client, stackName)
+  }
+
+  public getFunctionShortNames = async () => {
+    const functions = await this.getFunctions()
+    return functions.map(f => f.slice(this.stackName.length + 1))
   }
 
   public tail = async (opts:any={}) => {
@@ -882,6 +886,33 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
     this._ensureStackNameKnown()
     const buckets = await utils.listStackBucketIds(this.client, this.stackName)
     return buckets.find(bucket => /tdl-.*?-ltd-.*?-privateconfbucket/.test(bucket))
+  }
+
+  public reboot = async () => {
+    this._ensureRemote()
+    const functions = await this.getFunctions()
+    logger.info(`rebooting functions:\n${functions.join('\n')}`)
+
+    const DATE_UPDATED = String(Date.now())
+    await utils.updateEnvironments(this.client, {
+      functions,
+      transform: ({ name, env }) => ({
+        ...env,
+        DATE_UPDATED,
+      })
+    })
+
+    logger.info('warming up rebooted functions')
+    await this.warmup()
+  }
+
+  public warmup = async () => {
+    this._ensureRemote()
+    return await this.invokeAndReturn({
+      functionName: 'genericJobRunner',
+      arg: { name: 'warmup' },
+      noWarning: true
+    })
   }
 
   private _ensureStackNameKnown = () => {

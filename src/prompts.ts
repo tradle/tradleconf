@@ -14,7 +14,7 @@ import {
   isMyCloudStackName,
 } from './utils'
 
-import { Conf, AWSClients } from './types'
+import { Conf, AWSClients, Choice } from './types'
 
 const regions = models['tradle.cloud.AWSRegion'].enum.map(({ id, title }) => ({
   name: title,
@@ -161,7 +161,7 @@ export const fn = (conf: Conf, message: string) => {
       type: 'list',
       name: 'fn',
       message,
-      choices: conf.getFunctions
+      choices: conf.getFunctionShortNames
     }
   ])
   .then(({ fn }) => fn)
@@ -248,6 +248,30 @@ export const chooseRegion = async (opts?: {
   })
 }
 
+export const chooseMultiple = async({ min, max, choices, message }: {
+  min: number
+  max: number
+  choices: Choice[]
+  message: string
+}) => {
+  return inquirer.prompt([
+    {
+      type: 'checkbox',
+      choices,
+      name: 'answer',
+      message,
+      validate: (choices) => {
+        if (choices.length < min || choices.length > max) {
+          throw new Error(message)
+        }
+
+        return true
+      }
+    }
+  ])
+  .then(({ answer }) => answer)
+}
+
 export const chooseAZs = async (client: AWSClients, { region, count }: {
   region: string
   count: number
@@ -255,15 +279,10 @@ export const chooseAZs = async (client: AWSClients, { region, count }: {
   const azs = await listAZs({ region })
   if (azs.length === count) return azs
 
-  const chosen = []
-  let choice
-  let message
-  while (chosen.length < count) {
-    message = `Choose an availability zone (${(chosen.length + 1)} of ${count})`
-    choice = await choose({ message, choices: azs })
-    azs.splice(azs.indexOf(choice), 1)
-    chosen.push(choice)
-  }
-
-  return chosen
+  return chooseMultiple({
+    min: count,
+    max: count,
+    message: `Choose ${count} availability zones`,
+    choices: azs.map(name => ({ name, value: name })),
+  })
 }

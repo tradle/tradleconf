@@ -392,6 +392,13 @@ const enableKYCServices = program
   .allowUnknownOption(false)
   .action(createAction('enableKYCServices'))
 
+const reboot = program
+  .command('reboot')
+  .description(`reboot your MyCloud functions, in case they are misbehaving.
+This creates ~20-30 seconds of downtime but doesn't affect any data.`)
+  .allowUnknownOption(false)
+  .action(createAction('reboot'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')
