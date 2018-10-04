@@ -221,14 +221,14 @@ const createDataClaimCommand = program
   .command('create-data-claim')
   .description(`create a claim stub for a data bundle`)
   .option('-k, --key <key>', DESC.key)
-  .option('-c, --claimType <claimType>', '"prefill" or "bulk"')
+  .option('-c, --claim-type <claimType>', '"prefill" or "bulk"')
   .allowUnknownOption(false)
   .action(createAction('createDataClaim'))
 
 const getDataBundleCommand = program
   .command('get-data-bundle')
   .description(`get a data bundle by its claimId and key`)
-  .option('-c, --claimId <claimId>', 'claim id returned by create-data-claim command')
+  .option('-c, --claim-id <claimId>', 'claim id returned by create-data-claim command')
   .option('-k, --key <key>', DESC.key)
   .allowUnknownOption(false)
   .action(createAction('getDataBundle'))

@@ -152,10 +152,12 @@ read.lenses = () => readDirOfJSONs(paths.lenses)
 read.terms = () => maybeRead(paths.terms)
 
 const createImportDataUtilsMethod = ({
+  conf,
   method,
   props=[],
   required
 }: {
+  conf: Conf
   method: string
   props: string[]
   required?: string[]
@@ -165,7 +167,7 @@ const createImportDataUtilsMethod = ({
     if (!(prop in data)) throw new CustomErrors.InvalidInput(`expected "${prop}"`)
   })
 
-  return await this.invokeAndReturn({
+  return await conf.invokeAndReturn({
     functionName: functions.importDataUtils,
     arg: { method, data }
   })
@@ -553,16 +555,19 @@ export class Conf {
   }
 
   public createDataClaim = createImportDataUtilsMethod({
+    conf: this,
     method: 'createclaim',
     props: ['key', 'claimType']
   })
 
   public listDataClaims = createImportDataUtilsMethod({
+    conf: this,
     method: 'listclaims',
     props: ['key']
   })
 
   public getDataBundle = createImportDataUtilsMethod({
+    conf: this,
     method: 'getbundle',
     props: ['key', 'claimId'],
     required: []
