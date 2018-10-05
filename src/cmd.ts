@@ -77,11 +77,6 @@ const normalizeOpts = (...args) => {
   }
 
   const { local, remote } = programOpts
-  if (command.name() !== 'validate') {
-    const envType = local ? 'local' : 'remote'
-    logger.debug(`targeting ${envType} environment`)
-  }
-
   const commandOpts = _.pick(command, command.options.map(o => o.attributeName()))
   commandOpts.args = args
   return {

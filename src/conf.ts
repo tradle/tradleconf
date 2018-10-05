@@ -178,6 +178,30 @@ type AWSConfigOpts = {
   profile?: string
 }
 
+const isLocal = ({ local, remote, project }: ConfOpts) => {
+  if (local && remote) {
+    throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
+  }
+
+  if (local) {
+    if (!project) {
+      throw new CustomErrors.InvalidInput('expected "project", the path to your local serverless project')
+    }
+
+    if (!isValidProjectPath(project)) {
+      throw new CustomErrors.InvalidInput('expected "project" to point to serverless project dir')
+    }
+
+    return true
+  }
+
+  if (typeof remote === 'boolean') {
+    return !remote
+  }
+
+  return !!project
+}
+
 export class Conf {
   private client: AWSClients
   private region: string
@@ -191,21 +215,9 @@ export class Conf {
   private nodeFlags?: NodeFlags
 
   constructor (opts: ConfOpts) {
-    const { region, profile, namespace, stackId, stackName, local, remote, project, nodeFlags={} } = opts
-
-    if (local && remote) {
-      throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
-    }
-
-    if (local) {
-      if (!project) {
-        throw new CustomErrors.InvalidInput('expected "project", the path to your local serverless project')
-      }
-
-      if (!isValidProjectPath(project)) {
-        throw new CustomErrors.InvalidInput('expected "project" to point to serverless project dir')
-      }
-    }
+    const { region, profile, namespace, stackId, stackName, project, nodeFlags={} } = opts
+    const local = isLocal(opts)
+    const remote = !local
 
     utils.normalizeNodeFlags(nodeFlags)
     if (remote && !_.isEmpty(nodeFlags)) {
@@ -219,8 +231,9 @@ export class Conf {
     this.stackName = stackName
     this.stackId = stackId
     this.local = local
-    this.remote = remote || !project
     this.project = project
+    this.local = local
+    this.remote = remote
 
     let client
     Object.defineProperty(this, 'client', {
@@ -235,6 +248,9 @@ export class Conf {
         return client
       }
     })
+
+    const target = remote ? 'remote' : 'local'
+    logger.info(`targeting ${target} environment`)
   }
 
   public deploy = async (opts) => {
