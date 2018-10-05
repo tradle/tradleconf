@@ -1,5 +1,5 @@
-import _ = require('lodash')
-import chalk = require('chalk')
+import forEach from 'lodash/forEach'
+import chalk from 'ansi-colors'
 
 let level = 4
 const levels = {
@@ -46,7 +46,7 @@ export const setLevel = value => {
   level = value
 }
 
-_.forEach(methodColors, (color, loggerMethod) => {
+forEach(methodColors, (color, loggerMethod) => {
   logger[loggerMethod] = (...args) => {
     if (level >= levels[loggerMethod]) {
       console.log(chalk[color](...args))
@@ -55,3 +55,16 @@ _.forEach(methodColors, (color, loggerMethod) => {
 
   colors[loggerMethod] = (...args) => chalk[color](...args)
 })
+
+// for choosing
+export const printColors = () => {
+  Object.getOwnPropertyNames(chalk)
+    .filter(key => typeof chalk[key] === 'function')
+    .map(color => {
+      try {
+        return chalk[color](color)
+      } catch (err) {}
+    })
+    .filter(val => typeof val === 'string')
+    .forEach(str => console.log(str))
+}
