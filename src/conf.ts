@@ -178,30 +178,6 @@ type AWSConfigOpts = {
   profile?: string
 }
 
-const isLocal = ({ local, remote, project }: ConfOpts) => {
-  if (local && remote) {
-    throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
-  }
-
-  if (local) {
-    if (!project) {
-      throw new CustomErrors.InvalidInput('expected "project", the path to your local serverless project')
-    }
-
-    if (!isValidProjectPath(project)) {
-      throw new CustomErrors.InvalidInput('expected "project" to point to serverless project dir')
-    }
-
-    return true
-  }
-
-  if (typeof remote === 'boolean') {
-    return !remote
-  }
-
-  return !!project
-}
-
 export class Conf {
   private client: AWSClients
   private region: string
@@ -209,20 +185,23 @@ export class Conf {
   private stackName: string
   private stackId: string
   private namespace: string
-  private local?: boolean
-  private remote?: boolean
+  private local: boolean
+  private remote: boolean
   private project?: string
   private nodeFlags?: NodeFlags
 
   constructor (opts: ConfOpts) {
-    const { region, profile, namespace, stackId, stackName, project, nodeFlags={} } = opts
-    const local = isLocal(opts)
-    const remote = !local
+    const { remote, region, profile, namespace, stackId, stackName, project, nodeFlags={} } = opts
 
-    utils.normalizeNodeFlags(nodeFlags)
+    if (typeof remote !== 'boolean') {
+      throw new CustomErrors.InvalidInput(`expected boolean "remote"`)
+    }
+
     if (remote && !_.isEmpty(nodeFlags)) {
       throw new CustomErrors.InvalidInput('node debugging flags are only supported for local operations')
     }
+
+    utils.normalizeNodeFlags(nodeFlags)
 
     this.nodeFlags = nodeFlags
     this.region = region
@@ -230,10 +209,9 @@ export class Conf {
     this.profile = profile
     this.stackName = stackName
     this.stackId = stackId
-    this.local = local
     this.project = project
-    this.local = local
     this.remote = remote
+    this.local = !remote
 
     let client
     Object.defineProperty(this, 'client', {
@@ -248,14 +226,11 @@ export class Conf {
         return client
       }
     })
-
-    const target = remote ? 'remote' : 'local'
-    logger.info(`targeting ${target} environment`)
   }
 
   public deploy = async (opts) => {
     const items = this.getDeployItems(opts)
-    logger.info('deploying: ', getDeployablesKeys(items).join(', '))
+    logger.info(`deploying: ${getDeployablesKeys(items).join(', ')}`)
     if (opts.dryRun) return logger.info('dry run, not executing')
 
     const { error, result } = await this.invoke({
@@ -269,12 +244,12 @@ export class Conf {
   }
 
   public invoke = async (opts) => {
-    let { functionName, arg, local=this.local } = opts
+    let { functionName, arg, remote } = opts
     if (!functionName) functionName = await promptFn(this, 'which function?')
 
     let result
     try {
-      const promise = local ? this._invokeLocal(opts) : this._invoke(opts)
+      const promise = remote ? this._invoke(opts) : this._invokeLocal(opts)
       result = await promise
     } catch (error) {
       return { error }
@@ -324,7 +299,7 @@ export class Conf {
   public load = async (opts:any={}) => {
     const opLogger = opts.logger || logger
     opts = normalizeDeployOpts(opts, 'load')
-    opLogger.info('loading: ', getDeployablesKeys(opts).join(', '))
+    opLogger.info(`loading: ${getDeployablesKeys(opts).join(', ')}\n`)
     if (opts.dryRun) return opLogger.info('dry run, not executing')
 
     const result = await this.exec({
@@ -589,13 +564,9 @@ export class Conf {
     required: []
   })
 
-  private _ensureRemote = (strict=true) => {
-    if (this.local) {
+  private _ensureRemote = () => {
+    if (!this.remote) {
       throw new CustomErrors.InvalidInput('not supported for local dev env')
-    }
-
-    if (strict && !this.remote) {
-      throw new CustomErrors.InvalidInput(`please specify -r, --remote or -l, --local to indicate whether you're targeting your remote or local deployment`)
     }
   }
 
@@ -710,7 +681,7 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
 
   public log = async (opts:any={}) => {
     this._ensureStackNameKnown()
-    this._ensureRemote(false)
+    this._ensureRemote()
 
     utils.checkCommandInPath('awslogs')
 
@@ -817,7 +788,7 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
   public requestUpdate = async ({ tag, provider }) => {
     if (!tag) throw new CustomErrors.InvalidInput('expected string "tag"')
 
-    this._ensureRemote(false)
+    this._ensureRemote()
     let command = `getupdate --tag "${tag}"`
     if (provider) command = `${command} --provider ${provider}`
 
@@ -828,7 +799,7 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
   }
 
   public getUpdateInfo = async ({ tag }):Promise<GetUpdateInfoResp> => {
-    this._ensureRemote(false)
+    this._ensureRemote()
     const result = await this.exec({
       args: [`getupdateinfo --tag "${tag}"`],
       noWarning: true
@@ -842,7 +813,7 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
   }
 
   public update = async (opts: UpdateOpts) => {
-    this._ensureRemote(false)
+    this._ensureRemote()
     this._ensureStackNameKnown()
 
     await update(this, {
@@ -857,7 +828,7 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
   }
 
   public rollback = async (opts: UpdateOpts) => {
-    this._ensureRemote(false)
+    this._ensureRemote()
     this._ensureStackNameKnown()
 
     await update(this, {
@@ -868,7 +839,7 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
   }
 
   public applyUpdateAsCurrentUser = async (update: ApplyUpdateOpts) => {
-    this._ensureRemote(false)
+    this._ensureRemote()
     this._ensureStackNameKnown()
     const { templateUrl, notificationTopics } = update
     const params:AWS.CloudFormation.UpdateStackInput = {

@@ -15,20 +15,26 @@ const levels = {
 
 export interface IColors {
   error: string
+  errorBold: string
   warn: string
+  warnBold: string
   info: string
+  infoBold: string
   debug: string
+  debugBold: string
   // misc
   success: string
+  successBold: string
   question: string
+  questionBol: string
 }
 
 export type Colorizer = {
-  [color in keyof IColors]: Function
+  [color in keyof IColors]: (str: string) => string
 }
 
 export type Logger = {
-  [key in keyof IColors]: Function
+  [key in keyof IColors]: (str: string) => void
 }
 
 const methodColors = {
@@ -47,12 +53,13 @@ export const setLevel = value => {
 }
 
 forEach(methodColors, (color, loggerMethod) => {
-  logger[loggerMethod] = (...args) => {
+  logger[loggerMethod] = (str) => {
     if (level >= levels[loggerMethod]) {
-      console.log(chalk[color](...args))
+      console.log(chalk[color](str))
     }
   }
 
+  logger[loggerMethod + 'Bold'] = (str) => logger[loggerMethod](chalk.bold(str))
   colors[loggerMethod] = (...args) => chalk[color](...args)
 })
 

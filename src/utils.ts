@@ -17,6 +17,8 @@ import { models as builtInModels } from './models'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
 import { confirm } from './prompts'
+import { ConfOpts } from './types'
+import { REMOTE_ONLY_COMMANDS, SAFE_REMOTE_COMMANDS } from './constants'
 
 const MY_CLOUD_STACK_NAME_REGEX = /^tdl-(.*?)-ltd-([a-zA-Z]+)$/
 
@@ -462,3 +464,43 @@ export const updateEnvironments = async (aws: AWS, { functions, transform }: {
     }).promise()
   }))
 }
+
+export const xor = (...args) => args.reduce((acc, next) => {
+
+}, false)
+
+const isLocal = ({ local, remote, project }: ConfOpts) => {
+  if (local && remote) {
+    throw new CustomErrors.InvalidInput('expected "local" or "remote" but not both')
+  }
+
+  if (local) {
+    if (!project) {
+      throw new CustomErrors.InvalidInput('expected "project", the path to your local serverless project')
+    }
+
+    if (!isValidProjectPath(project)) {
+      throw new CustomErrors.InvalidInput('expected "project" to point to serverless project dir')
+    }
+
+    return true
+  }
+
+  if (typeof remote === 'boolean') {
+    return !remote
+  }
+
+  return !!project
+}
+
+export const normalizeConfOpts = (opts: ConfOpts):ConfOpts => {
+  const local = isLocal(opts)
+  return {
+    ...opts,
+    local,
+    remote: !local,
+  }
+}
+
+export const isRemoteOnlyCommand = commandName => REMOTE_ONLY_COMMANDS.includes(commandName)
+export const isSafeRemoteCommand = commandName => SAFE_REMOTE_COMMANDS.includes(commandName)

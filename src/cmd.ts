@@ -7,10 +7,9 @@ process.env.AWS_SDK_LOAD_CONFIG = true
 
 import updateNotifier from 'update-notifier'
 import Errors from '@tradle/errors'
-import chalk from 'chalk'
 import { Errors as CustomErrors } from './errors'
-import { logger } from './logger'
-import { Conf } from './types'
+import { logger, colors } from './logger'
+import { Conf, ConfOpts, NodeFlags } from './types'
 
 const pkg = require('../package.json')
 const DESC = {
@@ -26,16 +25,23 @@ require('dotenv').config({
   path: '.env'
 })
 
-import _ = require('lodash')
-import { prettify, isValidProjectPath } from './utils'
+import _ from 'lodash'
+import {
+  prettify,
+  isValidProjectPath,
+  normalizeConfOpts,
+  isSafeRemoteCommand,
+  isRemoteOnlyCommand,
+} from './utils'
 
 const printHelp = () => {
+  matchedCommand = helpCommand
   const commands = program.commands
     .filter(c => c.description())
 
   logger.info(
     commands
-      .map(c => `${chalk.blue(c.name())}\n\n${chalk.white(getCommandHelp(c))}`)
+      .map(c => `${c.name()}\n\n${getCommandHelp(c)}`)
       .join('\n\n')
   )
 }
@@ -44,7 +50,7 @@ const getCommandHelp = c => {
   const desc = c.description()
   return desc
     .split('\n')
-    .map(line => `\t${line}`)
+    .map(line => `  ${line}`)
     .join('\n')
 }
 
@@ -69,29 +75,54 @@ const PROGRAM_OPTS = [
 
 let matchedCommand
 
-const normalizeOpts = (...args) => {
-  const command = matchedCommand = args.pop()
-  const programOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.programOpts)
-  if (program.debugBrk) {
-    programOpts['debug-brk'] = true
+const getTargetEnvironmentWarning = (commandName: string, confOpts: ConfOpts) => {
+  const warning = []
+  const target = confOpts.remote ? 'remote' : 'local'
+  if (!isRemoteOnlyCommand(commandName)) {
+    warning.push(`Targeting ${target} environment`)
   }
 
-  const { local, remote } = programOpts
+  if (confOpts.remote && confOpts.project) {
+    if (!isRemoteOnlyCommand(commandName)) {
+      warning.push('To target the local environment, specify --local or -l')
+    }
+  } else if (confOpts.remote === false) {
+    warning.push('To target the remote environment, specify --remote or -r')
+  }
+
+  return warning.join('. ')
+}
+
+const normalizeOpts = (...args) => {
+  const command = matchedCommand = args.pop()
+  let confOpts:ConfOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.confOpts)
+  if (program.debugBrk) {
+    confOpts['debug-brk'] = true
+  }
+
+  const commandName = getCommandName(command)
+  if (typeof confOpts.remote !== 'boolean' &&
+    typeof confOpts.local !== 'boolean' &&
+    isSafeRemoteCommand(commandName)) {
+    confOpts.remote = true
+  }
+
+  confOpts = normalizeConfOpts({
+    ..._.omit(confOpts, NODE_FLAGS),
+    nodeFlags: _.pick(confOpts, NODE_FLAGS) as NodeFlags
+  })
+
+  logger.warn(getTargetEnvironmentWarning(commandName, confOpts) + '\n')
+
   const commandOpts = _.pick(command, command.options.map(o => o.attributeName()))
   commandOpts.args = args
-  return {
-    commandOpts,
-    programOpts: _.extend(_.omit(programOpts, NODE_FLAGS), {
-      lambda: new AWS.Lambda(),
-      nodeFlags: _.pick(programOpts, NODE_FLAGS)
-    })
-  }
+  return { commandOpts, confOpts }
 }
 
 const createAction = (action: keyof Conf) => (...args) => {
-  const { programOpts, commandOpts } = normalizeOpts(...args)
+  const { confOpts, commandOpts } = normalizeOpts(...args)
   return run(() => {
-    const conf:Conf = createConf(programOpts)
+    const conf:Conf = createConf(confOpts)
     if (!conf[action]) {
       throw new CustomErrors.InvalidInput(`conf method not found: ${action}`)
     }
@@ -146,7 +177,7 @@ if (!process.argv.slice(2).length) {
 // pre-parse to determine which env vars to load, local or remote
 program.parse(process.argv)
 const defaults = {
-  programOpts: {
+  confOpts: {
     stackName: process.env.stackName,
     stackId: process.env.stackId,
     profile: process.env.awsProfile,
@@ -157,8 +188,8 @@ const defaults = {
 }
 
 const {
-  profile=defaults.programOpts.profile,
-  region=defaults.programOpts.region,
+  profile=defaults.confOpts.profile,
+  region=defaults.confOpts.region,
 } = program
 
 if (profile) {
@@ -351,7 +382,7 @@ const createLogCommand = (command, name) => command
 
 const logCommand = createLogCommand(program
   .command('log [functionName]')
-  .description(`view/tail a function's logs.
+  .description(`view / follow a function's logs.
 
 Passes options through to awslogs (https://github.com/jorgebastida/awslogs)
 
