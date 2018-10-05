@@ -154,7 +154,8 @@ const run = async (fn) => {
   if (result == null) {
     // logger.info('OK')
   } else {
-    logger.info(prettify(result))
+    // write to stdout, unlike all other logging
+    console.log(prettify(result))
   }
 }
 

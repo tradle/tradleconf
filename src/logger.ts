@@ -55,7 +55,9 @@ export const setLevel = value => {
 forEach(methodColors, (color, loggerMethod) => {
   logger[loggerMethod] = (str) => {
     if (level >= levels[loggerMethod]) {
-      console.log(chalk[color](str))
+      // send to stderr
+      // reserve stdout for command output
+      console.error(chalk[color](str))
     }
   }
 
