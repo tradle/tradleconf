@@ -7,5 +7,5 @@ export const REPO_NAMES = {
 }
 
 export const BIG_BUCKETS = ['LogsBucket', 'ObjectsBucket']
-export const SAFE_REMOTE_COMMANDS = ['log', 'tail', 'load']
-export const REMOTE_ONLY_COMMANDS = ['log', 'tail']
+export const SAFE_REMOTE_COMMANDS = ['log', 'tail', 'update', 'list-previous-versions', 'load']
+export const REMOTE_ONLY_COMMANDS = ['log', 'tail', 'update', 'list-previous-versions']
