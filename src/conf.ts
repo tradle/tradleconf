@@ -244,12 +244,12 @@ export class Conf {
   }
 
   public invoke = async (opts) => {
-    let { functionName, arg, remote } = opts
+    let { functionName, arg } = opts
     if (!functionName) functionName = await promptFn(this, 'which function?')
 
     let result
     try {
-      const promise = remote ? this._invoke(opts) : this._invokeLocal(opts)
+      const promise = this.remote ? this._invoke(opts) : this._invokeLocal(opts)
       result = await promise
     } catch (error) {
       return { error }
