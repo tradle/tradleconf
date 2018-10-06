@@ -77,3 +77,5 @@ export const printColors = () => {
     .filter(val => typeof val === 'string')
     .forEach(str => console.log(str))
 }
+
+export { chalk }

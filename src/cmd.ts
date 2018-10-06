@@ -8,7 +8,7 @@ process.env.AWS_SDK_LOAD_CONFIG = true
 import updateNotifier from 'update-notifier'
 import Errors from '@tradle/errors'
 import { Errors as CustomErrors } from './errors'
-import { logger, colors } from './logger'
+import { logger, colors, chalk } from './logger'
 import { Conf, ConfOpts, NodeFlags } from './types'
 
 const pkg = require('../package.json')
@@ -79,7 +79,7 @@ const getTargetEnvironmentWarning = (commandName: string, confOpts: ConfOpts) =>
   const warning = []
   const target = confOpts.remote ? 'remote' : 'local'
   if (!isRemoteOnlyCommand(commandName)) {
-    warning.push(`Targeting ${target} environment`)
+    warning.push(`Targeting ${chalk.bold(target.toUpperCase())} environment`)
   }
 
   if (confOpts.remote && confOpts.project) {
