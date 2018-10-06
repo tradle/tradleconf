@@ -545,11 +545,27 @@ export class Conf {
     })
   }
 
-  public createDataClaim = createImportDataUtilsMethod({
+  private _createDataClaim = createImportDataUtilsMethod({
     conf: this,
     method: 'createclaim',
     props: ['key', 'claimType']
   })
+
+  public createDataClaim = async (opts) => {
+    const { qrCode } = opts
+    if (qrCode && !qrCode.endsWith('.png')) {
+      throw new CustomErrors.InvalidInput(`expected qr code path to end with .png`)
+    }
+
+    const result = await this._createDataClaim(opts)
+    if (qrCode) {
+      const { qrData } = result
+      await utils.createQRCode(qrCode, qrData)
+      logger.info(`wrote qr code to: ${qrCode}\n`)
+    }
+
+    return result
+  }
 
   public listDataClaims = createImportDataUtilsMethod({
     conf: this,

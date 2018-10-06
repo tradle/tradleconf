@@ -1,3 +1,4 @@
+import { promisify } from 'util'
 import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
@@ -504,3 +505,9 @@ export const normalizeConfOpts = (opts: ConfOpts):ConfOpts => {
 
 export const isRemoteOnlyCommand = commandName => REMOTE_ONLY_COMMANDS.includes(commandName)
 export const isSafeRemoteCommand = commandName => SAFE_REMOTE_COMMANDS.includes(commandName)
+
+export const createQRCode = (...args) => {
+  const QRCode = require('qrcode')
+  const toFile = promisify(QRCode.toFile.bind(QRCode))
+  return toFile(...args)
+}

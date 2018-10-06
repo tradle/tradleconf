@@ -249,6 +249,7 @@ const createDataClaimCommand = program
   .description(`create a claim stub for a data bundle`)
   .option('-k, --key <key>', DESC.key)
   .option('-c, --claim-type <claimType>', '"prefill" or "bulk"')
+  .option('-q, --qr-code <pathToWriteQRCode>', 'path to write QR code, e.g. ./myqrcode.png')
   .allowUnknownOption(false)
   .action(createAction('createDataClaim'))
 
