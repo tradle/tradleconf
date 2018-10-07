@@ -448,7 +448,7 @@ Example config:
 // ...
 "plugins": {
   // ...
-  "rankoneChecks": {
+  "rankone-checks": {
     // no options at the moment
   }
 }
