@@ -111,9 +111,7 @@ Several of the services Tradle pre-integrates with need to be enabled explicitly
 
 To enable them, run:
 
-`tradleconf set-kyc-services --remote --trueface-spoof --rank-one`
-
-This will enable the TrueFace Spoof and RankOne facial comparison services for use with the "trueface" and "rankoneChecks" plugins (see [Plugins](#built-in-plugins) below).
+`tradleconf enable-kyc-services`
 
 After the command completes (~20 minutes), you'll be able to configure the respective plugins
 
