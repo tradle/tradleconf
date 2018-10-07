@@ -72,10 +72,9 @@ const getLongFunctionName = ({ stackName, functionName }) => {
   return `${stackName}-${functionName}`
 }
 
-const readDirOfJSONs = dir => {
-  return fs.readdirSync(dir)
-    .map(file => require(path.resolve(dir, file)))
-}
+const readDirOfJSONs = dir => fs.readdirSync(dir)
+  .filter(file => file.endsWith('.json'))
+  .map(file => require(path.resolve(dir, file)))
 
 const DEPLOYABLES = [
   'bot',
