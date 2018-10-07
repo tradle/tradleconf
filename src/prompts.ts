@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import os from 'os'
 // import execa from 'execa'
 import inquirer from 'inquirer'
@@ -28,6 +29,14 @@ const parseConf = conf => ({
     .filter(s => s.startsWith('['))
     .map(getProfileName)
 })
+
+const isVirginConfiguration = () => {
+  const confDir = path.resolve(process.cwd(), 'conf')
+  if (!fs.existsSync(confDir)) return true
+
+  const local = fs.readdirSync(confDir)
+  return !local.length
+}
 
 const getProfiles = () => {
   let conf
@@ -135,6 +144,7 @@ export const init = async (conf: Conf) => {
     type: 'confirm',
     name: 'loadCurrentConf',
     message: 'Would you like to pull your current configuration?',
+    when: isVirginConfiguration,
   } as any)
 
   return {
