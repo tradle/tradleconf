@@ -90,7 +90,7 @@ const getTargetEnvironmentWarning = (commandName: string, confOpts: ConfOpts) =>
     warning.push('To target the remote environment, specify --remote or -r')
   }
 
-  return warning.join('. ')
+  return warning.length ? warning.join('. ') : ''
 }
 
 const normalizeOpts = (...args) => {
@@ -112,7 +112,10 @@ const normalizeOpts = (...args) => {
     nodeFlags: _.pick(confOpts, NODE_FLAGS) as NodeFlags
   })
 
-  logger.warn(getTargetEnvironmentWarning(commandName, confOpts) + '\n')
+  const warning = getTargetEnvironmentWarning(commandName, confOpts)
+  if (warning) {
+    logger.warn(warning + '\n')
+  }
 
   const commandOpts = _.pick(command, command.options.map(o => o.attributeName()))
   commandOpts.args = args
