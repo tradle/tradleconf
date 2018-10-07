@@ -31,6 +31,7 @@ import {
   VersionInfo,
   GetUpdateInfoResp,
   ApplyUpdateOpts,
+  SetKYCServicesOpts,
 } from './types'
 import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
@@ -859,11 +860,16 @@ After that you can delete them from the console or with this little script I cre
     })
   }
 
-  public enableKYCServices = async (opts) => {
+  public enableKYCServices = async () => {
+    return this.setKYCServices({ rankOne: true, truefaceSpoof: true })
+  }
+
+  public setKYCServices = async ({ truefaceSpoof, rankOne }: SetKYCServicesOpts) => {
     this._ensureRemote()
     this._ensureRegionKnown()
     await configureKYCServicesStack(this, {
-      ...opts,
+      truefaceSpoof,
+      rankOne,
       mycloudStackName: this.stackName,
       mycloudRegion: this.region,
       client: this.client,

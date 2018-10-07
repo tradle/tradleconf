@@ -2,7 +2,7 @@ import nonNull from 'lodash/identity'
 import inquirer from 'inquirer'
 import Listr from 'listr'
 import yn from 'yn'
-import { Conf, AWSClients } from './types'
+import { Conf, AWSClients, SetKYCServicesOpts } from './types'
 import * as utils from './utils'
 import {
   confirm,
@@ -20,21 +20,28 @@ import {
 const AZS_COUNT = 3
 const EIP_LIMIT = 5
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: {
-  truefaceSpoof: boolean
-  rankOne: boolean
+interface ConfigureKYCServicesStackOpts extends SetKYCServicesOpts {
+  truefaceSpoof?: boolean
+  rankOne?: boolean
   client: AWSClients
   mycloudStackName: string
   mycloudRegion: string
-}) => {
+}
+
+export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesStackOpts) => {
   const servicesStackName = utils.getServicesStackName(mycloudStackName)
   const servicesStackId = await utils.getStackId(client, servicesStackName)
   const exists = !!servicesStackId
   const bucket = await conf.getPrivateConfBucket()
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
-  const tfVerb = truefaceSpoof ? 'enable' : 'disable'
-  const roVerb = rankOne ? 'enable' : 'disable'
-  await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
+  if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean') {
+    // user knows what they want
+  } else {
+    const tfVerb = truefaceSpoof ? 'enable' : 'disable'
+    const roVerb = rankOne ? 'enable' : 'disable'
+    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
+  }
+
   const repoNames = [
     REPO_NAMES.nginx,
     truefaceSpoof && REPO_NAMES.truefaceSpoof,

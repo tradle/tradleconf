@@ -85,3 +85,8 @@ export interface Choice {
   name: string
   value: string
 }
+
+export interface SetKYCServicesOpts {
+  truefaceSpoof?: boolean
+  rankOne?: boolean
+}
