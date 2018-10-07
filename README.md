@@ -115,7 +115,7 @@ To enable them, run:
 
 This will enable the TrueFace Spoof and RankOne facial comparison services for use with the "trueface" and "rankoneChecks" plugins (see [Plugins](#built-in-plugins) below).
 
-After the command completes (10-15 minutes), you'll be able to configure the respective plugins
+After the command completes (~20 minutes), you'll be able to configure the respective plugins
 
 ### Deploy
 
@@ -394,8 +394,8 @@ Example config:
 ```
 #### Document Checker
 
-Provider: DocumentChecker
-Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.
+Provider: DocumentChecker  
+Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.  
 
 Example config:
 
@@ -406,14 +406,14 @@ Example config:
   "documentChecker": {
     "account": "...",
     "username": "...",
-    ["test": true]
+    "test": true
   }
 }
 ```
 #### TrueFace
 
-Provider: TrueFace
-Purpose: detect whether a selfie is a spoof
+Provider: TrueFace  
+Purpose: detect whether a selfie is a spoof  
 
 Example config:
 
@@ -422,7 +422,6 @@ Example config:
 "plugins": {
   // ...
   "trueface": {
-    "url": "http://...",
     "token": "...",
     "products": {
       "nl.tradle.DigitalPassport": [
@@ -438,8 +437,10 @@ Example config:
 
 #### RankOne
 
-Provider: RankOne
-Purpose: compare photo id vs selfie photo for similarity
+Provider: RankOne  
+Purpose:
+- compare photo id vs selfie photo for similarity  
+- analyze a photo with a face, extract various information such as demographics and orientation  
 
 Example config:
 
