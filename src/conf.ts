@@ -626,9 +626,15 @@ export class Conf {
     ]).run()
 
     await Promise.all(big.map(id => utils.markBucketForDeletion(this.client, id)))
+    const cleanupScriptPath = path.relative(process.cwd(), this._createCleanupBucketsScript(big))
 
-    logger.info(`The following buckets are too large to delete directly: ${big.join(', ')}.
-Instead, I've marked them for deletion by S3. They should be gone within a day or so`)
+    logger.info(`The following buckets are too large to delete directly:
+${big.join('\n')}
+
+Instead, I've marked them for deletion by S3. They should be emptied within a day or so
+
+After that you can delete them from the console or with this little script I created for you: ${cleanupScriptPath}
+`)
   }
 
   public getApiBaseUrl = async () => {
@@ -995,8 +1001,38 @@ Instead, I've marked them for deletion by S3. They should be gone within a day o
 
     return res && JSON.parse(res)
   }
+
+  private _createCleanupBucketsScript = (buckets: string[]) => {
+    const cleanupScript = fs.existsSync(path.resolve(process.cwd(), 'cleanup-buckets.sh'))
+      ? `cleanup-buckets-${Date.now()}.sh`
+      : `cleanup-buckets.sh`
+
+    const delBuckets = buckets.map(name => getDeleteBucketLine({ name, profile: this.profile }))
+    const scriptBody = `
+#!/bin/bash
+
+${delBuckets.join('\n')}
+`
+
+    const scriptPath = path.resolve(process.cwd(), cleanupScript)
+    fs.writeFileSync(scriptPath, scriptBody)
+    fs.chmodSync(scriptPath, '0755')
+    return scriptPath
+  }
 }
 
 export const createConf = (opts: ConfOpts) => new Conf(opts)
 
 const stringifyEnv = props => Object.keys(props).map(key => `${key}="${props[key]}"`).join(' ')
+const getDeleteBucketLine = ({ name, profile }: {
+  name: string
+  profile: string
+}) => {
+  let line = 'aws '
+  if (profile) {
+    line += `--profile ${profile} `
+  }
+
+  line += `s3 rb "s3://${name}"`
+  return line
+}
