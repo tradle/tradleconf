@@ -76,27 +76,6 @@ const readDirOfJSONs = dir => {
     .map(file => require(path.resolve(dir, file)))
 }
 
-const normalizeError = err => {
-  if (err instanceof Error) return err
-
-  const { name, message='unspecified' } = err
-  let normalized
-  if (name && name in global) {
-    const ctor = global[name]
-    try {
-      normalized = new ctor(name)
-    } catch (err) {}
-  }
-
-  if (!normalized) {
-    normalized = new Error(message)
-  }
-
-  _.extend(normalized, err)
-  return normalized
-  // return new Error(JSON.stringify(err))
-}
-
 const DEPLOYABLES = [
   'bot',
   'style',
@@ -255,7 +234,7 @@ export class Conf {
       return { error }
     }
 
-    return { result }
+    return utils.unwrapReturnValue({ result })
   }
 
   public invokeAndReturn = async (opts: InvokeOpts) => {
@@ -363,23 +342,18 @@ export class Conf {
   }
 
   public exec = async (opts) => {
-    const res = await this.invoke({
+    const { error, result } = await this.invoke({
       functionName: functions.cli,
       arg: opts.args[0],
       noWarning: opts.noWarning
     })
 
-    // invoke() returns { error, result }
-    let { error, result } = res
-    if (error) throw normalizeError(error)
+    if (error) throw error
 
     // cli lambda returns { error, result }
     if (!result) {
       throw new CustomErrors.ServerError('something went wrong, please wait a minute and try again')
     }
-
-    ;({ error, result } = result)
-    if (error) throw normalizeError(error)
 
     return result
   }
@@ -660,7 +634,7 @@ After that you can delete them from the console or with this little script I cre
     const getInfo = this.remote ? this.getEndpointInfo() : Promise.resolve({})
     const [links, info] = await Promise.all([getLinks, getInfo])
     return Object.assign(
-      { links: links.result },
+      { links },
       _.pick(info, ['version', 'chainKey', 'apiBaseUrl'])
     )
   }

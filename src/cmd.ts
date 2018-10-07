@@ -207,7 +207,7 @@ if (region) {
 const deployCommand = program
   .command('deploy')
   .description(`push your local configuration`)
-  .option('-m, --models', 'deploy models')
+  .option('-m, --models', 'deploy models and lenses')
   .option('-s, --style', 'deploy style')
   .option('-t, --terms', 'deploy terms')
   .option('-b, --bot', 'deploy bot configuration')
@@ -219,7 +219,7 @@ const deployCommand = program
 const loadCommand = program
   .command('load')
   .description(`load the currently deployed configuration`)
-  .option('-m, --models', 'load models')
+  .option('-m, --models', 'load models and lenses')
   .option('-s, --style', 'load style')
   .option('-t, --terms', 'load terms')
   .option('-b, --bot', 'load bot configuration')

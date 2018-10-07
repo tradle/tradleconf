@@ -511,3 +511,42 @@ export const createQRCode = (...args) => {
   const toFile = promisify(QRCode.toFile.bind(QRCode))
   return toFile(...args)
 }
+
+const normalizeError = err => {
+  if (err instanceof Error) return err
+
+  const { name, message='unspecified' } = err
+  let normalized
+  if (name && name in global) {
+    const ctor = global[name]
+    try {
+      normalized = new ctor(name)
+    } catch (err) {}
+  }
+
+  if (!normalized) {
+    normalized = new Error(message)
+  }
+
+  _.extend(normalized, err)
+  return normalized
+  // return new Error(JSON.stringify(err))
+}
+
+export const unwrapReturnValue = ret => {
+  const { error, result } = ret
+  if (error) {
+    return {
+      ...ret,
+      error: normalizeError(error),
+    }
+  }
+
+  if (result) {
+    if (result.error || result.result) {
+      return unwrapReturnValue(result)
+    }
+  }
+
+  return ret
+}
