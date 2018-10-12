@@ -144,7 +144,7 @@ ${previousTags.join('\n')}`)
 
     if (!rollback && currentVersion.templateUrl) {
       logger.info(`
-should the worst happen and you need to manually roll back to this version later, run:
+Updating! To roll back, run:
 
 tradleconf update-manually --template-url "${currentVersion.templateUrl}"
 `)
