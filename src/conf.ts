@@ -18,9 +18,10 @@ import {
   init as promptInit,
   fn as promptFn,
   confirmOrAbort,
+  confirm,
 } from './prompts'
 import { update } from './update'
-import { configureKYCServicesStack } from './kyc-services'
+import { configureKYCServicesStack, getStackId as getServicesStackId } from './kyc-services'
 import {
   AWSClients,
   ConfOpts,
@@ -563,7 +564,7 @@ export class Conf {
   public destroy = async (opts) => {
     this._ensureStackNameKnown()
     this._ensureRemote()
-    const { stackName } = this
+    const { client, stackName } = this
     await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
     await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`)
     let buckets = await utils.listStackBucketIds(this.client, stackName)
@@ -574,7 +575,12 @@ export class Conf {
 
     for (const id of small) {
       logger.info(`emptying and deleting: ${id}`)
-      await utils.destroyBucket(this.client, id)
+      await utils.destroyBucket(client, id)
+    }
+
+    const servicesStackId = await getServicesStackId(client, stackName)
+    if (servicesStackId) {
+      await utils.awaitStackDelete(client, servicesStackId)
     }
 
     logger.info('Note: it may take a few minutes for your stack to be deleted')
@@ -582,24 +588,24 @@ export class Conf {
       {
         title: 'disabling termination protection',
         task: async (ctx) => {
-          await utils.disableStackTerminationProtection(this.client, stackName)
+          await utils.disableStackTerminationProtection(client, stackName)
         }
       },
       {
-        title: 'deleting stack',
+        title: 'deleting primary stack',
         task: async (ctx) => {
-          await utils.deleteStack(this.client, { StackName: stackName })
+          await utils.deleteStack(client, { StackName: stackName })
           await utils.wait(5000)
           try {
-            await this.waitForStackDelete()
+            await utils.awaitStackDelete(client, stackName)
           } catch (err) {
-            await utils.deleteStack(this.client, { StackName: stackName, RetainResources: BIG_BUCKETS })
+            await utils.deleteStack(client, { StackName: stackName, RetainResources: BIG_BUCKETS })
           }
         }
       },
     ]).run()
 
-    await Promise.all(big.map(id => utils.markBucketForDeletion(this.client, id)))
+    await Promise.all(big.map(id => utils.markBucketForDeletion(client, id)))
     const cleanupScriptPath = path.relative(process.cwd(), this._createCleanupBucketsScript(big))
 
     logger.info(`The following buckets are too large to delete directly:

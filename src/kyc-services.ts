@@ -28,9 +28,16 @@ interface ConfigureKYCServicesStackOpts extends SetKYCServicesOpts {
   mycloudRegion: string
 }
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesStackOpts) => {
+export const getStackName = utils.getServicesStackName
+
+export const getStackId = async (client: AWSClients, mycloudStackName: string) => {
   const servicesStackName = utils.getServicesStackName(mycloudStackName)
-  const servicesStackId = await utils.getStackId(client, servicesStackName)
+  return utils.getStackId(client, servicesStackName)
+}
+
+export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesStackOpts) => {
+  const servicesStackName = getStackName(mycloudStackName)
+  const servicesStackId = await getStackId(client, mycloudStackName)
   const exists = !!servicesStackId
   const bucket = await conf.getPrivateConfBucket()
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
