@@ -209,7 +209,7 @@ const isUpdateableStatus = (status: AWS.CloudFormation.StackStatus) => {
   return status.endsWith('_COMPLETE') && !status.startsWith('DELETE_')
 }
 
-export const getStackId = async (aws: AWS, stackName: string) => {
+export const getStackId = async (aws: AWS, stackName: string):Promise<string> => {
   const stacks = await listStacks(
     aws,
     ({ StackName, StackStatus }) => StackName === stackName && isUpdateableStatus(StackStatus)

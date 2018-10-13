@@ -21,6 +21,7 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
+import { destroy } from './destroy'
 import { configureKYCServicesStack, getStackId as getServicesStackId } from './kyc-services'
 import {
   AWSClients,
@@ -38,7 +39,6 @@ import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
 import { logger, colors } from './logger'
-import { TRADLE_ACCOUNT_ID, BIG_BUCKETS } from './constants'
 
 tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
@@ -561,60 +561,11 @@ export class Conf {
     }
   }
 
-  public destroy = async (opts) => {
+  public destroy = async () => {
     this._ensureStackNameKnown()
     this._ensureRemote()
-    const { client, stackName } = this
-    await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`)
-    await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`)
-    let buckets = await utils.listStackBucketIds(this.client, stackName)
-    buckets.forEach(id => logger.info(id))
-    await confirmOrAbort('Delete these buckets?')
-
-    const [big, small] = _.partition(buckets, id => BIG_BUCKETS.find(logical => id.includes(logical.toLowerCase())))
-
-    for (const id of small) {
-      logger.info(`emptying and deleting: ${id}`)
-      await utils.destroyBucket(client, id)
-    }
-
-    const servicesStackId = await getServicesStackId(client, stackName)
-    if (servicesStackId) {
-      await utils.awaitStackDelete(client, servicesStackId)
-    }
-
-    logger.info('Note: it may take a few minutes for your stack to be deleted')
-    await new Listr([
-      {
-        title: 'disabling termination protection',
-        task: async (ctx) => {
-          await utils.disableStackTerminationProtection(client, stackName)
-        }
-      },
-      {
-        title: 'deleting primary stack',
-        task: async (ctx) => {
-          await utils.deleteStack(client, { StackName: stackName })
-          await utils.wait(5000)
-          try {
-            await utils.awaitStackDelete(client, stackName)
-          } catch (err) {
-            await utils.deleteStack(client, { StackName: stackName, RetainResources: BIG_BUCKETS })
-          }
-        }
-      },
-    ]).run()
-
-    await Promise.all(big.map(id => utils.markBucketForDeletion(client, id)))
-    const cleanupScriptPath = path.relative(process.cwd(), this._createCleanupBucketsScript(big))
-
-    logger.info(`The following buckets are too large to delete directly:
-${big.join('\n')}
-
-Instead, I've marked them for deletion by S3. They should be emptied within a day or so
-
-After that you can delete them from the console or with this little script I created for you: ${cleanupScriptPath}
-`)
+    const { client, stackName, profile } = this
+    await destroy({ client, stackName, profile })
   }
 
   public getApiBaseUrl = async () => {
@@ -986,38 +937,8 @@ After that you can delete them from the console or with this little script I cre
 
     return res && JSON.parse(res)
   }
-
-  private _createCleanupBucketsScript = (buckets: string[]) => {
-    const cleanupScript = fs.existsSync(path.resolve(process.cwd(), 'cleanup-buckets.sh'))
-      ? `cleanup-buckets-${Date.now()}.sh`
-      : `cleanup-buckets.sh`
-
-    const delBuckets = buckets.map(name => getDeleteBucketLine({ name, profile: this.profile }))
-    const scriptBody = `
-#!/bin/bash
-
-${delBuckets.join('\n')}
-`
-
-    const scriptPath = path.resolve(process.cwd(), cleanupScript)
-    fs.writeFileSync(scriptPath, scriptBody)
-    fs.chmodSync(scriptPath, '0755')
-    return scriptPath
-  }
 }
 
 export const createConf = (opts: ConfOpts) => new Conf(opts)
 
 const stringifyEnv = props => Object.keys(props).map(key => `${key}="${props[key]}"`).join(' ')
-const getDeleteBucketLine = ({ name, profile }: {
-  name: string
-  profile: string
-}) => {
-  let line = 'aws '
-  if (profile) {
-    line += `--profile ${profile} `
-  }
-
-  line += `s3 rb "s3://${name}"`
-  return line
-}
