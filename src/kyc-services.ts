@@ -133,9 +133,11 @@ Continue?`)
       },
     },
     {
-      title: `create/update KYC services stack (this will take ~20 minutes)`,
+      title: exists
+        ? `update KYC services stack`
+        : `create KYC services stack (this will take ~20 minutes)`,
       task: ctx => ctx.wait(),
-    }
+    },
   ]
 
   await new Listr(tasks).run()
