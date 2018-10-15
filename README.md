@@ -31,7 +31,6 @@ CLI for managing your Tradle MyCloud instance
   - [Load remote models, styles and configuration](#load-remote-models-styles-and-configuration)
   - [Push bot/plugins configuration](#push-botplugins-configuration)
   - [Disable Tradle](#disable-tradle)
-- [Lambda CLI](#lambda-cli)
 - [Built-in Plugins](#built-in-plugins)
   - [Terms and Conditions](#terms-and-conditions)
   - [Lens](#lens)
@@ -263,22 +262,6 @@ This will turn most of your cloud functions off. Mobile/web clients will be unab
 To re-enable your deployment, you run:
 
 `tradleconf enable --remote`
-
-### Lambda CLI
-
-Tradle MyCloud has a CLI lambda that understands a number of additional commands you can execute with:
-
-`tradleconf exec <command>`
-
-You can see a list of supported commands by executing the remote `help` command:
-
-`tradleconf exec help`
-
-Note: make sure to quote your command if it has any whitespace, e.g.:
-
-`tradleconf exec "help setproductenabled"`  
-`tradleconf exec "setproductenabled tradle.CurrentAccount false"`  
-`tradleconf exec "addfriend https://bob.com --domain bob.com"`
 
 ### Built-in Plugins
 
