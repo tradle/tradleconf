@@ -11,6 +11,7 @@ CLI for managing your Tradle MyCloud instance
   - [AWS cli & credentials](#aws-cli-&-credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
+- [Updating tradleconf](#updating-tradleconf)
 - [Customize](#customize)
   - [Custom Models and Lenses](#custom-models-and-lenses)
   - [Custom Styles](#custom-styles)
@@ -20,6 +21,9 @@ CLI for managing your Tradle MyCloud instance
 - [Deploy](#deploy)
   - [To your local development environment](#to-your-local-development-environment)
   - [To the cloud](#to-the-cloud)
+- [Updates](#updates)
+  - [Updating MyCloud](#updating-mycloud)
+  - [MyCloud Release Schedule](#mycloud-release-schedule)
 - [Destroy](#destroy)
 - [Logging](#logging)
 - [Common Commands](#common-commands)
@@ -72,7 +76,7 @@ If you want to inspect logs from your lambda functions in realtime, you'll need 
 
 Note: the below instructions are for managing a single MyCloud instance. If you are managing multiple instances, do so from separate directories.
 
-1. Install `tradleconf` globally: `npm install -g @tradle/conf`
+1. Install `tradleconf` globally: `npm install -g @tradle/conf` (you may need `sudo` depending on how you installed Node.js)
 1. Create a new directory in which you will keep your configuration. In it, initialize your configuration with `tradleconf init`. This will create a file called `.env`
 1. Pull your remote configuration in with `tradleconf load --all`. Or pull in a specific part of it, e.g.:
 
@@ -80,6 +84,10 @@ Note: the below instructions are for managing a single MyCloud instance. If you 
 `tradleconf load --style`  
 `tradleconf load --bot`  
 `tradleconf load --terms`  
+
+### Updating tradleconf
+
+Try to be use the latest version of `tradleconf` at all times. `tradleconf` checks for updates as you use it, but at any time, you can update it yourself in the same way you installed it (see the [Install](#install-and-load-current-configuration) section)
 
 ### Customize
 
@@ -133,6 +141,63 @@ Or if you only want to deploy a particular item:
 #### To the cloud
 
 Same as above, minus the `--local` flag. You will be asked for confirmation unless you add the `--remote` flag.
+
+### Updates
+
+#### Updating MyCloud 
+
+Tradle regularly releases updates with bug fixes and features. To update, simply run: 
+
+`tradleconf update`
+
+and choose the version to update to. To include release candidates in the updates list, run: 
+
+`tradleconf update -c`
+
+If you already know the version you want to update to, run:
+
+`tradleconf update --tag <versionTag>`
+
+Note: you can also use the `update` command to roll back to previous versions. Bugfixes are the preferred resolution strategy, so rollbacks are not as thoroughly tested. Use at your own risk!
+
+#### MyCloud Release Schedule
+
+Releases follow [semver](http://semver.org). A version like `1.9.4` represents `MAJOR.MINOR.PATCH` or in other words `MAJOR.FEATURE.BUGFIX`. For example:
+
+- `1.1.7 -> 1.1.8` is bug fix release
+- `1.1.7 -> 1.2.0` is a feature release
+
+In between releases, there are release candidates, which are experimental pre-releases of bugfixes or features for those who like to live on the bleeding edge.
+
+Release candidates end with `-rc.X`, e.g. `1.9.0-rc.1000`
+
+Release candidates come *before* the version they're a candidate for:
+
+```
+1.9.0 -> 1.9.0-rc.1000
+1.9.1-rc.0 -> 1.9.1
+1.9.1-rc.20 -> 1.9.1
+```
+
+A sample timeline goes like this, with releases in bold:
+
+```sh
+1.8.3       # BUGFIX RELEASE
+1.9.0-rc.0  # pre-release new feature
+1.9.0-rc.1  # pre-release bugfix
+1.9.0-rc.2  # pre-release another bugfix
+#           # ...
+1.9.0-rc.7  # bugs fixed, new feature stabilized, ready for release
+1.9.0       # REGULAR FEATURE RELEASE
+1.9.1-rc.0  # pre-release bugfix
+1.9.1       # REGULAR BUGFIX RELEASE
+#           # ...
+1.9.13
+1.10.0-rc.0 # pre-release new feature
+1.10.0-rc.1 # pre-release bugfix
+1.10.1      # REGULAR BUGFIX RELEASE
+# ...
+```
 
 ### Destroy
 
@@ -198,7 +263,6 @@ This will turn most of your cloud functions off. Mobile/web clients will be unab
 To re-enable your deployment, you run:
 
 `tradleconf enable --remote`
-
 
 ### Lambda CLI
 
