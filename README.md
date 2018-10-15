@@ -7,6 +7,7 @@ CLI for managing your Tradle MyCloud instance
 
 
 - [Prerequisites](#prerequisites)
+  - [AWS Account](#aws-account)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
   - [AWS cli & credentials](#aws-cli-&-credentials)
   - [AWSLogs (optional)](#awslogs-optional)
@@ -51,15 +52,17 @@ CLI for managing your Tradle MyCloud instance
 
 ### Prerequisites
 
+#### AWS Account
+
+If you don't have one yet, get one. There's a pretty generous free tier.
+
 #### Launch a MyCloud instance
 
-- go to https://app.tradle.io
-- choose the Tradle channel on the Conversations screen
-- When "See a list of products" appears, click it and choose **MyCloud**  
-(at this point, you can follow along with the [Disney MyCloud launch](https://www.youtube.com/watch?v=Wp-uiAhDtzA) video)
-- fill out the MyCloud Configuration form. For the Region field, choose US East (Virginia), Asia Pacific (Singapore), or Asia Pacific (Sydney). If you need to launch in a different region, please submit an issue on this repository. For most, we can provision support at a moment's notice.
-- wait a few seconds and get a custom launch link
-- click it to open the AWS console. Check the checkbox at the bottom left and click Create at the bottom right. While you wait, read on.
+Click [here](https://app.tradle.io/#/applyForProduct?provider=9658992cbb1499c1fd9f7d92e1dee43eb65f403b3a32f2d888d2f241c4bdf7b6&host=https%3A%2F%2Ft22ju1ga5c.execute-api.us-east-1.amazonaws.com%2Fdev&product=tradle.cloud.Deployment). You'll be prompted to fill out a MyCloud configuration form. When you do, you'll be given a launch link. Follow it to launch your MyCloud in AWS.
+
+While you wait, read on.
+
+*Note: currently, the following regions are supported: US East (Virginia), Asia Pacific (Singapore), or Asia Pacific (Sydney). If you need to launch in a different region, please submit an issue on this repository. For most, we can provision support at a moment's notice.*
 
 #### AWS cli & credentials
 
