@@ -23,16 +23,19 @@ type DestroyOpts = {
   stackName: string
 }
 
+const deleteStackAndAwaitDeleted = async (client: AWSClients, stackName: string) => {
+  await utils.deleteStack(client, { StackName: stackName })
+  await utils.wait(5000)
+  await utils.awaitStackDelete(client, stackName)
+}
+
 export const deleteServicesStack = async ({ client, profile, stackName }: DestroyOpts) => {
   const servicesStackId = await getServicesStackId(client, stackName)
-  if (servicesStackId) {
-    logger.info(`deleting kyc services stack: ${servicesStackId} (ETA: 5-10 minutes)`)
-    await utils.deleteStack(client, { StackName: servicesStackId })
-    await utils.awaitStackDelete(client, servicesStackId)
-    logger.info(`deleted kyc services stack: ${servicesStackId}`)
-  }
+  if (!servicesStackId) return
 
-  logger.info('Note: it may take a few minutes for your stack to be deleted')
+  logger.info(`KYC services stack: deleting ${servicesStackId}, ETA: 5-10 minutes`)
+  await deleteStackAndAwaitDeleted(client, servicesStackId)
+  logger.info(`KYC services stack: deleted ${servicesStackId}`)
 }
 
 export const destroy = async (opts: DestroyOpts) => {
@@ -43,13 +46,15 @@ export const destroy = async (opts: DestroyOpts) => {
   buckets.forEach(id => logger.info(id))
   await confirmOrAbort('Delete these buckets?')
 
+  logger.info(`OK, here we go! I'll be deleting a few things in parallel...`)
+
   const promiseDeleteServices = deleteServicesStack(opts)
   const [big, small] = partition(buckets, id => BIG_BUCKETS.find(logical => id.includes(logical.toLowerCase())))
 
-  for (const id of small) {
+  await Promise.all(small.map(async id => {
     logger.info(`emptying and deleting: ${id}`)
     await utils.destroyBucket(client, id)
-  }
+  }))
 
   await new Listr([
     {
@@ -61,10 +66,8 @@ export const destroy = async (opts: DestroyOpts) => {
     {
       title: 'deleting primary stack',
       task: async (ctx) => {
-        await utils.deleteStack(client, { StackName: stackName })
-        await utils.wait(5000)
         try {
-          await utils.awaitStackDelete(client, stackName)
+          await deleteStackAndAwaitDeleted(client, stackName)
         } catch (err) {
           await utils.deleteStack(client, { StackName: stackName, RetainResources: BIG_BUCKETS })
         }
