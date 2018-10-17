@@ -856,6 +856,14 @@ export class Conf {
     await this.warmup()
   }
 
+  public getStackTemplate = async ({ output }) => {
+    this._ensureRemote()
+    this._ensureStackNameKnown()
+    const template = await utils.getStackTemplate(this.client, this.stackId)
+    const outputPath = output.startsWith('/') ? output : path.resolve(process.cwd(), output)
+    write(outputPath, template)
+  }
+
   public warmup = async () => {
     this._ensureRemote()
     return await this.invokeAndReturn({

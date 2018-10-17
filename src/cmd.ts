@@ -381,7 +381,7 @@ const createLogCommand = (command, name) => command
   .option('-w, --watch', 'tail log')
   .option('-t, --timestamp', 'prints the creation timestamp of each event.')
   .option('-i, --ingestion-time', 'prints the ingestion time of each event.')
-  .option('-f, --filter-pattern', 'CloudWatch Logs filter pattern')
+  .option('-f, --filter-pattern <filter-pattern>', 'CloudWatch Logs filter pattern')
   .option('-q, --query', 'CloudWatch Logs query pattern')
   .action(createAction(name))
 
@@ -434,6 +434,13 @@ const reboot = program
 This creates ~20-30 seconds of downtime but doesn't affect any data.`)
   .allowUnknownOption(false)
   .action(createAction('reboot'))
+
+const getTemplate = program
+  .command('get-stack-template')
+  .option('-o, --output <file-path>', 'output file path')
+  .description(`download your stack template`)
+  .allowUnknownOption(false)
+  .action(createAction('getStackTemplate'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

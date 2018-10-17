@@ -218,6 +218,14 @@ export const getStackId = async (aws: AWS, stackName: string):Promise<string> =>
   return stacks[0] && stacks[0].id
 }
 
+export const getStackTemplate = async (aws: AWS, stackName: string):Promise<any> => {
+  const { TemplateBody } = await aws.cloudformation.getTemplate({
+    StackName: stackName
+  }).promise()
+
+  return JSON.parse(TemplateBody)
+}
+
 // export const createOrUpdateStack = async (aws: AWS, params: AWS.CloudFormation.UpdateStackInput) => {
 //   const StackId = await getStackId(aws, params.StackName)
 //   if (StackId) {
