@@ -47,6 +47,7 @@ CLI for managing your Tradle MyCloud instance
   - [DocumentValidity](#documentvalidity)
   - [Customize message](#customize-message)
   - [Webhooks](#webhooks)
+- [Data Import / Remediation](#data-import--remediation)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -615,3 +616,7 @@ cd examples/webhooks
 npm install
 npm start
 ```
+
+### Data Import / Remediation
+
+If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the import and data bundle, see [./docs/data-import.md]('./docs/data-import.md')
