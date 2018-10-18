@@ -11,10 +11,8 @@ import shelljs from 'shelljs'
 import fetch from 'node-fetch'
 import _AWS from 'aws-sdk'
 import ModelsPack from '@tradle/models-pack'
-import _validateResource from '@tradle/validate-resource'
 import Errors from '@tradle/errors'
 import { emptyBucket } from './empty-bucket'
-import { models as builtInModels } from './models'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
 import { confirm } from './prompts'
@@ -61,14 +59,8 @@ export const pack = ({ namespace, models, lenses }: {
   }
 
   const modelsPack = ModelsPack.pack({ namespace, models, lenses })
-  // ModelsPack.validate({ builtInModels, modelsPack })
   return modelsPack
 }
-
-export const validateResource = resource => _validateResource({
-  models: builtInModels,
-  resource
-})
 
 export const prettify = obj => {
   return typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2)
