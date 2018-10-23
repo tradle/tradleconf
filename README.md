@@ -556,11 +556,16 @@ Example config:
   // ...
   "customize-message": {
     "tradle.FormRequest": {
+      "tradle.ProductRequest": "See our list of products",
+      "tradle.TermsAndConditions": "Please review our Terms and Conditions",
       "tradle.PhotoID": "Please click to scan your **ID document**",
       "tradle.Selfie": "Thank you. Now take a '**selfie**' photo of yourself that I can match against your ID document",
       "tradle.Residence": {
         "first": "Thank you. Now I need you to provide your **residence** information",
         "nth": "Thank you. Do you have another **residence**? If yes, tap Add, otherwise tap Next"
+      },
+      "tradle.ApplicationSubmitted": {
+        "tradle.nl.DigitalPassport": "You're all done! We'll get back to you shortly"
       }
     }
   }
