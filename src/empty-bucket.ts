@@ -26,7 +26,7 @@ export const emptyBucket = async (s3, Bucket) => {
     if (Versions.length > 0) {
       count += Versions.length
       // if the bucket contains objects, delete them
-      logger.info(`Deleting ${Versions.length} object versions`)
+      logger.info(`Deleting from ${Bucket}: ${Versions.length} object versions`)
       await deleteObjects(Versions)
     }
 
@@ -36,7 +36,7 @@ export const emptyBucket = async (s3, Bucket) => {
     if (DeleteMarkers.length > 0) {
       count += DeleteMarkers.length
       // if the bucket contains delete markers, delete them
-      logger.info(`Deleting ${DeleteMarkers.length} object delete markers`)
+      logger.info(`Deleting from ${Bucket}: ${DeleteMarkers.length} object delete markers`)
       await deleteObjects(DeleteMarkers)
     }
 
@@ -46,7 +46,7 @@ export const emptyBucket = async (s3, Bucket) => {
     if (Contents.length > 0) {
       count += Contents.length
       // if the bucket contains delete markers, delete them
-      logger.info(`Deleting ${Contents.length} objects`)
+      logger.info(`Deleting from ${Bucket}: ${Contents.length} objects`)
       await deleteObjects(Contents)
     }
 

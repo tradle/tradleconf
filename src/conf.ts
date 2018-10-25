@@ -472,6 +472,7 @@ export class Conf {
     const ec2 = new AWS.EC2()
     const opsworks = new AWS.OpsWorks()
     const dynamodb = new AWS.DynamoDB()
+    const kms = new AWS.KMS()
     // const docClient = new AWS.DynamoDB.DocClient()
     return {
       s3,
@@ -482,7 +483,8 @@ export class Conf {
       opsworks,
       region: AWS.config.region,
       dynamodb,
-      // docClient
+      // docClient,
+      kms,
     }
   }
 

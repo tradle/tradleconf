@@ -189,8 +189,8 @@ export const confirm = (message: string, defaultValue=true) => {
   .then(({ confirm }) => confirm)
 }
 
-export const confirmOrAbort = async (msg:string) => {
-  const confirmed = await confirm(msg)
+export const confirmOrAbort = async (msg:string, defaultValue?:boolean) => {
+  const confirmed = await confirm(msg, defaultValue)
   if (!confirmed) {
     throw new CustomErrors.UserAborted()
   }

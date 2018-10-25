@@ -10,6 +10,7 @@ import chalk from 'chalk'
 import shelljs from 'shelljs'
 import fetch from 'node-fetch'
 import _AWS from 'aws-sdk'
+import YAML from 'js-yaml'
 import ModelsPack from '@tradle/models-pack'
 import Errors from '@tradle/errors'
 import { emptyBucket } from './empty-bucket'
@@ -74,9 +75,48 @@ export const toEnvFile = obj => Object.keys(obj)
   .map(key => `${key}="${obj[key]}"`)
   .join('\n')
 
-const acceptAll = (item:any) => true
+type StackResourceSummaryFilter = (item: AWS.CloudFormation.StackResourceSummary) => boolean
 
-export const listStackResources = async (aws: AWS, StackName: string, filter=acceptAll):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
+const acceptAll = (item: any) => true
+
+const isRetained = ({ DeletionPolicy }) => DeletionPolicy === 'Retain'
+const getRetainedResources = (template: any) => Object.keys(template.Resources)
+  .filter(logicalId => isRetained(template.Resources[logicalId]))
+
+export const getStackTemplates = async (aws: AWS, stackName: string) => {
+  const main = await getStackTemplate(aws, stackName)
+  const nested = await listStackResourcesByType('AWS::CloudFormation::Stack', aws, stackName)
+  if (!nested.length) return [main]
+
+  const nestedTemplates = _.flatten(await Promise.all(nested.map(n => getStackTemplates(aws, n.PhysicalResourceId))))
+  return [main].concat(nestedTemplates)
+}
+
+export const listRetainedResources = async (aws: AWS, stackName):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
+  const [template, resources] = await Promise.all([
+    getStackTemplate(aws, stackName),
+    listStackResources(aws, stackName),
+  ])
+
+  const retained = Object.keys(template.Resources)
+    .filter(logicalId => isRetained(template.Resources[logicalId]))
+    .map(logicalId => resources.find(r => r.LogicalResourceId === logicalId))
+    // some resources may be created conditionally (created or passed in parameters)
+    .filter(_.identity)
+
+  const nestedStacks = resources.filter(r => r.ResourceType === 'AWS::CloudFormation::Stack')
+  const nestedRetained = _.flatten(
+    await Promise.all(nestedStacks.map(r => listRetainedResources(aws, r.PhysicalResourceId)))
+  )
+
+  return retained.concat(nestedRetained)
+}
+
+export const listStackResources = async (
+  aws: AWS,
+  StackName: string,
+  filter: StackResourceSummaryFilter=acceptAll
+):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
   let resources:AWS.CloudFormation.StackResourceSummary[] = []
   const opts:_AWS.CloudFormation.ListStackResourcesInput = { StackName }
   while (true) {
@@ -86,6 +126,21 @@ export const listStackResources = async (aws: AWS, StackName: string, filter=acc
     } = await aws.cloudformation.listStackResources(opts).promise()
 
     resources = resources.concat(StackResourceSummaries.filter(filter))
+    // let nestedStacks = StackResourceSummaries.filter(s => s.ResourceType === 'AWS::CloudFormation::Stack')
+    // if (nestedStacks) {
+    //   let nestedResources = _.flatten(
+    //     await Promise.all(nestedStacks.map(async ({ PhysicalResourceId }) => {
+    //       const list = await listStackResources(aws, PhysicalResourceId, filter)
+    //       return list.map(item => ({
+    //         ...item,
+    //         StackId: PhysicalResourceId,
+    //       }))
+    //     }))
+    //   )
+
+    //   resources = resources.concat(nestedResources)
+    // }
+
     opts.NextToken = NextToken
     if (!opts.NextToken) break
   }
@@ -111,7 +166,7 @@ export const listStackTableIds = (aws: AWS, stackName: string) => listStackResou
 export const listSubstacks = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::CloudFormation::Stack', aws, stackName)
 export const listSubstackIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::CloudFormation::Stack', aws, stackName)
 
-export const getStackOutputs = ({
+export const getStackOutputs = async ({
   cloudformation
 }: {
   cloudformation: _AWS.CloudFormation
@@ -233,7 +288,11 @@ export const getStackTemplate = async (aws: AWS, stackName: string):Promise<any>
     StackName: stackName
   }).promise()
 
-  return JSON.parse(TemplateBody)
+  if (TemplateBody.trim().startsWith('{')) {
+    return JSON.parse(TemplateBody)
+  }
+
+  return YAML.safeLoad(TemplateBody)
 }
 
 // export const createOrUpdateStack = async (aws: AWS, params: AWS.CloudFormation.UpdateStackInput) => {
@@ -573,6 +632,6 @@ type Promiser<T> = (item:T) => Promise<void|any>
 
 export const series = async <T>(arr:T[], exec:Promiser<T>) => {
   for (const item of arr) {
-    await executor(item)
+    await exec(item)
   }
 }

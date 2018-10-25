@@ -78,6 +78,45 @@ export const restoreBucket = async ({ bucket }: {
   // TODO: use s3-pit-restore
 }
 
+export const enableKMSKeyForStack = async ({ kms, keyId, stackName }: {
+  kms: AWS.KMS
+  keyId: string
+  stackName: string
+}) => {
+  const lambdaRoleArn = 'arn:aws:iam::${AWS::AccountId}:role/' + stackName + '-${AWS::Region}-lambdaRole'
+  const baseParams = { KeyId: keyId }
+  const PolicyName = 'default'
+  // just in case
+  await kms.cancelKeyDeletion(baseParams).promise()
+  await kms.enableKey(baseParams).promise()
+  const { Policy } = await kms.getKeyPolicy({ ...baseParams, PolicyName }).promise()
+  const currentPolicy = JSON.parse(Policy)
+  const updatedPolicy = addKeyUsers(currentPolicy, [lambdaRoleArn])
+  await kms.putKeyPolicy({
+    ...baseParams,
+    PolicyName,
+    Policy: JSON.stringify(updatedPolicy),
+  }).promise()
+}
+
+const addKeyUsers = (policy: any, iamArns: string[]) => {
+  const Principal = policy.find(Statement => {
+    const { Sid, Effect, Action } = Statement
+    if (Sid === 'allowUseKey') return true
+    if (Effect === 'Allow') {
+      return Action.includes('kms:Decrypt') && Action.includes('kms:GenerateDataKey')
+    }
+  })
+
+  return {
+    ...policy,
+    Principal: {
+      ...Principal,
+      AWS: iamArns.concat(Principal.AWS || [])
+    }
+  }
+}
+
 export const createStack = async ({ client, templateUrl, buckets, tables, immutableParameters=[], logger }: {
   client: AWSClients
   templateUrl: string
@@ -92,7 +131,7 @@ export const createStack = async ({ client, templateUrl, buckets, tables, immuta
   const groups = groupParameters(template)
   const values = {}
   await utils.series(groups, async ({ name, parameters }) => {
-    parameters = parameters.filter(p => !immutableParameters.includes(p))
+    parameters = parameters.filter(p => !immutableParameters.includes(p.Name))
     if (!parameters.length) return
 
     logger.info(name)

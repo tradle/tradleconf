@@ -23,6 +23,7 @@ export type AWSClients = {
   ecr: AWS.ECR
   ec2: AWS.EC2
   opsworks: AWS.OpsWorks
+  kms: AWS.KMS
   // AWS: any
   // trace: any
   region: string
