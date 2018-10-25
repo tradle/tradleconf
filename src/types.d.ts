@@ -2,9 +2,11 @@ import { Conf } from './'
 
 export { Conf }
 
+export { Logger } from './logger'
+
 export type AWSClients = {
   s3: AWS.S3
-  // dynamodb: AWS.DynamoDB
+  dynamodb: AWS.DynamoDB
   // iot: AWS.Iot
   // iotData: AWS.IotData
   // sts: AWS.STS
@@ -90,3 +92,5 @@ export interface SetKYCServicesOpts {
   truefaceSpoof?: boolean
   rankOne?: boolean
 }
+
+export type PointInTime = string

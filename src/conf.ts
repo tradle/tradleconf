@@ -471,7 +471,7 @@ export class Conf {
     const ecr = new AWS.ECR()
     const ec2 = new AWS.EC2()
     const opsworks = new AWS.OpsWorks()
-    // const dynamodb = new AWS.DynamoDB()
+    const dynamodb = new AWS.DynamoDB()
     // const docClient = new AWS.DynamoDB.DocClient()
     return {
       s3,
@@ -481,7 +481,7 @@ export class Conf {
       ec2,
       opsworks,
       region: AWS.config.region,
-      // dynamodb,
+      dynamodb,
       // docClient
     }
   }

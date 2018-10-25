@@ -1,0 +1,15 @@
+{
+  "Statement" : [
+    {
+      "Effect" : "Deny",
+      "Action" : ["Update:Replace", "Update:Delete"],
+      "Principal": "*",
+      "Resource": "*",
+      "Condition" : {
+        "StringEquals" : {
+          "ResourceType" : ["AWS::DynamoDB::Table"]
+        }
+      }
+    }
+  ]
+}

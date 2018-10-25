@@ -196,12 +196,15 @@ export const confirmOrAbort = async (msg:string) => {
   }
 }
 
-export const ask = (message: string) => {
+type SyncValidate = (str: string) => boolean
+
+export const ask = (message: string, validate?: SyncValidate) => {
   return inquirer.prompt([
     {
       type: 'input',
       name: 'answer',
-      message
+      message,
+      validate,
     }
   ])
   .then(({ answer }) => answer)

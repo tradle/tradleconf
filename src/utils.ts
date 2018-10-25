@@ -76,8 +76,8 @@ export const toEnvFile = obj => Object.keys(obj)
 
 const acceptAll = (item:any) => true
 
-export const listStackResources = async (aws: AWS, StackName: string, filter=acceptAll) => {
-  let resources = []
+export const listStackResources = async (aws: AWS, StackName: string, filter=acceptAll):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
+  let resources:AWS.CloudFormation.StackResourceSummary[] = []
   const opts:_AWS.CloudFormation.ListStackResourcesInput = { StackName }
   while (true) {
     let {
@@ -102,10 +102,28 @@ export const listStackResourceIdsByType = async (type, aws: AWS, stackName:strin
   return resources.map(r => r.PhysicalResourceId)
 }
 
-export const listStackBuckets = listStackResourcesByType.bind(null, 'AWS::S3::Bucket')
-export const listStackBucketIds = listStackResourceIdsByType.bind(null, 'AWS::S3::Bucket')
-export const listStackFunctions = listStackResourcesByType.bind(null, 'AWS::Lambda::Function')
-export const listStackFunctionIds = listStackResourceIdsByType.bind(null, 'AWS::Lambda::Function')
+export const listStackBuckets = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::S3::Bucket', aws, stackName)
+export const listStackBucketIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::S3::Bucket', aws, stackName)
+export const listStackFunctions = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::Lambda::Function', aws, stackName)
+export const listStackFunctionIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::Lambda::Function', aws, stackName)
+export const listStackTables = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::Dynamodb::Table', aws, stackName)
+export const listStackTableIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::DynamoDB::Table', aws, stackName)
+export const listSubstacks = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::CloudFormation::Stack', aws, stackName)
+export const listSubstackIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::CloudFormation::Stack', aws, stackName)
+
+export const getStackOutputs = ({
+  cloudformation
+}: {
+  cloudformation: _AWS.CloudFormation
+}, stackName: string) => {
+  const { Stacks } = await cloudformation.describeStacks({ StackName: stackName }).promise()
+  if (Stacks.length > 1) {
+    throw new Error(`multiple stacks matched query: ${stackName}`)
+  }
+
+  return Stacks[0].Outputs
+}
+
 
 export const destroyBucket = async (aws: AWS, Bucket: string) => {
   await emptyBucket(aws.s3, Bucket)
@@ -549,4 +567,12 @@ export const unwrapReturnValue = ret => {
   }
 
   return ret
+}
+
+type Promiser<T> = (item:T) => Promise<void|any>
+
+export const series = async <T>(arr:T[], exec:Promiser<T>) => {
+  for (const item of arr) {
+    await executor(item)
+  }
 }

@@ -1,0 +1,23 @@
+{
+  "Statement" : [
+    {
+      "Effect" : "Deny",
+      "Action" : ["Update:Replace", "Update:Delete"],
+      "Principal": "*",
+      "Condition" : {
+        "StringEquals" : {
+          "ResourceType" : ["AWS::KMS::Key"]
+        }
+      }
+    },
+    {
+      "Effect" : "Deny",
+      "Action" : ["Update:Delete"],
+      "Principal": "*",
+      "Resource": [
+        "LogicalResourceId/Tables",
+        "LogicalResourceId/Buckets"
+      ]
+    }
+  ]
+}
