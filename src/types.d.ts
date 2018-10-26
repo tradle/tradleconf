@@ -1,3 +1,4 @@
+import AWS from 'aws-sdk'
 import { Conf } from './'
 
 export { Conf }
@@ -95,3 +96,43 @@ export interface SetKYCServicesOpts {
 }
 
 export type PointInTime = string
+
+export type CloudResourceType = 'bucket'|'table'|'key'
+export interface CloudResource {
+  type: CloudResourceType
+  name: string
+  value: string
+}
+
+export interface CFParameterDef {
+  Type: AWS.CloudFormation.ParameterType
+  Default?: AWS.CloudFormation.ParameterValue
+  Description?: string
+  AllowedValues?: AWS.CloudFormation.ParameterValue[]
+  AllowedPattern?: string
+  ConstraintDescription?: string
+  MinLength?: number
+  MaxLength?: number
+  MinValue?: number
+  MaxValue?: number
+  // added by tradleconf
+  Name?: AWS.CloudFormation.ParameterKey
+  Label?: string
+}
+
+export interface CFParameterDefMap {
+  [name: string]: CFParameterDef
+}
+
+export interface CFResource {
+  Type: string
+  Properties: any
+  Description?: string
+  DeletionPolicy?: string
+}
+
+export interface CFTemplate {
+  Parameters: CFParameterDefMap
+  Mappings: any
+  Resources: CFResource
+}

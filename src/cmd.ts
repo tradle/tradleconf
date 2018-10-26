@@ -32,6 +32,7 @@ import {
   normalizeConfOpts,
   isSafeRemoteCommand,
   isRemoteOnlyCommand,
+  toCamelCase,
 } from './utils'
 
 const printHelp = () => {
@@ -93,8 +94,25 @@ const getTargetEnvironmentWarning = (commandName: string, confOpts: ConfOpts) =>
   return warning.length ? warning.join('. ') : ''
 }
 
+const assertRequiredOptions = command => {
+  const omittedRequired = []
+  command.options.forEach((option) => {
+    const name = option.long.slice(2)
+    if (option.required && !command.hasOwnProperty(toCamelCase(name, '-'))) {
+      omittedRequired.push(`--${name}`)
+    }
+  })
+
+  if (omittedRequired.length !== 0) {
+    throw new Error(`expected option(s): ${omittedRequired.join(', ')}`)
+  }
+}
+
 const normalizeOpts = (...args) => {
   const command = matchedCommand = args.pop()
+
+  assertRequiredOptions(command)
+
   let confOpts:ConfOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.confOpts)
   if (program.debugBrk) {
     confOpts['debug-brk'] = true
@@ -123,7 +141,15 @@ const normalizeOpts = (...args) => {
 }
 
 const createAction = (action: keyof Conf) => (...args) => {
-  const { confOpts, commandOpts } = normalizeOpts(...args)
+  let normalized
+  try {
+    normalized = normalizeOpts(...args)
+  } catch (err) {
+    logger.error(err.message)
+    return
+  }
+
+  const { confOpts, commandOpts } = normalized
   return run(() => {
     const conf:Conf = createConf(confOpts)
     if (!conf[action]) {
@@ -229,7 +255,7 @@ const loadCommand = program
 
 const validateCommand = program
   .command('validate')
-  .description(`[DEPRECATED] validate your local models and lenses
+  .description(`[DEPRECATED] validate your local configuration before you push it
 
 This command is deprecated. Validation is done cloud-side regardless.`)
   .option('-m, --models', 'validate models and lenses')
@@ -252,7 +278,7 @@ const createDataClaimCommand = program
   .description(`create a claim stub for a data bundle`)
   .option('-k, --key <key>', DESC.key)
   .option('-c, --claim-type <claimType>', '"prefill" or "bulk"')
-  .option('-q, --qr-code <pathToWriteQRCode>', 'path to write QR code, e.g. ./myqrcode.png')
+  .option('-q, --qr-code [pathToWriteQRCode]', 'path to write QR code, e.g. ./myqrcode.png')
   .allowUnknownOption(false)
   .action(createAction('createDataClaim'))
 
@@ -336,7 +362,7 @@ const listPreviousVersionsCommand = program
 
 const updateCommand = program
   .command('update')
-  .option('-t, --tag <versionTag>')
+  .option('-t, --tag [versionTag]')
   .option('-f, --force', 'force update even if deployment is ahead of or equal to the specified version tag')
   .option('-c, --show-release-candidates', 'set if you want to list release candidate versions')
   // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
@@ -377,7 +403,7 @@ const listUpdatesCommand = program
 const createLogCommand = (command, name) => command
   .allowUnknownOption(false)
   .option('-s, --start <time-expression>', 'see awslogs docs')
-  .option('-e, --end <time-expression>', 'see awslogs docs')
+  .option('-e, --end [time-expression]', 'see awslogs docs')
   .option('-w, --watch', 'tail log')
   .option('-t, --timestamp', 'prints the creation timestamp of each event.')
   .option('-i, --ingestion-time', 'prints the ingestion time of each event.')
@@ -428,6 +454,12 @@ const enableKYCServices = program
   .allowUnknownOption(false)
   .action(createAction('enableKYCServices'))
 
+const disableKYCServices = program
+  .command('disable-kyc-services')
+  .option('--services-stack-arn [arn]', 'set if you know the ARN of the KYC services stack')
+  .allowUnknownOption(false)
+  .action(createAction('disableKYCServices'))
+
 const reboot = program
   .command('reboot')
   .description(`reboot your MyCloud functions, in case they are misbehaving.
@@ -441,6 +473,33 @@ const getTemplate = program
   .description(`download your stack template`)
   .allowUnknownOption(false)
   .action(createAction('getStackTemplate'))
+
+const restoreFromStack = program
+  .command('restore')
+  .option('--new-stack-name <name>', 'name to use for new stack')
+  .option('--source-stack-arn [stackArn]', 'arn of stack to restore. Defaults to the one in your .env file')
+  .option('--parameters [path/to/parameters.json]', 'if you generated parameters with the "gen-stack-parameters" command')
+  // .option('--new-stack-region <region>', 'region to launch new stack in')
+  .description(`create a new stack from an existing stack, using the same tables, buckets, and identity`)
+  .allowUnknownOption(false)
+  .action(createAction('restoreFromStack'))
+
+// const createStack = program
+//   .command('create-stack')
+//   .option('--parameters <pathToParams>', 'path to parameters file you generated with the "gen-stack-parameters" command')
+//   .option('--template-url <templateUrl>', 'stack template url')
+//   // .option('--new-stack-region <region>', 'region to launch new stack in')
+//   .description(`create a new stack from an existing stack, using the same tables, buckets, and identity`)
+//   .allowUnknownOption(false)
+//   .action(createAction('createStack'))
+
+const genParams = program
+  .command('gen-stack-parameters')
+  .option('--source-stack-arn [stackArn]', 'defaults to the one in your .env file')
+  .option('--output [path/to/write/parameters.json]')
+  .description('generate parameters for creating/updating a stack')
+  .allowUnknownOption(false)
+  .action(createAction('genStackParameters'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

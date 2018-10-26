@@ -21,7 +21,8 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
-import { destroy } from './destroy'
+import { destroy, deleteCorrespondingServicesStack } from './destroy'
+import { cloneStack, deriveParametersFromStack } from './restore'
 import { configureKYCServicesStack, getStackId as getServicesStackId } from './kyc-services'
 import {
   AWSClients,
@@ -490,19 +491,19 @@ export class Conf {
 
   public getStacks = async (opts={}) => {
     const client = this.createAWSClient(opts)
-    return await utils.listStacks(client)
+    return await utils.listStacks(client.cloudformation)
   }
 
   public waitForStackUpdate = async (opts?:WaitStackOpts) => {
     const { stackName=this.stackName } = opts || {}
     const client = this.createAWSClient()
-    await utils.awaitStackUpdate(client, stackName)
+    await utils.awaitStackUpdate(client.cloudformation, stackName)
   }
 
   public waitForStackDelete = async (opts?:WaitStackOpts) => {
     const { stackName=this.stackName } = opts || {}
     const client = this.createAWSClient()
-    await utils.awaitStackDelete(this.client, stackName)
+    await utils.awaitStackDelete(client.cloudformation, stackName)
   }
 
   public createDataBundle = async ({ path }) => {
@@ -566,8 +567,8 @@ export class Conf {
   public destroy = async () => {
     this._ensureStackNameKnown()
     this._ensureRemote()
-    const { client, stackName, profile } = this
-    await destroy({ client, stackName, profile })
+    const { client, stackId, profile } = this
+    await destroy({ client, stackId, profile })
   }
 
   public getApiBaseUrl = async () => {
@@ -575,7 +576,7 @@ export class Conf {
       return null
     }
 
-    return utils.getApiBaseUrl(this.client, this.stackName)
+    return utils.getApiBaseUrl(this.client.cloudformation, this.stackName)
   }
 
   public info = async () => {
@@ -622,7 +623,7 @@ export class Conf {
   public getFunctions = async () => {
     this._ensureStackNameKnown()
     const { client, stackName } = this
-    return await utils.listStackFunctionIds(client, stackName)
+    return await utils.listStackFunctionIds(client.cloudformation, stackName)
   }
 
   public getFunctionShortNames = async () => {
@@ -679,12 +680,14 @@ export class Conf {
   }
 
   public disable = async () => {
+    this._ensureRemote()
     return await this.exec({
       args: ['setenvvar --key DISABLED --value 1']
     })
   }
 
   public enable = async () => {
+    this._ensureRemote()
     return await this.exec({
       args: ['setenvvar --key DISABLED']
     })
@@ -779,7 +782,6 @@ export class Conf {
 
   public updateManually = async (opts: ApplyUpdateOpts) => {
     await this.applyUpdateAsCurrentUser(opts)
-    await this.waitForStackUpdate()
   }
 
   public rollback = async (opts: UpdateOpts) => {
@@ -807,7 +809,7 @@ export class Conf {
       params.NotificationARNs = notificationTopics
     }
 
-    await utils.updateStack(this.client, params)
+    await utils.updateStackAndWait({ cloudformation: this.client.cloudformation, params })
   }
 
   public applyUpdateViaLambda = async (update) => {
@@ -820,6 +822,30 @@ export class Conf {
 
   public enableKYCServices = async () => {
     return this.setKYCServices({ rankOne: true, truefaceSpoof: true })
+  }
+
+  public disableKYCServices = async ({ servicesStackArn, ...opts }) => {
+    if (servicesStackArn) {
+      const task = {
+        title: `delete stack: ${servicesStackArn}`,
+        task: async () => {
+          await utils.deleteStackAndWait({
+            cloudformation: this.client.cloudformation,
+            params: {
+              StackName: servicesStackArn
+            },
+          })
+        }
+      }
+
+      return await new Listr([task]).run()
+    }
+
+    return deleteCorrespondingServicesStack({
+      client: this.client,
+      profile: this.profile,
+      stackId: this.stackId,
+    })
   }
 
   public setKYCServices = async ({ truefaceSpoof, rankOne }: SetKYCServicesOpts) => {
@@ -836,7 +862,7 @@ export class Conf {
 
   public getPrivateConfBucket = async () => {
     this._ensureStackNameKnown()
-    const buckets = await utils.listStackBucketIds(this.client, this.stackName)
+    const buckets = await utils.listStackBucketIds(this.client.cloudformation, this.stackName)
     return buckets.find(bucket => /tdl-.*?-ltd-.*?-privateconfbucket/.test(bucket))
   }
 
@@ -846,7 +872,7 @@ export class Conf {
     logger.info(`rebooting functions:\n${functions.join('\n')}`)
 
     const DATE_UPDATED = String(Date.now())
-    await utils.updateEnvironments(this.client, {
+    await utils.updateEnvironments(this.client.lambda, {
       functions,
       transform: ({ name, env }) => ({
         ...env,
@@ -861,7 +887,11 @@ export class Conf {
   public getStackTemplate = async ({ output }) => {
     this._ensureRemote()
     this._ensureStackNameKnown()
-    const template = await utils.getStackTemplate(this.client, this.stackId)
+    const template = await utils.getStackTemplate({
+      cloudformation: this.client.cloudformation,
+      stackId: this.stackId
+    })
+
     const outputPath = output.startsWith('/') ? output : path.resolve(process.cwd(), output)
     write(outputPath, template)
   }
@@ -875,6 +905,42 @@ export class Conf {
     })
   }
 
+  public restoreFromStack = async (opts) => {
+    this._ensureRemote()
+    this._ensureInitialized()
+
+    let { sourceStackArn=this.stackId, parameters } = opts
+    if (parameters) {
+      parameters = readJSON(parameters)
+    }
+
+    return cloneStack({
+      ...opts,
+      sourceStackArn,
+      parameters,
+      profile: this.profile,
+    })
+  }
+
+  public genStackParameters = async (opts) => {
+    this._ensureRemote()
+    const { sourceStackArn=this.stackId, output } = opts
+    const { region } = utils.parseStackArn(sourceStackArn)
+    const params = await deriveParametersFromStack({
+      cloudformation: utils.createCloudFormationClient({
+        region,
+        profile: this.profile,
+      }),
+      stackId: sourceStackArn
+    })
+
+    if (output) {
+      write(path.resolve(process.cwd(), output), params)
+    } else {
+      console.log(prettify(params))
+    }
+  }
+
   private _ensureStackNameKnown = () => {
     if (this.remote && !this.stackName) {
       throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory?`)
@@ -884,6 +950,12 @@ export class Conf {
   private _ensureRegionKnown = () => {
     if (this.remote && !this.region) {
       throw new CustomErrors.InvalidInput(`please re-run 'tradelconf init', your .env file is outdated`)
+    }
+  }
+
+  private _ensureInitialized = () => {
+    if (!fs.existsSync(path.resolve(process.cwd(), '.env'))) {
+      throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory? I don't see a .env file`)
     }
   }
 

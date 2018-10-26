@@ -1,7 +1,6 @@
 import AWS from 'aws-sdk'
-import {
-  PointInTime
-} from './types'
+import { PointInTime } from './types'
+import { Errors as CustomErrors } from './errors'
 
 interface FromToTable {
   sourceName: string
@@ -31,6 +30,13 @@ class DynamoDB {
     }).promise()
   }
 
+  public ensureStreamMatchesTable = async ({ tableArn, streamArn }) => {
+    const { Table } = await this.client.describeTable({ TableName: tableArn }).promise()
+    if (Table.LatestStreamArn !== streamArn) {
+      throw new CustomErrors.InvalidInput(`stream ${streamArn} does not match table ${tableArn}`)
+    }
+  }
+
   public restoreTable = async ({ region, pointInTime, sourceName, targetName }: RestoreTableOpts) => {
     const params:AWS.DynamoDB.RestoreTableToPointInTimeInput = {
       RestoreDateTime: new Date(pointInTime),
@@ -39,11 +45,29 @@ class DynamoDB {
     }
 
     await this.client.restoreTableToPointInTime(params).promise()
-    await this.copyTableSettings({ region, sourceName, targetName })
+    await this.awaitExists(targetName)
+    await this.copyTableSettings({ sourceName, targetName })
+    const { Table } = await this.client.describeTable({ TableName: targetName }).promise()
+    return {
+      table: Table.TableArn,
+      stream: Table.LatestStreamArn,
+    }
   }
 
-  public copyTableSettings = async ({ region, sourceName, targetName }: {
-    region: string
+  public awaitExists = async (tableName: string) => {
+    try {
+      await this.client.waitFor('tableExists', { TableName: tableName }).promise()
+    } catch (err) {
+      if (/max attempts exceeded/i.test(err.message)) {
+        // retry
+        return this.awaitExists(tableName)
+      }
+
+      throw err
+    }
+  }
+
+  public copyTableSettings = async ({ sourceName, targetName }: {
     sourceName: string
     targetName: string
   }) => {
@@ -83,7 +107,9 @@ class DynamoDB {
 
   public copyTTLSettings = async ({ sourceName, targetName }: FromToTable) => {
     const ttl = await this.getTTLSettings(sourceName)
-    await this.setTTLSettings({ tableName: targetName, ttl })
+    if (ttl.Enabled) {
+      await this.setTTLSettings({ tableName: targetName, ttl })
+    }
   }
 
   public getStreamSettings = async (tableName: string) => {

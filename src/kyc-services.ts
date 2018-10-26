@@ -2,6 +2,7 @@ import nonNull from 'lodash/identity'
 import inquirer from 'inquirer'
 import Listr from 'listr'
 import yn from 'yn'
+import AWS from 'aws-sdk'
 import { Conf, AWSClients, SetKYCServicesOpts } from './types'
 import * as utils from './utils'
 import {
@@ -30,14 +31,14 @@ interface ConfigureKYCServicesStackOpts extends SetKYCServicesOpts {
 
 export const getStackName = utils.getServicesStackName
 
-export const getStackId = async (client: AWSClients, mycloudStackName: string) => {
+export const getStackId = async (cloudformation: AWS.CloudFormation, mycloudStackName: string) => {
   const servicesStackName = utils.getServicesStackName(mycloudStackName)
-  return utils.getStackId(client, servicesStackName)
+  return utils.getStackId(cloudformation, servicesStackName)
 }
 
 export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesStackOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
-  const servicesStackId = await getStackId(client, mycloudStackName)
+  const servicesStackId = await getStackId(client.cloudformation, mycloudStackName)
   const exists = !!servicesStackId
   const bucket = await conf.getPrivateConfBucket()
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
@@ -62,7 +63,7 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
     ? (await getServicesStackInfo(client, { stackId: servicesStackId })).availabilityZones
     : await chooseAZs(client, { region, count: azsCount })
 
-  const usedEIPCount = await utils.getUsedEIPCount(client)
+  const usedEIPCount = await utils.getUsedEIPCount(client.ec2)
   if (EIP_LIMIT - usedEIPCount < azsCount) {
     await confirmOrAbort(`WARNING: your account has ${usedEIPCount} Elastic IPs in use in region ${region}.
 This stack will create ${azsCount} more. AWS's base limit is 5 per region, so this stack may fail.
@@ -101,7 +102,7 @@ Continue?`)
   }
 
   if (enableSSH) {
-    const key = await chooseEC2KeyPair(client)
+    const key = await chooseEC2KeyPair(client.ec2)
     parameters.push({
       ParameterKey: 'KeyName',
       ParameterValue: key
@@ -121,15 +122,18 @@ Continue?`)
         }
 
         let method
+        let waitMethod
         if (exists) {
           method = 'updateStackInRegion'
+          waitMethod = 'awaitStackUpdate'
         } else {
           method = 'createStackInRegion'
+          waitMethod = 'awaitStackCreate'
           // @ts-ignore
           params.DisableRollback = true
         }
 
-        ctx.wait = await utils[method]({ params, region })
+        ctx.wait = utils[method]({ params, region, wait: false })
       },
     },
     {

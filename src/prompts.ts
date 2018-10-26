@@ -210,20 +210,21 @@ export const ask = (message: string, validate?: SyncValidate) => {
   .then(({ answer }) => answer)
 }
 
-export const chooseEC2KeyPair = async (client: AWSClients) => {
+export const chooseEC2KeyPair = async (ec2: AWS.EC2) => {
+  const { region } = ec2.config
   const know = await confirm('Do you know the name of the EC2 key pair you want to use?')
   if (know) {
     const key = await ask('What is the name of the EC2 key pair you configured in AWS?')
-    const exists = await doKeyPairsExist(client, [key])
+    const exists = await doKeyPairsExist(ec2, [key])
     if (exists) return key
 
-    logger.warn(`Key pair not found in region ${client.region}`)
-    return chooseEC2KeyPair(client)
+    logger.warn(`Key pair not found in region ${region}`)
+    return chooseEC2KeyPair(ec2)
   }
 
-  const keyPairs = await listKeyPairs(client)
+  const keyPairs = await listKeyPairs(ec2)
   if (!keyPairs.length) {
-    throw new CustomErrors.InvalidInput(`No key pairs found in region: ${client.region}`)
+    throw new CustomErrors.InvalidInput(`No key pairs found in region: ${region}`)
   }
 
   return choose({

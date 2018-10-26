@@ -9,7 +9,7 @@ import promptly from 'promptly'
 import chalk from 'chalk'
 import shelljs from 'shelljs'
 import fetch from 'node-fetch'
-import _AWS from 'aws-sdk'
+import AWS from 'aws-sdk'
 import YAML from 'js-yaml'
 import ModelsPack from '@tradle/models-pack'
 import Errors from '@tradle/errors'
@@ -17,20 +17,35 @@ import { emptyBucket } from './empty-bucket'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
 import { confirm } from './prompts'
-import { ConfOpts } from './types'
+import { ConfOpts, CloudResource, CloudResourceType, } from './types'
 import { REMOTE_ONLY_COMMANDS, SAFE_REMOTE_COMMANDS } from './constants'
 
-const MY_CLOUD_STACK_NAME_REGEX = /^tdl-(.*?)-ltd-([a-zA-Z]+)$/
-
-type AWS = {
-  s3: _AWS.S3
-  cloudformation: _AWS.CloudFormation
-  // autoscaling: _AWS.AutoScaling
-  lambda: _AWS.Lambda
-  ecr: _AWS.ECR
-  ec2: _AWS.EC2
-  opsworks: _AWS.OpsWorks
+interface CreateStackOpts {
+  cloudformation: AWS.CloudFormation
+  params: AWS.CloudFormation.CreateStackInput
 }
+
+interface UpdateStackOpts {
+  cloudformation: AWS.CloudFormation
+  params: AWS.CloudFormation.UpdateStackInput
+}
+
+interface DeleteStackOpts {
+  cloudformation: AWS.CloudFormation
+  params: AWS.CloudFormation.DeleteStackInput
+}
+
+interface UpdateStackInRegionOpts {
+  region: string
+  params: AWS.CloudFormation.UpdateStackInput
+}
+
+interface CreateStackInRegionOpts {
+  region: string
+  params: AWS.CloudFormation.CreateStackInput
+}
+
+export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-(.*?)-ltd-([a-zA-Z]+)$/
 
 export const get = async (url) => {
   const res = await fetch(url)
@@ -83,64 +98,91 @@ const isRetained = ({ DeletionPolicy }) => DeletionPolicy === 'Retain'
 const getRetainedResources = (template: any) => Object.keys(template.Resources)
   .filter(logicalId => isRetained(template.Resources[logicalId]))
 
-export const getStackTemplates = async (aws: AWS, stackName: string) => {
-  const main = await getStackTemplate(aws, stackName)
-  const nested = await listStackResourcesByType('AWS::CloudFormation::Stack', aws, stackName)
+export const getStackTemplates = async (cloudformation: AWS.CloudFormation, stackId: string) => {
+  const main = await getStackTemplate({ cloudformation, stackId })
+  const nested = await listSubstacks(cloudformation, stackId)
   if (!nested.length) return [main]
 
-  const nestedTemplates = _.flatten(await Promise.all(nested.map(n => getStackTemplates(aws, n.PhysicalResourceId))))
+  const nestedTemplates = _.flatten(await Promise.all(nested.map(n => getStackTemplates(cloudformation, n.PhysicalResourceId))))
   return [main].concat(nestedTemplates)
 }
 
-export const listRetainedResources = async (aws: AWS, stackName):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
-  const [template, resources] = await Promise.all([
-    getStackTemplate(aws, stackName),
-    listStackResources(aws, stackName),
-  ])
+export const getStackInfo = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}):Promise<AWS.CloudFormation.Stack> => {
+  const {
+    Stacks,
+  } = await cloudformation.describeStacks({ StackName: stackId }).promise()
 
-  const retained = Object.keys(template.Resources)
-    .filter(logicalId => isRetained(template.Resources[logicalId]))
-    .map(logicalId => resources.find(r => r.LogicalResourceId === logicalId))
-    // some resources may be created conditionally (created or passed in parameters)
-    .filter(_.identity)
-
-  const nestedStacks = resources.filter(r => r.ResourceType === 'AWS::CloudFormation::Stack')
-  const nestedRetained = _.flatten(
-    await Promise.all(nestedStacks.map(r => listRetainedResources(aws, r.PhysicalResourceId)))
-  )
-
-  return retained.concat(nestedRetained)
+  return Stacks[0]
 }
 
+export const getStackOutputs = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}):Promise<AWS.CloudFormation.Output[]> => {
+  const { Outputs } = await getStackInfo({ cloudformation, stackId })
+  return Outputs
+}
+
+export const getStackParameters = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}):Promise<AWS.CloudFormation.Parameter[]> => {
+  const { Parameters } = await getStackInfo({ cloudformation, stackId })
+  return Parameters
+}
+
+export const listOutputResources = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}):Promise<CloudResource[]> => {
+  const outputs = await getStackOutputs({ cloudformation, stackId })
+  return outputs.map(({ OutputKey, OutputValue }) => {
+    const match = OutputKey.match(/(Bucket|Table|Key)$/)
+    if (match) {
+      const type = match[1].toLowerCase() as CloudResourceType
+      return { type, name: OutputKey, value: OutputValue }
+    }
+  })
+  .filter(_.identity)
+}
+
+// export const listRetainedResources = async (cloudformation: AWS.CloudFormation, stackName):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
+//   const [template, resources] = await Promise.all([
+//     getStackTemplate(cloudformation, stackName),
+//     listStackResources(cloudformation, stackName),
+//   ])
+
+//   const retained = Object.keys(template.Resources)
+//     .filter(logicalId => isRetained(template.Resources[logicalId]))
+//     .map(logicalId => resources.find(r => r.LogicalResourceId === logicalId))
+//     // some resources may be created conditionally (created or passed in parameters)
+//     .filter(_.identity)
+
+//   const nestedStacks = resources.filter(r => r.ResourceType === 'AWS::CloudFormation::Stack')
+//   const nestedRetained = _.flatten(
+//     await Promise.all(nestedStacks.map(r => listRetainedResources(cloudformation, r.PhysicalResourceId)))
+//   )
+
+//   return retained.concat(nestedRetained)
+// }
+
 export const listStackResources = async (
-  aws: AWS,
+  cloudformation: AWS.CloudFormation,
   StackName: string,
   filter: StackResourceSummaryFilter=acceptAll
 ):Promise<AWS.CloudFormation.StackResourceSummary[]> => {
   let resources:AWS.CloudFormation.StackResourceSummary[] = []
-  const opts:_AWS.CloudFormation.ListStackResourcesInput = { StackName }
+  const opts:AWS.CloudFormation.ListStackResourcesInput = { StackName }
   while (true) {
     let {
       StackResourceSummaries,
       NextToken
-    } = await aws.cloudformation.listStackResources(opts).promise()
+    } = await cloudformation.listStackResources(opts).promise()
 
     resources = resources.concat(StackResourceSummaries.filter(filter))
-    // let nestedStacks = StackResourceSummaries.filter(s => s.ResourceType === 'AWS::CloudFormation::Stack')
-    // if (nestedStacks) {
-    //   let nestedResources = _.flatten(
-    //     await Promise.all(nestedStacks.map(async ({ PhysicalResourceId }) => {
-    //       const list = await listStackResources(aws, PhysicalResourceId, filter)
-    //       return list.map(item => ({
-    //         ...item,
-    //         StackId: PhysicalResourceId,
-    //       }))
-    //     }))
-    //   )
-
-    //   resources = resources.concat(nestedResources)
-    // }
-
     opts.NextToken = NextToken
     if (!opts.NextToken) break
   }
@@ -148,42 +190,59 @@ export const listStackResources = async (
   return resources
 }
 
-export const listStackResourcesByType = (type, aws: AWS, stackName:string) => {
-  return listStackResources(aws, stackName, ({ ResourceType }) => type === ResourceType)
+export const listStackResourcesByType = (type, cloudformation: AWS.CloudFormation, stackName:string) => {
+  return listStackResources(cloudformation, stackName, ({ ResourceType }) => type === ResourceType)
 }
 
-export const listStackResourceIdsByType = async (type, aws: AWS, stackName:string) => {
-  const resources = await listStackResourcesByType(type, aws, stackName)
+export const listStackResourceIdsByType = async (type, cloudformation: AWS.CloudFormation, stackName:string) => {
+  const resources = await listStackResourcesByType(type, cloudformation, stackName)
   return resources.map(r => r.PhysicalResourceId)
 }
 
-export const listStackBuckets = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::S3::Bucket', aws, stackName)
-export const listStackBucketIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::S3::Bucket', aws, stackName)
-export const listStackFunctions = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::Lambda::Function', aws, stackName)
-export const listStackFunctionIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::Lambda::Function', aws, stackName)
-export const listStackTables = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::Dynamodb::Table', aws, stackName)
-export const listStackTableIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::DynamoDB::Table', aws, stackName)
-export const listSubstacks = (aws: AWS, stackName: string) => listStackResourcesByType('AWS::CloudFormation::Stack', aws, stackName)
-export const listSubstackIds = (aws: AWS, stackName: string) => listStackResourceIdsByType('AWS::CloudFormation::Stack', aws, stackName)
+export const listStackBuckets = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourcesByType('AWS::S3::Bucket', cloudformation, stackName)
 
-export const getStackOutputs = async ({
-  cloudformation
-}: {
-  cloudformation: _AWS.CloudFormation
-}, stackName: string) => {
-  const { Stacks } = await cloudformation.describeStacks({ StackName: stackName }).promise()
-  if (Stacks.length > 1) {
-    throw new Error(`multiple stacks matched query: ${stackName}`)
-  }
+export const listStackBucketIds = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourceIdsByType('AWS::S3::Bucket', cloudformation, stackName)
 
-  return Stacks[0].Outputs
-}
+export const listStackFunctions = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourcesByType('AWS::Lambda::Function', cloudformation, stackName)
 
+export const listStackFunctionIds = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourceIdsByType('AWS::Lambda::Function', cloudformation, stackName)
 
-export const destroyBucket = async (aws: AWS, Bucket: string) => {
-  await emptyBucket(aws.s3, Bucket)
+export const listStackTables = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourcesByType('AWS::Dynamodb::Table', cloudformation, stackName)
+
+export const listStackTableIds = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourceIdsByType('AWS::DynamoDB::Table', cloudformation, stackName)
+
+export const listSubstacks = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourcesByType('AWS::CloudFormation::Stack', cloudformation, stackName)
+
+export const listSubstackIds = (
+  cloudformation: AWS.CloudFormation,
+  stackName: string
+) => listStackResourceIdsByType('AWS::CloudFormation::Stack', cloudformation, stackName)
+
+export const destroyBucket = async (s3: AWS.S3, Bucket: string) => {
+  await emptyBucket(s3, Bucket)
   try {
-    await aws.s3.deleteBucket({ Bucket }).promise()
+    await s3.deleteBucket({ Bucket }).promise()
   } catch (err) {
     Errors.ignore(err, [
       { code: 'ResourceNotFoundException' },
@@ -192,7 +251,7 @@ export const destroyBucket = async (aws: AWS, Bucket: string) => {
   }
 }
 
-export const markBucketForDeletion = async (aws: AWS, Bucket: string) => {
+export const markBucketForDeletion = async (s3: AWS.S3, Bucket: string) => {
   const params: AWS.S3.PutBucketLifecycleConfigurationRequest = {
     Bucket,
     LifecycleConfiguration: {
@@ -212,80 +271,92 @@ export const markBucketForDeletion = async (aws: AWS, Bucket: string) => {
     }
   }
 
-  await aws.s3.putBucketLifecycleConfiguration(params).promise()
+  await s3.putBucketLifecycleConfiguration(params).promise()
 }
 
-export const disableStackTerminationProtection = async (aws: AWS, StackName:string) => {
-  return await aws.cloudformation.updateTerminationProtection({
+export const disableStackTerminationProtection = async (cloudformation: AWS.CloudFormation, StackName:string) => {
+  return await cloudformation.updateTerminationProtection({
     StackName,
     EnableTerminationProtection: false,
   }).promise()
 }
 
-export const deleteStack = async (aws: AWS, params:AWS.CloudFormation.DeleteStackInput) => {
+export const deleteStack = async ({ cloudformation, params }: DeleteStackOpts) => {
   while (true) {
     try {
-      await aws.cloudformation.deleteStack(params).promise()
-      return () => awaitStackDelete(aws, params.StackName)
+      await cloudformation.deleteStack(params).promise()
+      break
     } catch (err) {
       if (!err.message.includes('UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS')) {
         throw err
       }
 
       // back off, try again
-      await wait(5000)
+      await exports.wait(5000)
     }
+  }
+
+  return async () => {
+    await exports.wait(5000)
+    await awaitStackDelete(cloudformation, params.StackName)
   }
 }
 
-export const createStackInRegion = async ({ region, params }: {
-  region: string
-  params: AWS.CloudFormation.CreateStackInput
-}) => {
+export const createStackInRegion = async ({ region, params }: CreateStackInRegionOpts) => {
   return createStack({
-    cloudformation: new _AWS.CloudFormation({ region })
-  }, params)
+    cloudformation: new AWS.CloudFormation({ region }),
+    params,
+  })
 }
 
-export const updateStackInRegion = async ({ region, params }: {
-  region: string
-  params: AWS.CloudFormation.UpdateStackInput
-}) => {
+export const updateStackInRegion = async ({ region, params }: UpdateStackInRegionOpts) => {
   return updateStack({
-    cloudformation: new _AWS.CloudFormation({ region })
-  }, params)
+    cloudformation: new AWS.CloudFormation({ region }),
+    params,
+  })
 }
 
-export const createStack = async ({ cloudformation }: {
-  cloudformation: _AWS.CloudFormation
-}, params: AWS.CloudFormation.CreateStackInput) => {
+export const createStack = async ({ cloudformation, params }: CreateStackOpts) => {
   await cloudformation.createStack(params).promise()
-  return () => awaitStackCreate({ cloudformation }, params.StackName)
+  return async () => {
+    await exports.wait(5000)
+    await awaitStackCreate(cloudformation, params.StackName)
+  }
 }
 
-export const updateStack = async ({ cloudformation }: {
-  cloudformation: _AWS.CloudFormation
-}, params: AWS.CloudFormation.UpdateStackInput) => {
+export const updateStack = async ({ cloudformation, params }: UpdateStackOpts) => {
   await cloudformation.updateStack(params).promise()
-  return () => awaitStackUpdate({ cloudformation }, params.StackName)
+  return async () => {
+    await exports.wait(5000)
+    await awaitStackUpdate(cloudformation, params.StackName)
+  }
 }
+
+export const updateStackAndWait = (opts:UpdateStackOpts) => updateStack(opts).then(wait => wait())
+export const updateStackInRegionAndWait = (opts:UpdateStackInRegionOpts) => updateStackInRegion(opts).then(wait => wait())
+export const createStackAndWait = (opts:CreateStackOpts) => createStack(opts).then(wait => wait())
+export const createStackInRegionAndWait = (opts:CreateStackInRegionOpts) => createStackInRegion(opts).then(wait => wait())
+export const deleteStackAndWait = (opts:DeleteStackOpts) => deleteStack(opts).then(wait => wait())
 
 const isUpdateableStatus = (status: AWS.CloudFormation.StackStatus) => {
   return status.endsWith('_COMPLETE') && !status.startsWith('DELETE_')
 }
 
-export const getStackId = async (aws: AWS, stackName: string):Promise<string> => {
+export const getStackId = async (cloudformation: AWS.CloudFormation, stackName: string):Promise<string> => {
   const stacks = await listStacks(
-    aws,
+    cloudformation,
     ({ StackName, StackStatus }) => StackName === stackName && isUpdateableStatus(StackStatus)
   )
 
   return stacks[0] && stacks[0].id
 }
 
-export const getStackTemplate = async (aws: AWS, stackName: string):Promise<any> => {
-  const { TemplateBody } = await aws.cloudformation.getTemplate({
-    StackName: stackName
+export const getStackTemplate = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}):Promise<any> => {
+  const { TemplateBody } = await cloudformation.getTemplate({
+    StackName: stackId
   }).promise()
 
   if (TemplateBody.trim().startsWith('{')) {
@@ -304,26 +375,20 @@ export const getStackTemplate = async (aws: AWS, stackName: string):Promise<any>
 //   }
 // }
 
-export const awaitStackCreate = async ({ cloudformation }: {
-  cloudformation: _AWS.CloudFormation
-}, stackName:string) => {
+export const awaitStackCreate = async (cloudformation: AWS.CloudFormation, stackName:string) => {
   return waitFor({ cloudformation, event: 'stackCreateComplete', stackName })
 }
 
-export const awaitStackDelete = async ({ cloudformation }: {
-  cloudformation: _AWS.CloudFormation
-}, stackName:string) => {
+export const awaitStackDelete = async (cloudformation: AWS.CloudFormation, stackName:string) => {
   return waitFor({ cloudformation, event: 'stackDeleteComplete', stackName })
 }
 
-export const awaitStackUpdate = async ({ cloudformation }: {
-  cloudformation: _AWS.CloudFormation
-}, stackName:string) => {
+export const awaitStackUpdate = async (cloudformation: AWS.CloudFormation, stackName:string) => {
   return waitFor({ cloudformation, event: 'stackUpdateComplete', stackName })
 }
 
 export const waitFor = async ({ cloudformation, stackName, event }: {
-  cloudformation: _AWS.CloudFormation
+  cloudformation: AWS.CloudFormation
   stackName: string
   event: 'stackCreateComplete' | 'stackUpdateComplete' | 'stackDeleteComplete'
 }) => {
@@ -338,8 +403,8 @@ export const waitFor = async ({ cloudformation, stackName, event }: {
 
 type FilterStackSummary = (item: AWS.CloudFormation.StackSummary) => boolean
 
-export const listStacks = async (aws: AWS, filter:FilterStackSummary=acceptAll) => {
-  const listStacksOpts:_AWS.CloudFormation.ListStacksInput = {
+export const listStacks = async (cloudformation: AWS.CloudFormation, filter:FilterStackSummary=acceptAll) => {
+  const listStacksOpts:AWS.CloudFormation.ListStacksInput = {
     StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE']
   }
 
@@ -349,7 +414,7 @@ export const listStacks = async (aws: AWS, filter:FilterStackSummary=acceptAll) 
     let {
       NextToken,
       StackSummaries
-    } = await aws.cloudformation.listStacks(listStacksOpts).promise()
+    } = await cloudformation.listStacks(listStacksOpts).promise()
 
     stackInfos = stackInfos.concat(StackSummaries.filter(filter).map(({ StackId, StackName }) => ({
       id: StackId,
@@ -388,8 +453,8 @@ export const listStacks = async (aws: AWS, filter:FilterStackSummary=acceptAll) 
 //   }))
 // }
 
-export const getApiBaseUrl = async (aws: AWS, StackName:string) => {
-  const result = await aws.cloudformation.describeStacks({ StackName }).promise()
+export const getApiBaseUrl = async (cloudformation: AWS.CloudFormation, StackName:string) => {
+  const result = await cloudformation.describeStacks({ StackName }).promise()
   const { Outputs } = result.Stacks[0]
   const endpoint = Outputs.find(x => /^ServiceEndpoint/.test(x.OutputKey))
   return endpoint.OutputValue
@@ -449,6 +514,11 @@ const parseMyCloudStackName = (name: string) => {
 }
 
 export const isMyCloudStackName = (name: string) => MY_CLOUD_STACK_NAME_REGEX.test(name)
+export const assertIsMyCloudStackName = (name: string) => {
+  if (!isMyCloudStackName(name)) {
+    throw new CustomErrors.InvalidInput(`"newStackName" must adhere to regex: ${MY_CLOUD_STACK_NAME_REGEX}`)
+  }
+}
 
 export const getServicesStackName = (stackName: string) => {
   const { shortName } = parseMyCloudStackName(stackName)
@@ -456,12 +526,12 @@ export const getServicesStackName = (stackName: string) => {
   return `${shorterName}-srvcs` // max length 20 chars
 }
 
-export const canAccessECRRepos = async (aws: AWS, { accountId, repoNames }: {
+export const canAccessECRRepos = async (ecr: AWS.ECR, { accountId, repoNames }: {
   accountId: string,
   repoNames: string[]
 }) => {
   try {
-    await aws.ecr.describeRepositories({
+    await ecr.describeRepositories({
       registryId: accountId,
       repositoryNames: repoNames
     }).promise()
@@ -476,21 +546,21 @@ export const canAccessECRRepos = async (aws: AWS, { accountId, repoNames }: {
   }
 }
 
-export const doKeyPairsExist = async (aws: AWS, names: string[]) => {
+export const doKeyPairsExist = async (ec2: AWS.EC2, names: string[]) => {
   const params: AWS.EC2.DescribeKeyPairsRequest = {
     KeyNames: names
   }
 
   try {
-    await aws.ec2.describeKeyPairs(params).promise()
+    await ec2.describeKeyPairs(params).promise()
     return true
   } catch (err) {
     return false
   }
 }
 
-export const listKeyPairs = async (aws: AWS) => {
-  const { KeyPairs } = await aws.ec2.describeKeyPairs().promise()
+export const listKeyPairs = async (ec2: AWS.EC2) => {
+  const { KeyPairs } = await ec2.describeKeyPairs().promise()
   return KeyPairs.map(k => k.KeyName)
 }
 
@@ -500,7 +570,7 @@ export const listKeyPairs = async (aws: AWS) => {
 // }
 
 export const listAZs = async ({ region }) => {
-  const ec2 = new _AWS.EC2({ region })
+  const ec2 = new AWS.EC2({ region })
   const { AvailabilityZones } = await ec2.describeAvailabilityZones({
     Filters: [
       {
@@ -515,8 +585,8 @@ export const listAZs = async ({ region }) => {
     .map(a => a.ZoneName)
 }
 
-export const getUsedEIPCount = async (aws: AWS) => {
-  const { Addresses } = await aws.ec2.describeAddresses().promise()
+export const getUsedEIPCount = async (ec2: AWS.EC2) => {
+  const { Addresses } = await ec2.describeAddresses().promise()
   return Addresses.length
 }
 
@@ -524,11 +594,11 @@ export const getConsoleLinkForStacksInRegion = ({ region, status='active' }) => 
   return `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks?filter=${status}`
 }
 
-export const updateEnvironments = async (aws: AWS, { functions, transform }: {
+export const updateEnvironments = async (lambda: AWS.Lambda, { functions, transform }: {
   functions: string[]
   transform: ({ name: string, env: any }) => any
 }) => {
-  const confs = await Promise.all(functions.map(FunctionName => aws.lambda.getFunctionConfiguration({ FunctionName }).promise()))
+  const confs = await Promise.all(functions.map(FunctionName => lambda.getFunctionConfiguration({ FunctionName }).promise()))
   await Promise.all(functions.map(async (FunctionName, i) => {
     const conf = confs[i]
     const Variables = transform({
@@ -536,7 +606,7 @@ export const updateEnvironments = async (aws: AWS, { functions, transform }: {
       env: conf.Environment.Variables
     })
 
-    await aws.lambda.updateFunctionConfiguration({
+    await lambda.updateFunctionConfiguration({
       FunctionName,
       Environment: { Variables }
     }).promise()
@@ -635,3 +705,59 @@ export const series = async <T>(arr:T[], exec:Promiser<T>) => {
     await exec(item)
   }
 }
+
+export const requireOption = (obj: any, option: string, type: 'string'|'number'|'object') => {
+  if (typeof obj[option] !== type) {
+    throw new CustomErrors.InvalidInput(`expected ${type} "${option}"`)
+  }
+}
+
+export const parseStackArn = (arn: string) => {
+  // arn:aws:cloudformation:us-east-1:123456789012:stack/stack-name/d8d99a40-c13f-11e8-a6d8-50d5cd1ea8d2
+  const [
+    region,
+    accountId,
+    more,
+  ] = arn.split(':').slice(3)
+
+  const [
+    stackName,
+    id,
+  ] = more.split('/').slice(1)
+
+  return { region, accountId, stackName }
+}
+
+export const splitOnCharAtIdx = (str: string, idx: number) => {
+  return [
+    str.slice(0, idx),
+    str.slice(idx + 1),
+  ]
+}
+
+const capFirst = (str: string) => str[0].toUpperCase() + str.slice(1)
+
+export const toCamelCase = (str: string, delimiter: string=' ') => {
+  return str.split(delimiter)
+    .filter(_.identity)
+    .map((part, i) => i === 0 ? part : capFirst(part))
+    .join('')
+}
+
+type ClientOpts = {
+  region: string
+  profile?: string
+}
+
+const createClientOpts = ({ profile, region }: ClientOpts) => {
+  const opts:any = { region }
+  if (profile) {
+    opts.credentials = new AWS.SharedIniFileCredentials({ profile })
+  }
+
+  return opts
+}
+
+export const createCloudFormationClient = (opts: ClientOpts) => new AWS.CloudFormation(createClientOpts(opts))
+export const createDynamoDBClient = (opts: ClientOpts) => new AWS.DynamoDB(createClientOpts(opts))
+export const createS3Client = (opts: ClientOpts) => new AWS.S3(createClientOpts(opts))

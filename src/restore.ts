@@ -1,8 +1,12 @@
 import matches from 'lodash/matches'
 import sortBy from 'lodash/sortBy'
 import groupBy from 'lodash/groupBy'
+import uniq from 'lodash/uniq'
+import cloneDeep from 'lodash/cloneDeep'
 import inquirer from 'inquirer'
+import AWS from 'aws-sdk'
 import Listr from 'listr'
+import tmp from 'tmp'
 import promiseRetry from 'promise-retry'
 // import { toSortableTag, sortTags, compareTags } from 'lexicographic-semver'
 import Errors from '@tradle/errors'
@@ -11,6 +15,9 @@ import {
   AWSClients,
   PointInTime,
   Logger,
+  CloudResource,
+  CFTemplate,
+  CFParameterDef,
 } from './types'
 
 import { Errors as CustomErrors } from './errors'
@@ -18,12 +25,13 @@ import { logger } from './logger'
 import { confirmOrAbort, ask, chooseRegion } from './prompts'
 import { create as createDynamoDBMigrator } from './dynamodb'
 import * as utils from './utils'
+import { IMMUTABLE_STACK_PARAMETERS } from './constants'
 
-const shouldRestoreBucket = (output: AWS.CloudFormation.Output) => output.OutputKey !== 'LogsBucket'
-const shouldRestoreTable = (output: AWS.CloudFormation.Output) => true
+const shouldRestoreBucket = (output: CloudResource) => output.name !== 'LogsBucket'
+const shouldRestoreTable = (output: CloudResource) => true
 
-const isBucket = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Bucket')
-const isTable = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Table')
+// const isBucket = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Bucket')
+// const isTable = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Table')
 // const validateSuffix = (input: string) => /^[a-z]{1-6}$/.test(input)
 
 const TABLE_NAME_REGEX = /(.*?)(\d+)$/
@@ -43,18 +51,18 @@ interface RestoreOpts {
   region: string
 }
 
-export const restore = async (opts: RestoreOpts) => {
+export const restoreResources = async (opts: RestoreOpts) => {
   const { conf, client, pointInTime } = opts
   const stackId = await ask('enter the broken stack id')
   // const suffix = await ask('enter a short suffix to append to restored tables. Use lowercase letters only.', validateSuffix)
-  const outputs = await utils.getStackOutputs(client, stackId)
+  const outputs = await utils.listOutputResources({ cloudformation: client.cloudformation, stackId })
   const buckets = outputs
-    .filter(o => isBucket(o) && shouldRestoreBucket(o))
-    .map(o => o.OutputValue)
+    .filter(o => o.type === 'bucket' && shouldRestoreBucket(o))
+    .map(o => o.value)
 
   const tables = outputs
-    .filter(o => isTable(o) && shouldRestoreTable(o))
-    .map(o => o.OutputValue)
+    .filter(o => o.type === 'table' && shouldRestoreTable(o))
+    .map(o => o.value)
 
   const region = await chooseRegion()
   const tableMigrator = createDynamoDBMigrator(client.dynamodb)
@@ -78,44 +86,73 @@ export const restoreBucket = async ({ bucket }: {
   // TODO: use s3-pit-restore
 }
 
-export const enableKMSKeyForStack = async ({ kms, keyId, stackName }: {
-  kms: AWS.KMS
-  keyId: string
-  stackName: string
-}) => {
-  const lambdaRoleArn = 'arn:aws:iam::${AWS::AccountId}:role/' + stackName + '-${AWS::Region}-lambdaRole'
-  const baseParams = { KeyId: keyId }
-  const PolicyName = 'default'
-  // just in case
-  await kms.cancelKeyDeletion(baseParams).promise()
-  await kms.enableKey(baseParams).promise()
-  const { Policy } = await kms.getKeyPolicy({ ...baseParams, PolicyName }).promise()
-  const currentPolicy = JSON.parse(Policy)
-  const updatedPolicy = addKeyUsers(currentPolicy, [lambdaRoleArn])
-  await kms.putKeyPolicy({
-    ...baseParams,
-    PolicyName,
-    Policy: JSON.stringify(updatedPolicy),
-  }).promise()
-}
+// export const enableKMSKeyForStack = async (opts: {
+//   kms: AWS.KMS
+//   keyId: string
+//   accountId: string
+//   stackName: string
+//   region: string
+// }) => {
+//   utils.requireOption(opts, 'keyId', 'string')
+//   utils.requireOption(opts, 'accountId', 'string')
+//   utils.requireOption(opts, 'stackName', 'string')
+//   utils.requireOption(opts, 'region', 'string')
 
-const addKeyUsers = (policy: any, iamArns: string[]) => {
-  const Principal = policy.find(Statement => {
-    const { Sid, Effect, Action } = Statement
-    if (Sid === 'allowUseKey') return true
-    if (Effect === 'Allow') {
-      return Action.includes('kms:Decrypt') && Action.includes('kms:GenerateDataKey')
-    }
-  })
+//   const { kms, keyId, accountId, stackName, region } = opts
+//   const lambdaRoleArn = `arn:aws:iam::${accountId}:role/${stackName}-${region}-lambdaRole`
+//   const baseParams = { KeyId: keyId }
+//   const PolicyName = 'default'
+//   const { KeyMetadata } = await kms.describeKey(baseParams).promise()
+//   const getPolicy = kms.getKeyPolicy({ ...baseParams, PolicyName }).promise()
+//   if (KeyMetadata.DeletionDate) {
+//     await kms.cancelKeyDeletion(baseParams).promise()
+//   }
 
-  return {
-    ...policy,
-    Principal: {
-      ...Principal,
-      AWS: iamArns.concat(Principal.AWS || [])
-    }
-  }
-}
+//   if (!KeyMetadata.Enabled) {
+//     await kms.enableKey(baseParams).promise()
+//   }
+
+//   const { Policy } = await getPolicy
+//   const currentPolicy = JSON.parse(Policy)
+//   const updatedPolicy = addKeyUsers(removeInvalidIamArns(currentPolicy), [lambdaRoleArn])
+//   await kms.putKeyPolicy({
+//     ...baseParams,
+//     PolicyName,
+//     Policy: JSON.stringify(updatedPolicy),
+//   }).promise()
+// }
+
+// const removeInvalidIamArns = (policy: any) => {
+//   policy = cloneDeep(policy)
+//   for (const permission of policy.Statement) {
+//     const { Principal } = permission
+//     let { AWS } = Principal
+//     if (typeof AWS === 'string') {
+//       AWS = [AWS]
+//     }
+
+//     Principal.AWS = AWS.filter(isValidIamArn)
+//   }
+
+//   return policy
+// }
+
+// const isValidIamArn = (arn: string) => arn.startsWith('arn:aws:iam::')
+
+// const addKeyUsers = (policy: any, iamArns: string[]) => {
+//   policy = cloneDeep(policy)
+//   const permission = policy.Statement.find(item => {
+//     const { Sid, Effect, Action } = item
+//     if (Sid === 'allowUseKey') return true
+//     if (Effect === 'Allow') {
+//       return Action.includes('kms:Decrypt') && Action.includes('kms:GenerateDataKey')
+//     }
+//   })
+
+//   const { Principal } = permission
+//   Principal.AWS = uniq(iamArns.concat(Principal.AWS || []))
+//   return policy
+// }
 
 export const createStack = async ({ client, templateUrl, buckets, tables, immutableParameters=[], logger }: {
   client: AWSClients
@@ -126,7 +163,7 @@ export const createStack = async ({ client, templateUrl, buckets, tables, immuta
   immutableParameters?: string[]
 }) => {
   const stackId = await ask('enter the broken stack id')
-  const template = utils.getStackTemplate(client, stackId)
+  const template = utils.getStackTemplate({ cloudformation: client.cloudformation, stackId })
   // const template = await utils.get(templateUrl)
   const groups = groupParameters(template)
   const values = {}
@@ -142,9 +179,184 @@ export const createStack = async ({ client, templateUrl, buckets, tables, immuta
   })
 }
 
-export const getPromptsForParameters = (parameters: Parameter[]) => parameters.map(getPromptForParameter)
+const LOGICAL_ID_TO_PARAM = {
+  // buckets
+  ObjectsBucket: 'ExistingObjectsBucket',
+  SecretsBucket: 'ExistingSecretsBucket',
+  PrivateConfBucket: 'ExistingPrivateConfBucket',
+  FileUploadBucket: 'ExistingFileUploadBucket',
+  LogsBucket: 'ExistingLogsBucket',
+  // special case
+  // Deployment: 'ExistingDeploymentBucket',
+  // ServerlessDeploymentBucket: 'ExistingDeploymentBucket',
+  // tables
+  EventsTable: 'ExistingEventsTable',
+  Bucket0Table: 'ExistingBucket0Table',
+  // keys
+  EncryptionKey: 'ExistingEncryptionKey',
+}
 
-const createValidatorForParameter = (parameter: Parameter) => {
+const setImmutableParameters = (parameters: AWS.CloudFormation.Parameter[]) => {
+  IMMUTABLE_STACK_PARAMETERS.forEach(name => {
+    let old = parameters.find(p => p.ParameterKey === name)
+    if (!old) {
+      old = { ParameterKey: name }
+      parameters.push(old)
+    }
+
+    delete old.ParameterValue
+    old.UsePreviousValue = true
+  })
+}
+
+export const deriveParametersFromStack = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}) => {
+  const { region } = utils.parseStackArn(stackId)
+  const oldStack = await utils.getStackInfo({ cloudformation, stackId })
+  const oldParameters = oldStack.Parameters
+  // if (!forCreate) {
+  //   setImmutableParameters(oldParameters)
+  // }
+
+  const oldOutputs = oldStack.Outputs
+  const newParameters: AWS.CloudFormation.Parameter[] = oldOutputs
+    .filter(r => r.OutputKey in LOGICAL_ID_TO_PARAM)
+    .map(({ OutputKey, OutputValue }) => ({
+      ParameterKey: LOGICAL_ID_TO_PARAM[OutputKey],
+      ParameterValue: OutputValue,
+    }))
+
+  const parameters = newParameters.slice()
+    // don't override anything from old stack
+    .filter(({ ParameterKey }) => !oldParameters.some(p => p.ParameterKey === ParameterKey))
+    .concat(oldParameters)
+
+  return parameters
+}
+
+export const getTemplateAndParametersFromStack = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}) => {
+  const getTemplate = utils.getStackTemplate({ cloudformation, stackId })
+  const getParams = deriveParametersFromStack({ cloudformation, stackId })
+  const template = (await getTemplate) as CFTemplate
+  const parameters = (await getParams) as AWS.CloudFormation.Parameter[]
+  return { template, parameters }
+}
+
+export const cloneStack = async (opts: {
+  sourceStackArn: string
+  newStackName: string
+  // newStackRegion: string
+  parameters?: AWS.CloudFormation.Parameter[]
+  s3PathToUploadTemplate?: string
+  profile?: string
+}) => {
+  utils.requireOption(opts, 'sourceStackArn', 'string')
+  utils.requireOption(opts, 'newStackName', 'string')
+  // if (opts.newStackRegion) {
+  //   utils.requireOption(opts, 'newStackRegion', 'string')
+  // }
+
+  if (opts.s3PathToUploadTemplate) {
+    utils.requireOption(opts, 's3PathToUploadTemplate', 'string')
+  }
+
+  let {
+    sourceStackArn,
+    newStackName,
+    parameters,
+    s3PathToUploadTemplate,
+    profile = 'default'
+  } = opts
+
+  utils.assertIsMyCloudStackName(newStackName)
+
+  const { region } = utils.parseStackArn(sourceStackArn)
+  const cloudformation = utils.createCloudFormationClient({ region, profile })
+  const getTemplate = utils.getStackTemplate({ cloudformation, stackId: sourceStackArn })
+  if (!parameters) {
+    parameters = await deriveParametersFromStack({ cloudformation, stackId: sourceStackArn })
+  }
+
+  const template = await getTemplate
+  if (!s3PathToUploadTemplate) {
+    const deploymentBucket = parameters.find(({ ParameterKey }) => ParameterKey === 'ExistingDeploymentBucket')
+    if (!deploymentBucket) {
+      utils.requireOption(opts, 's3PathToUploadTemplate', 'string')
+    }
+
+    s3PathToUploadTemplate = `${deploymentBucket.ParameterValue}/tmp/recovery-template-${Date.now()}.json`
+  }
+
+  return createStackWithParameters({
+    stackName: newStackName,
+    template,
+    parameters,
+    region,
+    s3PathToUploadTemplate,
+    profile,
+  })
+}
+
+export const validateParameters = async ({ dynamodb, parameters }: {
+  dynamodb: AWS.DynamoDB
+  parameters: AWS.CloudFormation.Parameter[]
+}) => {
+  const ddbHelper = createDynamoDBMigrator(dynamodb)
+  const tables = parameters.filter(p => p.ParameterKey.startsWith('Existing') && p.ParameterKey.endsWith('Table'))
+  const streams = parameters.filter(p => p.ParameterKey.startsWith('Existing') && p.ParameterKey.endsWith('StreamArn'))
+  await Promise.all(tables.map(async (table, i) => {
+    const stream = streams.find(s => s.ParameterKey.startsWith(table.ParameterKey))
+    if (!stream) return
+
+    await ddbHelper.ensureStreamMatchesTable({ tableArn: table.ParameterValue, streamArn: stream.ParameterValue })
+  }))
+}
+
+export const createStackWithParameters = async (opts: {
+  stackName: string
+  region: string
+  template: CFTemplate
+  parameters: AWS.CloudFormation.Parameter[]
+  s3PathToUploadTemplate: string
+  profile?: string
+}) => {
+  const { stackName, region, template, parameters, s3PathToUploadTemplate, profile } = opts
+  const dynamodb = utils.createDynamoDBClient({ region, profile })
+  await validateParameters({ dynamodb, parameters })
+
+  const cloudformation = utils.createCloudFormationClient({ region, profile })
+  const s3 = utils.createS3Client({ region, profile })
+
+  logger.info(`uploading template to ${s3PathToUploadTemplate}`)
+  const [Bucket, Key] = utils.splitOnCharAtIdx(s3PathToUploadTemplate, s3PathToUploadTemplate.indexOf('/'))
+  await s3.putObject({
+    Bucket,
+    Key,
+    Body: new Buffer(JSON.stringify(template)),
+    ACL: 'public-read',
+    ContentType: 'application/json',
+  }).promise()
+
+  await utils.createStackAndWait({
+    cloudformation,
+    params: {
+      StackName: stackName,
+      Capabilities: ['CAPABILITY_NAMED_IAM'],
+      TemplateURL: `https://${Bucket}.s3.amazonaws.com/${Key}`,
+      Parameters: parameters,
+      DisableRollback: true,
+    },
+  })
+}
+
+export const getPromptsForParameters = (parameters: CFParameterDef[]) => parameters.map(getPromptForParameter)
+
+const createValidatorForParameter = (parameter: CFParameterDef) => {
   const {
     Type,
     AllowedPattern,
@@ -188,7 +400,7 @@ const createValidatorForParameter = (parameter: Parameter) => {
   }
 }
 
-export const getPromptForParameter = (parameter: Parameter) => {
+export const getPromptForParameter = (parameter: CFParameterDef) => {
   const {
     Name,
     Label,
@@ -234,33 +446,10 @@ export const getPromptForParameter = (parameter: Parameter) => {
   }
 }
 
-interface Parameter {
-  Name: AWS.CloudFormation.ParameterKey
-  Label: string
-  Type: AWS.CloudFormation.ParameterType
-  Default?: AWS.CloudFormation.ParameterValue
-  Description?: string
-  AllowedValues?: AWS.CloudFormation.ParameterValue[]
-  AllowedPattern?: string
-  ConstraintDescription?: string
-  MinLength?: number
-  MaxLength?: number
-  MinValue?: number
-  MaxValue?: number
-}
-
 interface ParameterGroup {
   name?: string
-  parameters: Parameter[]
+  parameters: CFParameterDef[]
 }
-
-const IMMUTABLE_PARAMETERS = [
-  'Stage',
-  'BlockchainNetwork',
-  'OrgName',
-  'OrgDomain',
-  'OrgLogo',
-]
 
 // const normalizeParameter = (parameter: Parameter):Parameter => {
 //   const {
@@ -286,7 +475,7 @@ const groupParameters = (template: any):ParameterGroup[] => {
       Name: name,
       Label: utils.splitCamelCase(name),
       ...Parameters[name],
-    })) as Parameter[]
+    })) as CFParameterDef[]
 
     return [{ parameters }]
   }

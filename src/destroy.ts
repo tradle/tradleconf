@@ -1,8 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import partition from 'lodash/partition'
-import groupBy from 'lodash/groupBy'
+import sortBy from 'lodash/sortBy'
 import Listr from 'listr'
+import AWS from 'aws-sdk'
+import Errors from '@tradle/errors'
 import {
   confirmOrAbort,
   confirm,
@@ -12,104 +14,124 @@ import { TRADLE_ACCOUNT_ID, BIG_BUCKETS } from './constants'
 import { logger, colors } from './logger'
 import * as utils from './utils'
 import { getStackId as getServicesStackId } from './kyc-services'
+import { Errors as CustomErrors } from './errors'
 
 import {
   Conf,
   AWSClients,
+  CloudResource,
 } from './types'
 
 type DestroyOpts = {
   client: AWSClients
   profile: string
-  stackName: string
+  stackId: string
 }
 
-const deleteStackAndAwaitDeleted = async (client: AWSClients, stackName: string) => {
-  await utils.deleteStack(client, { StackName: stackName })
-  await utils.wait(5000)
-  await utils.awaitStackDelete(client, stackName)
-}
-
-export const deleteServicesStack = async ({ client, stackName }: DestroyOpts) => {
-  const servicesStackId = await getServicesStackId(client, stackName)
-  if (!servicesStackId) return
+export const deleteCorrespondingServicesStack = async ({ client, stackId }: DestroyOpts) => {
+  const { stackName } = utils.parseStackArn(stackId)
+  const servicesStackId = await getServicesStackId(client.cloudformation, stackName)
+  if (!servicesStackId) {
+    throw new CustomErrors.NotFound(`services stack for mycloud stack: ${stackId}`)
+  }
 
   logger.info(`KYC services stack: deleting ${servicesStackId}, ETA: 5-10 minutes`)
-  await deleteStackAndAwaitDeleted(client, servicesStackId)
+  await utils.deleteStackAndWait({
+    cloudformation: client.cloudformation,
+    params: {
+      StackName: servicesStackId
+    },
+  })
+
   logger.info(`KYC services stack: deleted ${servicesStackId}`)
 }
 
+export const deleteResources = async ({ client, resources, profile, stackId }: {
+  client: AWSClients
+  resources: CloudResource[]
+  profile?: string
+  stackId?: string
+}) => {
+  const [retainedBuckets, retainedOther] = partition(resources, r => r.type === 'bucket')
+  const del:CloudResource[] = []
+  const retain = BIG_BUCKETS.slice()
+  for (const item of retainedBuckets.concat(retainedOther)) {
+    const { type, value } = item
+    if (await confirm(`Delete ${type} ${value}?`, false)) {
+      del.push(item)
+    } else {
+      retain.push(item.name)
+    }
+  }
+
+  if (del.length) {
+    logger.info(`I will now delete:
+
+${del.map(r => r.value).join('\n')}
+`)
+    await confirmOrAbort('Continue?', false)
+    logger.info(`OK, here we go! I'll be deleting a few things in parallel, try not to get dizzy...`)
+  } else {
+    logger.info(`OK, here we go!`)
+  }
+
+  const promiseDeleteServicesStack = deleteCorrespondingServicesStack({ client, profile, stackId }).catch(err => {
+    Errors.ignore(err, CustomErrors.NotFound)
+    logger.error(err.message)
+    // the show must go on
+  })
+
+  const [buckets, other] = partition(del, r => r.type === 'bucket')
+  const promiseDeleteBuckets = buckets.length
+    ? deleteBuckets({ client, buckets: buckets.map(r => r.value), profile })
+    : Promise.resolve()
+
+  const promiseDeleteRest = other.length
+    ? Promise.all(other.map(resource => deleteResource({ client, resource })))
+    : Promise.resolve([])
+
+  await Promise.all([
+    promiseDeleteServicesStack,
+    promiseDeleteBuckets,
+    promiseDeleteRest
+  ])
+}
+
 export const destroy = async (opts: DestroyOpts) => {
-  const { client, stackName, profile } = opts
+  const { client, stackId, profile } = opts
+  const { stackName } = utils.parseStackArn(stackId)
+  const { cloudformation } = client
   await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`, false)
   await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`, false)
-  const retained = groupBy(await utils.listRetainedResources(client, stackName), r => r.ResourceType)
-  const buckets = retained['AWS::S3::Bucket'] || []
-  const other = (retained['AWS::DynamoDB::Table'] || []).concat(retained['AWS::KMS::Key'] || [])
+  const retained = sortBy(await utils.listOutputResources({ cloudformation, stackId }), 'type')
 
-  const delBuckets:string[] = []
-  const delOther:AWS.CloudFormation.StackResourceSummary[] = []
-
-  const retain = BIG_BUCKETS.slice()
-  for (const { ResourceType, PhysicalResourceId } of buckets.concat(other)) {
-    if (await confirm(`Delete ${ResourceType} ${PhysicalResourceId}?`, false)) {
-      delBuckets.push(PhysicalResourceId)
-    } else {
-      retain.push(PhysicalResourceId)
-    }
-  }
-
-  for (const item of other) {
-    const { ResourceType, PhysicalResourceId } = item
-    if (await confirm(`Delete {ResourceType} ${PhysicalResourceId}?`, false)) {
-      delOther.push(item)
-    } else {
-      retain.push(PhysicalResourceId)
-    }
-  }
-
-  logger.info(`I will now delete:
-
-${delBuckets.join('\n')}
-${delOther.map(r => r.PhysicalResourceId).join('\n')}
-`)
-
-  await confirmOrAbort('Continue?', false)
-  logger.info(`OK, here we go! I'll be deleting a few things in parallel, try not to get dizzy...`)
-
+  logger.info('the following resources will be retained when the stack is deleted')
+  logger.info(retained.map(r => `${r.name}: ${r.value}`).join('\n'))
+  const delResourcesToo = await confirm(`do you want me to delete them? If you say yes, I'll ask you about them one by one`)
   await new Listr([
     {
       title: `deleting stack resources that were not explicitly retained`,
-      task: async (ctx) => {
-        const promiseDeleteServicesStack = deleteServicesStack(opts)
-        const promiseDeleteBuckets = delBuckets.length
-          ? deleteBuckets({ client, buckets: delBuckets, profile })
-          : Promise.resolve()
-
-        const promiseDeleteRest = delOther.length
-          ? Promise.all(delOther.map(resource => deleteResource({ client, resource })))
-          : Promise.resolve([])
-
-        await Promise.all([
-          promiseDeleteServicesStack,
-          promiseDeleteBuckets,
-          promiseDeleteRest
-        ])
-      }
+      enabled: () => delResourcesToo,
+      task: () => deleteResources({ resources: retained, client, profile, stackId }),
     },
     {
       title: 'disabling termination protection',
-      task: async (ctx) => {
-        await utils.disableStackTerminationProtection(client, stackName)
-      }
+      task: () => utils.disableStackTerminationProtection(cloudformation, stackId),
     },
     {
       title: 'deleting primary stack',
       task: async (ctx) => {
+        const opts = {
+          cloudformation,
+          params: { StackName: stackId }
+        }
+
         try {
-          await deleteStackAndAwaitDeleted(client, stackName)
+          await utils.deleteStackAndWait(opts)
         } catch (err) {
-          await utils.deleteStack(client, { StackName: stackName, RetainResources: retain })
+          // @ts-ignore
+          opts.params.RetainResources = uniq(retain)
+          await utils.deleteStackAndWait(opts)
         }
       }
     },
@@ -125,10 +147,10 @@ export const deleteBuckets = async ({ client, buckets, profile }: {
 
   await Promise.all(small.map(async id => {
     logger.info(`emptying and deleting: ${id}`)
-    await utils.destroyBucket(client, id)
+    await utils.destroyBucket(client.s3, id)
   }))
 
-  await Promise.all(big.map(id => utils.markBucketForDeletion(client, id)))
+  await Promise.all(big.map(id => utils.markBucketForDeletion(client.s3, id)))
   const cleanupScriptPath = path.relative(process.cwd(), createCleanupBucketsScript({ buckets: big, profile }))
 
   logger.info(`The following buckets are too large to delete directly:
@@ -142,18 +164,18 @@ After that you can delete them from the console or with this little script I cre
 
 export const deleteResource = async ({ client, resource }: {
   client: AWSClients
-  resource: AWS.CloudFormation.StackResourceSummary
+  resource: CloudResource
 }) => {
-  switch (resource.ResourceType) {
-  case 'AWS::DynamoDB::Table':
-    await client.dynamodb.deleteTable({ TableName: resource.PhysicalResourceId }).promise()
+  switch (resource.type) {
+  case 'table':
+    await client.dynamodb.deleteTable({ TableName: resource.value }).promise()
     break
-  case 'AWS::KMS::Key':
-    await client.kms.disableKey({ KeyId: resource.PhysicalResourceId }).promise()
-    await client.kms.scheduleKeyDeletion({ KeyId: resource.PhysicalResourceId }).promise()
+  case 'key':
+    await client.kms.disableKey({ KeyId: resource.value }).promise()
+    await client.kms.scheduleKeyDeletion({ KeyId: resource.value }).promise()
     break
   default:
-    logger.warn(`don't know how to delete resource of type: ${resource.ResourceType}`)
+    logger.warn(`don't know how to delete resource of type: ${resource.type}`)
     break
   }
 }
