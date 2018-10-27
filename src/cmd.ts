@@ -172,7 +172,8 @@ const run = async (fn) => {
     } else if (Errors.matches(err, CustomErrors.UserAborted)) {
       logger.info('command canceled')
     } else {
-      logger.error(err.message || err.name)
+      const { name='Error', message } = err
+      logger.error(`${name}: ${message}`)
       ;(matchedCommand || program).outputHelp()
     }
 
@@ -407,8 +408,8 @@ const createLogCommand = (command, name) => command
   .option('-w, --watch', 'tail log')
   .option('-t, --timestamp', 'prints the creation timestamp of each event.')
   .option('-i, --ingestion-time', 'prints the ingestion time of each event.')
-  .option('-f, --filter-pattern <filter-pattern>', 'CloudWatch Logs filter pattern')
-  .option('-q, --query', 'CloudWatch Logs query pattern')
+  .option('-f, --filter-pattern [filter-pattern]', 'CloudWatch Logs filter pattern')
+  .option('-q, --query [query]', 'CloudWatch Logs query pattern')
   .action(createAction(name))
 
 const logCommand = createLogCommand(program
@@ -475,10 +476,10 @@ const getTemplate = program
   .action(createAction('getStackTemplate'))
 
 const restoreFromStack = program
-  .command('restore')
+  .command('restore-stack')
   .option('--new-stack-name <name>', 'name to use for new stack')
   .option('--source-stack-arn [stackArn]', 'arn of stack to restore. Defaults to the one in your .env file')
-  .option('--parameters [path/to/parameters.json]', 'if you generated parameters with the "gen-stack-parameters" command')
+  .option('--stack-parameters [path/to/parameters.json]', 'if you generated parameters with the "gen-stack-parameters" command')
   // .option('--new-stack-region <region>', 'region to launch new stack in')
   .description(`create a new stack from an existing stack, using the same tables, buckets, and identity`)
   .allowUnknownOption(false)
@@ -486,7 +487,7 @@ const restoreFromStack = program
 
 // const createStack = program
 //   .command('create-stack')
-//   .option('--parameters <pathToParams>', 'path to parameters file you generated with the "gen-stack-parameters" command')
+//   .option('--stack-parameters <pathToParams>', 'path to parameters file you generated with the "gen-stack-parameters" command')
 //   .option('--template-url <templateUrl>', 'stack template url')
 //   // .option('--new-stack-region <region>', 'region to launch new stack in')
 //   .description(`create a new stack from an existing stack, using the same tables, buckets, and identity`)
@@ -506,9 +507,17 @@ const restoreBucket = program
   .option('--source <bucketName>', 'bucket to copy files from')
   .option('--dest <bucketName>', 'bucket to copy files to')
   .option('--date <isoDate>', 'point in time to restore to')
-  .description(`reproduce "source" bucket's state at a point in time to "dest" bucket`)
+  .description(`clone "source" bucket's state at a point in time to "dest" bucket`)
   .allowUnknownOption(false)
   .action(createAction('restoreBucket'))
+
+const restoreResources = program
+  .command('restore-resources')
+  .option('--date <isoDate>', 'point in time to restore to')
+  .option('--output <filePath>', 'path to write generated parameters file')
+  .description(`clone buckets (except logs bucket) and tables at the specified point in time`)
+  .allowUnknownOption(false)
+  .action(createAction('restoreResources'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

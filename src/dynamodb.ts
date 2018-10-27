@@ -1,4 +1,5 @@
 import AWS from 'aws-sdk'
+import Errors from '@tradle/errors'
 import { PointInTime, RestoreTableOpts, FromToTable } from './types'
 import { Errors as CustomErrors } from './errors'
 
@@ -6,8 +7,25 @@ const isTTLEnabled = (ttl: AWS.DynamoDB.TimeToLiveDescription) => {
   return ttl.TimeToLiveStatus === 'ENABLING' || ttl.TimeToLiveStatus === 'ENABLED'
 }
 
+const canRetryAwaitExists = (err: AWS.AWSError) => {
+  return /max attempts exceeded/i.test(err.message) || Errors.matches(err, { code: 'ResourceNotReady' })
+}
+
 class DynamoDB {
   constructor(private client: AWS.DynamoDB) {}
+  public isPointInTimeRecoveryEnabled = async (tableName: string) => {
+    const {
+      ContinuousBackupsDescription
+    } = await this.client.describeContinuousBackups({ TableName: tableName }).promise()
+
+    return ContinuousBackupsDescription.ContinuousBackupsStatus === 'ENABLED'
+  }
+
+  public copyPointInTimeRecoverySettings = async ({ sourceName, destName }: FromToTable) => {
+    const enabled = await this.isPointInTimeRecoveryEnabled(sourceName)
+    await this.setPointInTimeRecovery({ tableName: destName, enabled })
+  }
+
   public setPointInTimeRecovery = async ({ tableName, enabled }: {
     tableName: string
     enabled: boolean
@@ -48,7 +66,7 @@ class DynamoDB {
     try {
       await this.client.waitFor('tableExists', { TableName: tableName }).promise()
     } catch (err) {
-      if (/max attempts exceeded/i.test(err.message)) {
+      if (canRetryAwaitExists(err)) {
         // retry
         return this.awaitExists(tableName)
       }
@@ -61,18 +79,10 @@ class DynamoDB {
     sourceName: string
     destName: string
   }) => {
-    const enablePointInTimeRecovery = this.setPointInTimeRecovery({
-      tableName: destName,
-      enabled: true
-    })
-
-    const copyTTL = this.copyTTLSettings({ sourceName, destName })
-    const copyStreamSettings = this.copyStreamSettings({ sourceName, destName })
-    await Promise.all([
-      enablePointInTimeRecovery,
-      copyTTL,
-      copyStreamSettings,
-    ])
+    // do in series, just in case
+    await this.copyPointInTimeRecoverySettings({ sourceName, destName })
+    await this.copyTTLSettings({ sourceName, destName })
+    await this.copyStreamSettings({ sourceName, destName })
   }
 
   public getTTLSettings = async (tableName: string):Promise<AWS.DynamoDB.TimeToLiveSpecification> => {
@@ -121,7 +131,34 @@ class DynamoDB {
 
   public copyStreamSettings = async ({ sourceName, destName }: FromToTable) => {
     const settings = await this.getStreamSettings(sourceName)
-    await this.setStreamSettings({ tableName: destName, settings })
+    if (settings && settings.StreamEnabled) {
+      await this.setStreamSettings({ tableName: destName, settings })
+    }
+  }
+
+  public doesTableExist = async (tableName: string) => {
+    try {
+      await this.client.describeTable({ TableName: tableName }).promise()
+    } catch (err) {
+      Errors.ignore(err, { code: 'ResourceNotFoundException' })
+      return false
+    }
+
+    return true
+  }
+
+  public assertTableExists = async (tableName: string) => {
+    const exists = await this.doesTableExist(tableName)
+    if (!exists) {
+      throw new CustomErrors.InvalidInput(`table does not exist: ${tableName}`)
+    }
+  }
+
+  public assertTableDoesNotExist = async (tableName: string) => {
+    const exists = await this.doesTableExist(tableName)
+    if (exists) {
+      throw new CustomErrors.InvalidInput(`table already exists: ${tableName}`)
+    }
   }
 }
 

@@ -24,7 +24,14 @@ import {
 } from './prompts'
 import { update } from './update'
 import { destroy, deleteCorrespondingServicesStack } from './destroy'
-import { cloneStack, deriveParametersFromStack, restoreBucket } from './restore'
+import {
+  restoreStack,
+  deriveParametersFromStack,
+  restoreResources,
+} from './restore'
+
+import { create as wrapS3 } from './s3'
+
 import { configureKYCServicesStack, getStackId as getServicesStackId } from './kyc-services'
 import {
   AWSClients,
@@ -911,20 +918,46 @@ export class Conf {
     this._ensureRemote()
     this._ensureInitialized()
 
-    let { sourceStackArn=this.stackId, parameters } = opts
-    if (parameters) {
-      parameters = readJSON(parameters)
+    let { sourceStackArn=this.stackId, stackParameters } = opts
+    if (stackParameters) {
+      stackParameters = readJSON(stackParameters)
     }
 
-    return cloneStack({
+    return restoreStack({
       ...opts,
       sourceStackArn,
-      parameters,
+      stackParameters,
       profile: this.profile,
     })
   }
 
-  public restoreBucket = async opts => restoreBucket({ s3: this.client.s3, ...opts })
+  public restoreResources = async (opts) => {
+    this._ensureRemote()
+
+    const { date, sourceStackArn=this.stackId, output } = opts
+    if (!sourceStackArn) {
+      this._ensureInitialized()
+    }
+
+    const params = await restoreResources({
+      client: this.client,
+      profile: this.profile,
+      region: this.region,
+      sourceStackArn,
+      date,
+    })
+
+    if (output) {
+      write(path.resolve(process.cwd(), output), params)
+    } else {
+      console.log(prettify(params))
+    }
+  }
+
+  public restoreBucket = async opts => {
+    const s3 = wrapS3(this.client.s3)
+    await s3.restoreBucket({ ...opts, profile: this.profile })
+  }
 
   public genStackParameters = async (opts) => {
     this._ensureRemote()

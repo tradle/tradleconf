@@ -11,6 +11,7 @@ import shelljs from 'shelljs'
 import fetch from 'node-fetch'
 import AWS from 'aws-sdk'
 import YAML from 'js-yaml'
+import Listr from 'listr'
 import ModelsPack from '@tradle/models-pack'
 import Errors from '@tradle/errors'
 import { emptyBucket } from './empty-bucket'
@@ -767,3 +768,33 @@ const createClientOpts = ({ profile, region }: ClientOpts) => {
 export const createCloudFormationClient = (opts: ClientOpts) => new AWS.CloudFormation(createClientOpts(opts))
 export const createDynamoDBClient = (opts: ClientOpts) => new AWS.DynamoDB(createClientOpts(opts))
 export const createS3Client = (opts: ClientOpts) => new AWS.S3(createClientOpts(opts))
+
+export const execWithListr = async ({ title, fn }) => {
+  let result
+  await new Listr([
+    {
+      title,
+      task: async () => {
+        result = await fn()
+      },
+    }
+  ]).run()
+
+  return result
+}
+
+export const validateISODate = (dateString: string) => {
+  const date = new Date(dateString)
+  if (date.toISOString() !== dateString) {
+    throw new CustomErrors.InvalidInput(`expected iso date. Did you mean ${date.toISOString()} ?`)
+  }
+}
+
+const ALPHA_NUMERIC = 'abcdefghijklmnopqrstuvwxyz0123456789'
+
+// not necessarily secure
+export const randomAlphaNumericString = (length: number) => {
+  const bytes = crypto.randomBytes(length)
+  const letters = [].slice.call(bytes).map(b => ALPHA_NUMERIC[b % ALPHA_NUMERIC.length])
+  return letters.join('')
+}
