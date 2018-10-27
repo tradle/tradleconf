@@ -172,7 +172,7 @@ const run = async (fn) => {
     } else if (Errors.matches(err, CustomErrors.UserAborted)) {
       logger.info('command canceled')
     } else {
-      logger.error(err.message)
+      logger.error(err.message || err.name)
       ;(matchedCommand || program).outputHelp()
     }
 
@@ -496,10 +496,19 @@ const restoreFromStack = program
 const genParams = program
   .command('gen-stack-parameters')
   .option('--source-stack-arn [stackArn]', 'defaults to the one in your .env file')
-  .option('--output [path/to/write/parameters.json]')
+  .option('--output <filePath>', 'path to write generated parameters file')
   .description('generate parameters for creating/updating a stack')
   .allowUnknownOption(false)
   .action(createAction('genStackParameters'))
+
+const restoreBucket = program
+  .command('restore-bucket')
+  .option('--source <bucketName>', 'bucket to copy files from')
+  .option('--dest <bucketName>', 'bucket to copy files to')
+  .option('--date <isoDate>', 'point in time to restore to')
+  .description(`reproduce "source" bucket's state at a point in time to "dest" bucket`)
+  .allowUnknownOption(false)
+  .action(createAction('restoreBucket'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

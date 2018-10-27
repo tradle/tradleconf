@@ -3,6 +3,7 @@ import sortBy from 'lodash/sortBy'
 import groupBy from 'lodash/groupBy'
 import uniq from 'lodash/uniq'
 import cloneDeep from 'lodash/cloneDeep'
+import execa from 'execa'
 import inquirer from 'inquirer'
 import AWS from 'aws-sdk'
 import Listr from 'listr'
@@ -18,12 +19,13 @@ import {
   CloudResource,
   CFTemplate,
   CFParameterDef,
+  // RestoreTableCliOpts,
 } from './types'
 
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
 import { confirmOrAbort, ask, chooseRegion } from './prompts'
-import { create as createDynamoDBMigrator } from './dynamodb'
+import { create as wrapDynamoDB } from './dynamodb'
 import * as utils from './utils'
 import { IMMUTABLE_STACK_PARAMETERS } from './constants'
 
@@ -44,15 +46,16 @@ const getTableTargetName = (sourceName: string) => {
   return sourceName + '-1'
 }
 
-interface RestoreOpts {
-  conf: Conf
+const getBucketTargetName = getTableTargetName
+
+interface RestoreResourcesOpts {
   client: AWSClients
-  pointInTime: PointInTime
-  region: string
+  date: PointInTime
+  profile?: string
 }
 
-export const restoreResources = async (opts: RestoreOpts) => {
-  const { conf, client, pointInTime } = opts
+export const restoreResources = async (opts: RestoreResourcesOpts) => {
+  const { client, date, profile } = opts
   const stackId = await ask('enter the broken stack id')
   // const suffix = await ask('enter a short suffix to append to restored tables. Use lowercase letters only.', validateSuffix)
   const outputs = await utils.listOutputResources({ cloudformation: client.cloudformation, stackId })
@@ -65,25 +68,25 @@ export const restoreResources = async (opts: RestoreOpts) => {
     .map(o => o.value)
 
   const region = await chooseRegion()
-  const tableMigrator = createDynamoDBMigrator(client.dynamodb)
-  const promiseRestoreTables = tables.map(sourceName => tableMigrator.restoreTable({
-    region,
-    pointInTime,
+  const promiseRestoreTables = tables.map(sourceName => restoreTable({
+    dynamodb: client.dynamodb,
+    date,
     sourceName,
-    targetName: getTableTargetName(sourceName),
+    destName: getTableTargetName(sourceName),
   }))
 
-  const promiseRestoreBuckets = Promise.all(buckets.map(bucket => restoreBucket({ bucket })))
+  const promiseRestoreBuckets = Promise.all(buckets.map(source => restoreBucket({
+    s3: client.s3,
+    date,
+    source,
+    dest: getBucketTargetName(source),
+    profile,
+  })))
+
   await Promise.all([
     promiseRestoreBuckets,
     promiseRestoreTables,
   ])
-}
-
-export const restoreBucket = async ({ bucket }: {
-  bucket: string
-}) => {
-  // TODO: use s3-pit-restore
 }
 
 // export const enableKMSKeyForStack = async (opts: {
@@ -306,7 +309,7 @@ export const validateParameters = async ({ dynamodb, parameters }: {
   dynamodb: AWS.DynamoDB
   parameters: AWS.CloudFormation.Parameter[]
 }) => {
-  const ddbHelper = createDynamoDBMigrator(dynamodb)
+  const ddbHelper = wrapDynamoDB(dynamodb)
   const tables = parameters.filter(p => p.ParameterKey.startsWith('Existing') && p.ParameterKey.endsWith('Table'))
   const streams = parameters.filter(p => p.ParameterKey.startsWith('Existing') && p.ParameterKey.endsWith('StreamArn'))
   await Promise.all(tables.map(async (table, i) => {
@@ -489,4 +492,98 @@ const groupParameters = (template: any):ParameterGroup[] => {
       ...Parameters[name],
     }))
   }))
+}
+
+const validateISODate = (dateString: string) => {
+  const date = new Date(dateString)
+  if (date.toISOString() !== dateString) {
+    throw new CustomErrors.InvalidInput(`expected iso date, e.g. ${new Date().toISOString()}`)
+  }
+}
+
+export const doesBucketExist = async ({ s3, bucket }: {
+  s3: AWS.S3
+  bucket: string
+}) => {
+  try {
+    await s3.headBucket({ Bucket: bucket }).promise()
+  } catch (err) {
+    Errors.ignore(err, { code: 'NotFound' })
+    throw new CustomErrors.NotFound(`bucket ${bucket} either doesn't exist or you don't have access`)
+  }
+}
+
+export const restoreBucket = async ({ s3, source, dest, date, profile }: {
+  s3: AWS.S3
+  source: string
+  dest: string
+  date: string
+  profile?: string
+}) => {
+  validateISODate(date)
+
+  await doesBucketExist({ s3, bucket: source })
+  try {
+    await doesBucketExist({ s3, bucket: dest })
+  } catch (err) {
+    Errors.ignore(err, CustomErrors.NotFound)
+    logger.info(`creating bucket ${dest}`)
+    await s3.createBucket({ Bucket: dest }).promise()
+  }
+
+  const env:any = {}
+  if (profile) env.AWS_PROFILE = env
+
+  const destDir = `restore/${dest}`
+
+  try {
+    execa.sync('command', ['-v', 's3-pit-restore'])
+  } catch (err) {
+    throw new CustomErrors.NotFound(`please install this tool first: https://github.com/madisoft/s3-pit-restore`)
+  }
+
+  await new Listr([
+    {
+      title: `syncing ${source} -> ${destDir}`,
+      task: async () => {
+        await execa('s3-pit-restore', ['-b', source, '-d', destDir, '-t', date], { env })
+      }
+    },
+    {
+      title: `syncing ${destDir} -> ${dest}`,
+      task: async () => {
+        await execa('aws', ['s3', 'sync', destDir, `s3://${dest}`], { env })
+      }
+    },
+    {
+      title: `cleaning ${destDir}`,
+      task: async () => {
+        await execa('rm', ['-rf', destDir])
+      }
+    },
+  ]).run()
+}
+
+interface RestoreTableOpts {
+  dynamodb: AWS.DynamoDB
+  sourceName: string
+  destName: string
+  date: PointInTime
+}
+
+export const doRestoreTable = async ({ dynamodb, sourceName, destName, date }: RestoreTableOpts) => {
+  validateISODate(date)
+
+  const migrator = wrapDynamoDB(dynamodb)
+  await migrator.restoreTable({ sourceName, destName, date })
+}
+
+export const restoreTable = async (opts: RestoreTableOpts) => {
+  const { sourceName, destName } = opts
+  await new Listr([
+    {
+      title: `restoring ${sourceName} -> ${destName}`,
+      task: () => restoreTable(opts),
+    }
+  ])
 }

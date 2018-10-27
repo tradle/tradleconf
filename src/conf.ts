@@ -10,7 +10,9 @@ import promiseRetry from 'promise-retry'
 // import YAML from 'js-yaml'
 import AWS from 'aws-sdk'
 import _mkdirp from 'mkdirp'
+// TODO: use execa instead
 import shelljs from 'shelljs'
+import execa from 'execa'
 import Listr from 'listr'
 import Errors from '@tradle/errors'
 import ModelsPack from '@tradle/models-pack'
@@ -22,7 +24,7 @@ import {
 } from './prompts'
 import { update } from './update'
 import { destroy, deleteCorrespondingServicesStack } from './destroy'
-import { cloneStack, deriveParametersFromStack } from './restore'
+import { cloneStack, deriveParametersFromStack, restoreBucket } from './restore'
 import { configureKYCServicesStack, getStackId as getServicesStackId } from './kyc-services'
 import {
   AWSClients,
@@ -670,7 +672,7 @@ export class Conf {
 
     const cmd = `awslogs get /aws/lambda/${longName} ${logOptsStr}`
     logger.info(cmd)
-    shelljs.exec(cmd)
+    execa.shellSync(cmd)
   }
 
   public balance = async () => {
@@ -922,6 +924,8 @@ export class Conf {
     })
   }
 
+  public restoreBucket = async opts => restoreBucket({ s3: this.client.s3, ...opts })
+
   public genStackParameters = async (opts) => {
     this._ensureRemote()
     const { sourceStackArn=this.stackId, output } = opts
@@ -999,7 +1003,7 @@ export class Conf {
     write(tmpInput.name, JSON.stringify(arg))
 
     const pwd = process.cwd()
-    shelljs.cd(project)
+    execa.sync('cd', project)
     logger.debug('be patient, local invocations can be slow')
     const envVars:any = _.pick(process.env, ['SERVERLESS_OFFLINE_APIGW'])
     if (!envVars.IS_OFFLINE) envVars.IS_OFFLINE = '1'

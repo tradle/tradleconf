@@ -136,3 +136,20 @@ export interface CFTemplate {
   Mappings: any
   Resources: CFResource
 }
+
+export interface ClientOpts {
+  region?: string
+  profile?: string
+}
+
+export interface FromToTable {
+  sourceName: string
+  destName: string
+}
+
+export interface RestoreTableOpts extends FromToTable {
+  date: PointInTime
+}
+
+export interface RestoreTableCliOpts extends RestoreTableOpts, ClientOpts {
+}

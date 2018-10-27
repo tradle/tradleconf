@@ -17,7 +17,14 @@ import { emptyBucket } from './empty-bucket'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
 import { confirm } from './prompts'
-import { ConfOpts, CloudResource, CloudResourceType, } from './types'
+import {
+  ConfOpts,
+  CloudResource,
+  CloudResourceType,
+  RestoreTableCliOpts,
+  ClientOpts,
+} from './types'
+
 import { REMOTE_ONLY_COMMANDS, SAFE_REMOTE_COMMANDS } from './constants'
 
 interface CreateStackOpts {
@@ -744,13 +751,12 @@ export const toCamelCase = (str: string, delimiter: string=' ') => {
     .join('')
 }
 
-type ClientOpts = {
-  region: string
-  profile?: string
-}
-
 const createClientOpts = ({ profile, region }: ClientOpts) => {
-  const opts:any = { region }
+  const opts:any = {}
+  if (region) {
+    opts.region = region
+  }
+
   if (profile) {
     opts.credentials = new AWS.SharedIniFileCredentials({ profile })
   }

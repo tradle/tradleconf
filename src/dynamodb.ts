@@ -1,16 +1,6 @@
 import AWS from 'aws-sdk'
-import { PointInTime } from './types'
+import { PointInTime, RestoreTableOpts, FromToTable } from './types'
 import { Errors as CustomErrors } from './errors'
-
-interface FromToTable {
-  sourceName: string
-  targetName: string
-}
-
-interface RestoreTableOpts extends FromToTable {
-  region: string
-  pointInTime: PointInTime
-}
 
 const isTTLEnabled = (ttl: AWS.DynamoDB.TimeToLiveDescription) => {
   return ttl.TimeToLiveStatus === 'ENABLING' || ttl.TimeToLiveStatus === 'ENABLED'
@@ -37,17 +27,17 @@ class DynamoDB {
     }
   }
 
-  public restoreTable = async ({ region, pointInTime, sourceName, targetName }: RestoreTableOpts) => {
+  public restoreTable = async ({ date, sourceName, destName }: RestoreTableOpts) => {
     const params:AWS.DynamoDB.RestoreTableToPointInTimeInput = {
-      RestoreDateTime: new Date(pointInTime),
+      RestoreDateTime: new Date(date),
       SourceTableName: sourceName,
-      TargetTableName: targetName,
+      TargetTableName: destName,
     }
 
     await this.client.restoreTableToPointInTime(params).promise()
-    await this.awaitExists(targetName)
-    await this.copyTableSettings({ sourceName, targetName })
-    const { Table } = await this.client.describeTable({ TableName: targetName }).promise()
+    await this.awaitExists(destName)
+    await this.copyTableSettings({ sourceName, destName })
+    const { Table } = await this.client.describeTable({ TableName: destName }).promise()
     return {
       table: Table.TableArn,
       stream: Table.LatestStreamArn,
@@ -67,17 +57,17 @@ class DynamoDB {
     }
   }
 
-  public copyTableSettings = async ({ sourceName, targetName }: {
+  public copyTableSettings = async ({ sourceName, destName }: {
     sourceName: string
-    targetName: string
+    destName: string
   }) => {
     const enablePointInTimeRecovery = this.setPointInTimeRecovery({
-      tableName: targetName,
+      tableName: destName,
       enabled: true
     })
 
-    const copyTTL = this.copyTTLSettings({ sourceName, targetName })
-    const copyStreamSettings = this.copyStreamSettings({ sourceName, targetName })
+    const copyTTL = this.copyTTLSettings({ sourceName, destName })
+    const copyStreamSettings = this.copyStreamSettings({ sourceName, destName })
     await Promise.all([
       enablePointInTimeRecovery,
       copyTTL,
@@ -105,10 +95,10 @@ class DynamoDB {
     await this.client.updateTimeToLive(params).promise()
   }
 
-  public copyTTLSettings = async ({ sourceName, targetName }: FromToTable) => {
+  public copyTTLSettings = async ({ sourceName, destName }: FromToTable) => {
     const ttl = await this.getTTLSettings(sourceName)
     if (ttl.Enabled) {
-      await this.setTTLSettings({ tableName: targetName, ttl })
+      await this.setTTLSettings({ tableName: destName, ttl })
     }
   }
 
@@ -129,9 +119,9 @@ class DynamoDB {
     await this.client.updateTable(params).promise()
   }
 
-  public copyStreamSettings = async ({ sourceName, targetName }: FromToTable) => {
+  public copyStreamSettings = async ({ sourceName, destName }: FromToTable) => {
     const settings = await this.getStreamSettings(sourceName)
-    await this.setStreamSettings({ tableName: targetName, settings })
+    await this.setStreamSettings({ tableName: destName, settings })
   }
 }
 
