@@ -10,9 +10,7 @@ import promiseRetry from 'promise-retry'
 // import YAML from 'js-yaml'
 import AWS from 'aws-sdk'
 import _mkdirp from 'mkdirp'
-// TODO: use execa instead
 import shelljs from 'shelljs'
-import execa from 'execa'
 import Listr from 'listr'
 import Errors from '@tradle/errors'
 import ModelsPack from '@tradle/models-pack'
@@ -229,6 +227,7 @@ export class Conf {
       arg: items
     })
 
+    debugger
     if (error) throw error
 
     return result
@@ -680,7 +679,7 @@ export class Conf {
 
     const cmd = `awslogs get /aws/lambda/${longName} ${logOptsStr}`
     logger.info(cmd)
-    execa.shellSync(cmd)
+    shelljs.exec(cmd)
   }
 
   public balance = async () => {
@@ -1037,7 +1036,7 @@ export class Conf {
     write(tmpInput.name, JSON.stringify(arg))
 
     const pwd = process.cwd()
-    execa.sync('cd', project)
+    shelljs.cd(project)
     logger.debug('be patient, local invocations can be slow')
     const envVars:any = _.pick(process.env, ['SERVERLESS_OFFLINE_APIGW'])
     if (!envVars.IS_OFFLINE) envVars.IS_OFFLINE = '1'

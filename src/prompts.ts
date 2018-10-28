@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-// import execa from 'execa'
 import inquirer from 'inquirer'
 import models from '@tradle/models-cloud'
 import Errors from '@tradle/errors'
