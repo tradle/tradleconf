@@ -57,18 +57,19 @@ export const init = async (conf: Conf) => {
     await confirmOrAbort('This will overwrite your .env file')
   }
 
-  const haveRemote = await confirm('Have you already deployed your MyCloud to AWS?')
+  const haveRemote = !conf.local && await confirm('Have you already deployed your MyCloud to AWS?')
   const getLocal:PromptList = [
     {
       type: 'confirm',
       name: 'haveLocal',
+      when: () => haveRemote,
       message: 'Do you have a local development environment? (a clone of https://github.com/tradle/serverless)',
     },
     {
       type: 'input',
       name: 'projectPath',
       message: 'Enter the path to your local development environment (a clone of https://github.com/tradle/serverless)',
-      when: answers => answers.haveLocal,
+      when: answers => conf.local || answers.haveLocal,
       validate: local => {
         if (!isValidProjectPath(local)) {
           return 'Provided path doesn\'t contain a serverless.yml, please try again'

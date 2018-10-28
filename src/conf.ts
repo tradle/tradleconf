@@ -169,14 +169,15 @@ type AWSConfigOpts = {
 }
 
 export class Conf {
+  public local: boolean
+  public remote: boolean
+
   private client: AWSClients
   private region: string
   private profile: string
   private stackName: string
   private stackId: string
   private namespace: string
-  private local: boolean
-  private remote: boolean
   private project?: string
   private nodeFlags?: NodeFlags
 
@@ -383,7 +384,7 @@ export class Conf {
 
     if (overwriteEnv === false) return
 
-    if (!(haveLocal || haveRemote)) {
+    if (!(haveRemote || projectPath)) {
       logger.warn("Aborting. Re-run `tradleconf init` when you've either deployed a MyCloud, or have a local development environment, or both")
       return
     }
