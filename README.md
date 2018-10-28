@@ -25,6 +25,7 @@ CLI for managing your Tradle MyCloud instance
 - [Updating MyCloud](#updating-mycloud)
   - [MyCloud Release Schedule](#mycloud-release-schedule)
 - [Destroy](#destroy)
+- [Restore](#restore)
 - [Logging](#logging)
 - [Common Commands](#common-commands)
   - [Get web/mobile app links, deployment info, blockchain address](#get-webmobile-app-links-deployment-info-blockchain-address)
@@ -190,6 +191,10 @@ A sample timeline goes like this, with releases in bold:
 ### Destroy
 
 If murder is in your heart, you can destroy your Tradle MyCloud irreversibly using `tradleconf destroy`
+
+### Restore
+
+For whatever reasons, sometimes you may want to restore a failed or corrupted stack, and even restore your data to a point in time. See the [Restore](./restore.md) documentation.
 
 ### Logging
 
