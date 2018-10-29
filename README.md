@@ -22,8 +22,7 @@ CLI for managing your Tradle MyCloud instance
 - [Deploy](#deploy)
   - [To your local development environment](#to-your-local-development-environment)
   - [To the cloud](#to-the-cloud)
-- [Updates](#updates)
-  - [Updating MyCloud](#updating-mycloud)
+- [Updating MyCloud](#updating-mycloud)
   - [MyCloud Release Schedule](#mycloud-release-schedule)
 - [Destroy](#destroy)
 - [Logging](#logging)
@@ -145,23 +144,9 @@ Or if you only want to deploy a particular item:
 
 Same as above, minus the `--local` flag. You will be asked for confirmation unless you add the `--remote` flag.
 
-### Updates
+### Updating MyCloud
 
-#### Updating MyCloud 
-
-Tradle regularly releases updates with bug fixes and features. To update, simply run: 
-
-`tradleconf update`
-
-and choose the version to update to. To include release candidates in the updates list, run: 
-
-`tradleconf update -c`
-
-If you already know the version you want to update to, run:
-
-`tradleconf update --tag <versionTag>`
-
-Note: you can also use the `update` command to roll back to previous versions. Bugfixes are the preferred resolution strategy, so rollbacks are not as thoroughly tested. Use at your own risk!
+See [docs/updates.md](docs/updates.md)
 
 #### MyCloud Release Schedule
 
