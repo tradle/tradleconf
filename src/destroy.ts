@@ -46,12 +46,7 @@ export const deleteCorrespondingServicesStack = async ({ client, stackId }: Dest
   logger.info(`KYC services stack: deleted ${servicesStackId}`)
 }
 
-export const deleteResources = async ({ client, resources, profile, stackId }: {
-  client: AWSClients
-  resources: CloudResource[]
-  profile?: string
-  stackId?: string
-}) => {
+export const chooseDeleteVsRetain = async (resources: CloudResource[]) => {
   const [retainedBuckets, retainedOther] = partition(resources, r => r.type === 'bucket')
   const del:CloudResource[] = []
   const retain = BIG_BUCKETS.slice()
@@ -64,24 +59,25 @@ export const deleteResources = async ({ client, resources, profile, stackId }: {
     }
   }
 
-  if (del.length) {
-    logger.info(`I will now delete:
-
-${del.map(r => r.value).join('\n')}
-`)
-    await confirmOrAbort('Continue?', false)
-    logger.info(`OK, here we go! I'll be deleting a few things in parallel, try not to get dizzy...`)
-  } else {
-    logger.info(`OK, here we go!`)
+  return {
+    delete: del,
+    retain,
   }
+}
 
-  const promiseDeleteServicesStack = deleteCorrespondingServicesStack({ client, profile, stackId }).catch(err => {
-    Errors.ignore(err, CustomErrors.NotFound)
-    logger.error(err.message)
-    // the show must go on
-  })
+export const deleteResources = async ({ client, resources, profile, stackId }: {
+  client: AWSClients
+  resources: CloudResource[]
+  profile?: string
+  stackId?: string
+}) => {
+  logger.info(`I will now delete:
 
-  const [buckets, other] = partition(del, r => r.type === 'bucket')
+${resources.map(r => r.value).join('\n')}
+
+I'll be deleting a few things in parallel, try not to get dizzy...`)
+
+  const [buckets, other] = partition(resources, r => r.type === 'bucket')
   const promiseDeleteBuckets = buckets.length
     ? deleteBuckets({ client, buckets: buckets.map(r => r.value), profile })
     : Promise.resolve()
@@ -91,7 +87,6 @@ ${del.map(r => r.value).join('\n')}
     : Promise.resolve([])
 
   await Promise.all([
-    promiseDeleteServicesStack,
     promiseDeleteBuckets,
     promiseDeleteRest
   ])
@@ -107,13 +102,50 @@ export const destroy = async (opts: DestroyOpts) => {
 
   logger.info('the following resources will be retained when the stack is deleted')
   logger.info(retained.map(r => `${r.name}: ${r.value}`).join('\n'))
-  const delResourcesToo = await confirm(`do you want me to delete them? If you say yes, I'll ask you about them one by one`)
+  const delResourcesToo = await confirm(`do you want me to delete them? If you say yes, I'll ask you about them one by one`, false)
+  const delVsRetain = delResourcesToo ? await chooseDeleteVsRetain(retained) : { delete: [], retain: retained }
+  const delServicesStack = async () => {
+    try {
+      await deleteCorrespondingServicesStack({ client, profile, stackId })
+    } catch (err) {
+      Errors.ignore(err, CustomErrors.NotFound)
+      // the show must go on
+    }
+  }
+
+  const delStuff = [delServicesStack()]
+  if (delVsRetain.delete.length > 0) {
+    const promise = deleteResources({ resources: delVsRetain.delete, client, profile, stackId })
+    delStuff.push(promise)
+  }
+
+  logger.info('deleting components, be patient')
+  await Promise.all(delStuff)
+
+  // const delStuff = new Listr([
+  //   {
+  //     title: 'delete KYC services stack',
+  //     task: async () => {
+  //       try {
+  //         await deleteCorrespondingServicesStack({ client, profile, stackId })
+  //       } catch (err) {
+  //         Errors.ignore(err, CustomErrors.NotFound)
+  //         // the show must go on
+  //       }
+  //     }
+  //   },
+  //   {
+  //     title: `deleting stack resources that were not explicitly retained`,
+  //     enabled: () => delVsRetain.delete.length > 0,
+  //     task: () => deleteResources({ resources: delVsRetain.delete, client, profile, stackId }),
+  //   },
+  // ], { concurrent: true })
+
   await new Listr([
-    {
-      title: `deleting stack resources that were not explicitly retained`,
-      enabled: () => delResourcesToo,
-      task: () => deleteResources({ resources: retained, client, profile, stackId }),
-    },
+    // {
+    //   title: `deleting components`,
+    //   task: () => delStuff,
+    // },
     {
       title: 'disabling termination protection',
       task: () => utils.disableStackTerminationProtection(cloudformation, stackId),
@@ -130,7 +162,7 @@ export const destroy = async (opts: DestroyOpts) => {
           await utils.deleteStackAndWait(opts)
         } catch (err) {
           // @ts-ignore
-          opts.params.RetainResources = uniq(retain)
+          opts.params.RetainResources = uniq(delVsRetain.retain)
           await utils.deleteStackAndWait(opts)
         }
       }
