@@ -47,6 +47,7 @@ CLI for managing your Tradle MyCloud instance
   - [DocumentValidity](#documentvalidity)
   - [Customize message](#customize-message)
   - [Webhooks](#webhooks)
+  - [Deployment](#deployment)
 - [Data Import / Remediation](#data-import--remediation)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -610,6 +611,29 @@ See an example webhook processor in [./examples/webhooks](./examples/webhooks/in
 cd examples/webhooks
 npm install
 npm start
+```
+
+#### Deployment
+
+Purpose: required to support the `tradle.cloud.Deployment` product. This product allows others to deploy MyCloud children based on your own MyCloud
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "deployment": {
+    "senderEmail": "[an email address you control]",
+    "replication": {
+      "regions": [
+        // regions you want to support
+        "us-east-1",
+        "ap-southeast-2"
+      ]
+    }
+  }
+}
 ```
 
 ### Data Import / Remediation
