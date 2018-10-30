@@ -83,7 +83,7 @@ I'll be deleting a few things in parallel, try not to get dizzy...`)
     : Promise.resolve()
 
   const promiseDeleteRest = other.length
-    ? Promise.all(other.map(resource => deleteResource({ client, resource })))
+    ? Promise.all(other.map(async resource => deleteResource({ client, resource })))
     : Promise.resolve([])
 
   await Promise.all([
@@ -100,9 +100,13 @@ export const destroy = async (opts: DestroyOpts) => {
   await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`, false)
   const retained = sortBy(await utils.listOutputResources({ cloudformation, stackId }), 'type')
 
-  logger.info('the following resources will be retained when the stack is deleted')
-  logger.info(retained.map(r => `${r.name}: ${r.value}`).join('\n'))
-  const delResourcesToo = await confirm(`do you want me to delete them? If you say yes, I'll ask you about them one by one`, false)
+  let delResourcesToo
+  if (retained.length) {
+    logger.info('the following resources will be retained when the stack is deleted')
+    logger.info(retained.map(r => `${r.name}: ${r.value}`).join('\n'))
+    delResourcesToo = await confirm(`do you want me to delete them? If you say yes, I'll ask you about them one by one`, false)
+  }
+
   const delVsRetain = delResourcesToo ? await chooseDeleteVsRetain(retained) : { delete: [], retain: retained }
   const delServicesStack = async () => {
     try {
@@ -113,45 +117,25 @@ export const destroy = async (opts: DestroyOpts) => {
     }
   }
 
-  const delStuff = [delServicesStack()]
-  if (delVsRetain.delete.length > 0) {
-    const promise = deleteResources({ resources: delVsRetain.delete, client, profile, stackId })
-    delStuff.push(promise)
-  }
-
-  logger.info('deleting components, be patient')
-  await Promise.all(delStuff)
-
-  // const delStuff = new Listr([
-  //   {
-  //     title: 'delete KYC services stack',
-  //     task: async () => {
-  //       try {
-  //         await deleteCorrespondingServicesStack({ client, profile, stackId })
-  //       } catch (err) {
-  //         Errors.ignore(err, CustomErrors.NotFound)
-  //         // the show must go on
-  //       }
-  //     }
-  //   },
-  //   {
-  //     title: `deleting stack resources that were not explicitly retained`,
-  //     enabled: () => delVsRetain.delete.length > 0,
-  //     task: () => deleteResources({ resources: delVsRetain.delete, client, profile, stackId }),
-  //   },
-  // ], { concurrent: true })
-
   await new Listr([
-    // {
-    //   title: `deleting components`,
-    //   task: () => delStuff,
-    // },
+    {
+      title: 'deleting KYC services stack',
+      task: delServicesStack,
+    },
     {
       title: 'disabling termination protection',
-      task: () => utils.disableStackTerminationProtection(cloudformation, stackId),
+      task: async (ctx) => {
+        try {
+          await utils.disableStackTerminationProtection({ cloudformation, stackName: stackId })
+        } catch (err) {
+          Errors.ignore(err, CustomErrors.NotFound)
+          ctx.stackNotFound = true
+        }
+      }
     },
     {
       title: 'deleting primary stack',
+      enabled: ctx => ctx.stackNotFound !== true,
       task: async (ctx) => {
         const opts = {
           cloudformation,
@@ -161,6 +145,10 @@ export const destroy = async (opts: DestroyOpts) => {
         try {
           await utils.deleteStackAndWait(opts)
         } catch (err) {
+          if (Errors.matches(err, CustomErrors.NotFound)) {
+            return
+          }
+
           // @ts-ignore
           opts.params.RetainResources = uniq(delVsRetain.retain)
           await utils.deleteStackAndWait(opts)
@@ -168,6 +156,11 @@ export const destroy = async (opts: DestroyOpts) => {
       }
     },
   ]).run()
+
+  if (!delVsRetain.delete.length) return
+
+  logger.info('deleting resources you chose not to retain')
+  await deleteResources({ resources: delVsRetain.delete, client, profile, stackId })
 }
 
 export const deleteBuckets = async ({ client, buckets, profile }: {
@@ -182,6 +175,8 @@ export const deleteBuckets = async ({ client, buckets, profile }: {
     await utils.destroyBucket(client.s3, id)
   }))
 
+  if (!big.length) return
+
   await Promise.all(big.map(id => utils.markBucketForDeletion(client.s3, id)))
   const cleanupScriptPath = path.relative(process.cwd(), createCleanupBucketsScript({ buckets: big, profile }))
 
@@ -194,17 +189,30 @@ After that you can delete them from the console or with this little script I cre
 `)
 }
 
-export const deleteResource = async ({ client, resource }: {
+export const deleteResource = async (opts: {
+  client: AWSClients
+  resource: CloudResource
+}) => {
+  try {
+    await doDeleteResource(opts)
+  } catch (err) {
+    Errors.ignore(err, CustomErrors.NotFound)
+  }
+}
+
+const doDeleteResource = async ({ client, resource }: {
   client: AWSClients
   resource: CloudResource
 }) => {
   switch (resource.type) {
   case 'table':
-    await client.dynamodb.deleteTable({ TableName: resource.value }).promise()
+    await utils.deleteTable({ dynamodb: client.dynamodb, tableName: resource.value })
     break
   case 'key':
-    await client.kms.disableKey({ KeyId: resource.value }).promise()
-    await client.kms.scheduleKeyDeletion({ KeyId: resource.value }).promise()
+    await utils.deleteKey({ kms: client.kms, keyId: resource.value })
+    break
+  case 'loggroup':
+    await utils.deleteLogGroup({ logs: client.logs, name: resource.value })
     break
   default:
     logger.warn(`don't know how to delete resource of type: ${resource.type}`)

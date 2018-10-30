@@ -477,6 +477,7 @@ export class Conf {
 
     const s3 = new AWS.S3()
     const cloudformation = new AWS.CloudFormation()
+    const logs = new AWS.CloudWatchLogs()
     const lambda = new AWS.Lambda()
     const ecr = new AWS.ECR()
     const ec2 = new AWS.EC2()
@@ -493,6 +494,7 @@ export class Conf {
       opsworks,
       region: AWS.config.region,
       dynamodb,
+      logs,
       // docClient,
       kms,
     }
@@ -573,11 +575,17 @@ export class Conf {
     }
   }
 
-  public destroy = async () => {
-    this._ensureStackNameKnown()
-    this._ensureRemote()
-    const { client, stackId, profile } = this
-    await destroy({ client, stackId, profile })
+  public destroy = async ({ profile=this.profile, stackArn=this.stackId }) => {
+    if (!stackArn) {
+      this._ensureStackNameKnown()
+      this._ensureRemote()
+    }
+
+    await destroy({
+      client: this.createAWSClient({ profile, region: this.region }),
+      profile,
+      stackId: stackArn,
+    })
   }
 
   public getApiBaseUrl = async () => {

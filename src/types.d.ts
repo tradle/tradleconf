@@ -15,6 +15,7 @@ export type AWSClients = {
   // ses: AWS.SES
   // kms: AWS.KMS
   // docClient: AWS.DynamoDB.DocumentClient
+  logs: AWS.CloudWatchLogs
   lambda: AWS.Lambda
   cloudformation: AWS.CloudFormation
   // xray: AWS.XRay
@@ -97,12 +98,14 @@ export interface SetKYCServicesOpts {
 
 export type PointInTime = string
 
-export type CloudResourceType = 'bucket'|'table'|'key'
+export type CloudResourceType = 'bucket'|'table'|'key'|'loggroup'
 export interface CloudResource {
   type: CloudResourceType
   name: string
   value: string
 }
+
+export type CFParameter = AWS.CloudFormation.Parameter
 
 export interface CFParameterDef {
   Type: AWS.CloudFormation.ParameterType

@@ -17,6 +17,7 @@ import {
   Logger,
   CloudResource,
   CFTemplate,
+  CFParameter,
   CFParameterDef,
   ClientOpts,
   // RestoreTableCliOpts,
@@ -277,24 +278,26 @@ export const createStack = async ({ client, sourceStackArn, templateUrl, buckets
   })
 }
 
-const LOGICAL_ID_TO_PARAM = {
+const OUTPUT_NAME_TO_PARAM = {
   // buckets
   ObjectsBucket: 'ExistingObjectsBucket',
   SecretsBucket: 'ExistingSecretsBucket',
   PrivateConfBucket: 'ExistingPrivateConfBucket',
   FileUploadBucket: 'ExistingFileUploadBucket',
   LogsBucket: 'ExistingLogsBucket',
-  // special case
-  // Deployment: 'ExistingDeploymentBucket',
+  DeploymentBucket: 'ExistingDeploymentBucket',
   // ServerlessDeploymentBucket: 'ExistingDeploymentBucket',
   // tables
   EventsTable: 'ExistingEventsTable',
   Bucket0Table: 'ExistingBucket0Table',
+  // streams
+  Bucket0TableStream: 'ExistingBucket0TableStreamArn',
   // keys
   EncryptionKey: 'ExistingEncryptionKey',
+  BucketEncryptionKey: 'ExistingBucketEncryptionKey',
 }
 
-const setImmutableParameters = (parameters: AWS.CloudFormation.Parameter[]) => {
+const setImmutableParameters = (parameters: CFParameter[]) => {
   IMMUTABLE_STACK_PARAMETERS.forEach(name => {
     let old = parameters.find(p => p.ParameterKey === name)
     if (!old) {
@@ -305,6 +308,17 @@ const setImmutableParameters = (parameters: AWS.CloudFormation.Parameter[]) => {
     delete old.ParameterValue
     old.UsePreviousValue = true
   })
+}
+
+const isNonEmptyParameter = ({ ParameterValue }: CFParameter) => ParameterValue !== ''
+
+export const isOverwrite = (
+  oldParameters: CFParameter[],
+  newParam: CFParameter
+) => {
+  const { ParameterKey, ParameterValue } = newParam
+  const oldParam = oldParameters.find(p => p.ParameterKey === ParameterKey)
+  return isNonEmptyParameter(oldParam)
 }
 
 export const deriveParametersFromStack = async ({ cloudformation, stackId }: {
@@ -319,16 +333,16 @@ export const deriveParametersFromStack = async ({ cloudformation, stackId }: {
   // }
 
   const oldOutputs = oldStack.Outputs
-  const newParameters: AWS.CloudFormation.Parameter[] = oldOutputs
-    .filter(r => r.OutputKey in LOGICAL_ID_TO_PARAM)
+  const newParameters: CFParameter[] = oldOutputs
+    .filter(r => r.OutputKey in OUTPUT_NAME_TO_PARAM)
     .map(({ OutputKey, OutputValue }) => ({
-      ParameterKey: LOGICAL_ID_TO_PARAM[OutputKey],
+      ParameterKey: OUTPUT_NAME_TO_PARAM[OutputKey],
       ParameterValue: OutputValue,
     }))
 
   const parameters = newParameters.slice()
-    // don't override anything from old stack
-    .filter(({ ParameterKey }) => !oldParameters.some(p => p.ParameterKey === ParameterKey))
+    // don't overwrite anything from old stack
+    .filter(newParam => !isOverwrite(oldParameters, newParam))
     .concat(oldParameters)
 
   return parameters
@@ -341,7 +355,7 @@ export const getTemplateAndParametersFromStack = async ({ cloudformation, stackI
   const getTemplate = utils.getStackTemplate({ cloudformation, stackId })
   const getParams = deriveParametersFromStack({ cloudformation, stackId })
   const template = (await getTemplate) as CFTemplate
-  const parameters = (await getParams) as AWS.CloudFormation.Parameter[]
+  const parameters = (await getParams) as CFParameter[]
   return { template, parameters }
 }
 
@@ -349,7 +363,7 @@ export const restoreStack = async (opts: {
   sourceStackArn: string
   newStackName: string
   // newStackRegion: string
-  stackParameters?: AWS.CloudFormation.Parameter[]
+  stackParameters?: CFParameter[]
   s3PathToUploadTemplate?: string
   profile?: string
 }) => {
@@ -402,7 +416,7 @@ export const restoreStack = async (opts: {
 
 export const validateParameters = async ({ dynamodb, parameters }: {
   dynamodb: AWS.DynamoDB
-  parameters: AWS.CloudFormation.Parameter[]
+  parameters: CFParameter[]
 }) => {
   const ddbHelper = wrapDynamoDB(dynamodb)
   const tables = parameters.filter(p => p.ParameterKey.startsWith('Existing') && p.ParameterKey.endsWith('Table'))
@@ -419,7 +433,7 @@ export const createStackWithParameters = async (opts: {
   stackName: string
   region: string
   template: CFTemplate
-  parameters: AWS.CloudFormation.Parameter[]
+  parameters: CFParameter[]
   s3PathToUploadTemplate: string
   profile?: string
 }) => {

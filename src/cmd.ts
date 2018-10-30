@@ -322,6 +322,8 @@ const invokeCommand = program
 const destroyCommand = program
   .command('destroy')
   .description(`destroy your deployment`)
+  .option('--profile [awsProfileName]', 'defaults to awsProfile in .env')
+  .option('--stack-arn [arn]', 'defaults to stackId in .env')
   .allowUnknownOption(false)
   .action(createAction('destroy'))
 

@@ -148,7 +148,7 @@ export const listOutputResources = async ({ cloudformation, stackId }: {
 }):Promise<CloudResource[]> => {
   const outputs = await getStackOutputs({ cloudformation, stackId })
   return outputs.map(({ OutputKey, OutputValue }) => {
-    const match = OutputKey.match(/(Bucket|Table|Key)$/)
+    const match = OutputKey.match(/(Bucket|Table|Key|LogGroup)$/)
     if (match) {
       const type = match[1].toLowerCase() as CloudResourceType
       return { type, name: OutputKey, value: OutputValue }
@@ -282,14 +282,85 @@ export const markBucketForDeletion = async (s3: AWS.S3, Bucket: string) => {
   await s3.putBucketLifecycleConfiguration(params).promise()
 }
 
-export const disableStackTerminationProtection = async (cloudformation: AWS.CloudFormation, StackName:string) => {
+export const deleteTable = async ({ dynamodb, tableName }: {
+  dynamodb: AWS.DynamoDB
+  tableName: string
+}) => {
+  try {
+    await dynamodb.deleteTable({ TableName: tableName }).promise()
+  } catch (err) {
+    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    throw new CustomErrors.NotFound(`table not found: ${tableName}`)
+  }
+}
+
+export const deleteKey = async ({ kms, keyId }: {
+  kms: AWS.KMS
+  keyId: string
+}) => {
+  try {
+    await kms.disableKey({ KeyId: keyId }).promise()
+  } catch (err) {
+    Errors.ignore(err, /pending deletion/)
+    throw new CustomErrors.NotFound(`key not found with id: ${keyId}`)
+  }
+
+  try {
+    await kms.scheduleKeyDeletion({ KeyId: keyId }).promise()
+  } catch (err) {
+    Errors.ignore(err, /pending deletion/)
+    throw new CustomErrors.NotFound(`key not found with id: ${keyId}`)
+  }
+}
+
+export const deleteLogGroup = async ({ logs, name }: {
+  logs: AWS.CloudWatchLogs
+  name: string
+}) => {
+  try {
+    await logs.deleteLogGroup({ logGroupName: name }).promise()
+  } catch (err) {
+    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    throw new CustomErrors.NotFound(`log group with name: ${name}`)
+  }
+}
+
+export const getNotDeletedStack = async ({ cloudformation, stackName }: {
+  cloudformation: AWS.CloudFormation
+  stackName: string
+}) => {
+  const { Stacks } = await cloudformation.describeStacks({ StackName: stackName }).promise()
+  const notDeleted = Stacks.filter(s => s.StackStatus !== 'DELETE_COMPLETE')
+  if (!notDeleted.length) {
+    throw new CustomErrors.NotFound(`stack not found: ${stackName}`)
+  }
+
+  return notDeleted[0]
+}
+
+export const assertStackIsNotDeleted = async (opts: {
+  cloudformation: AWS.CloudFormation
+  stackName: string
+}) => {
+  // ignore return value
+  await getNotDeletedStack(opts)
+}
+
+export const disableStackTerminationProtection = async ({ cloudformation, stackName }: {
+  cloudformation: AWS.CloudFormation
+  stackName: string
+}) => {
+  await assertStackIsNotDeleted({ cloudformation, stackName })
   return await cloudformation.updateTerminationProtection({
-    StackName,
+    StackName: stackName,
     EnableTerminationProtection: false,
   }).promise()
 }
 
 export const deleteStack = async ({ cloudformation, params }: DeleteStackOpts) => {
+  const { StackName } = params
+  await assertStackIsNotDeleted({ cloudformation, stackName: params.StackName })
+
   while (true) {
     try {
       await cloudformation.deleteStack(params).promise()
