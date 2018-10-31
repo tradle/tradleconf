@@ -169,10 +169,10 @@ type AWSConfigOpts = {
 export class Conf {
   public local: boolean
   public remote: boolean
+  public client: AWSClients
+  public profile: string
 
-  private client: AWSClients
   private region: string
-  private profile: string
   private stackName: string
   private stackId: string
   private namespace: string
@@ -227,7 +227,6 @@ export class Conf {
       arg: items
     })
 
-    debugger
     if (error) throw error
 
     return result
@@ -484,6 +483,7 @@ export class Conf {
     const opsworks = new AWS.OpsWorks()
     const dynamodb = new AWS.DynamoDB()
     const kms = new AWS.KMS()
+    const apigateway = new AWS.APIGateway()
     // const docClient = new AWS.DynamoDB.DocClient()
     return {
       s3,
@@ -497,6 +497,7 @@ export class Conf {
       logs,
       // docClient,
       kms,
+      apigateway,
     }
   }
 
@@ -506,15 +507,15 @@ export class Conf {
   }
 
   public waitForStackUpdate = async (opts?:WaitStackOpts) => {
-    const { stackName=this.stackName } = opts || {}
+    const { stackId=this.stackId } = opts || {}
     const client = this.createAWSClient()
-    await utils.awaitStackUpdate(client.cloudformation, stackName)
+    await utils.awaitStackUpdate(client.cloudformation, stackId)
   }
 
   public waitForStackDelete = async (opts?:WaitStackOpts) => {
-    const { stackName=this.stackName } = opts || {}
+    const { stackId=this.stackId } = opts || {}
     const client = this.createAWSClient()
-    await utils.awaitStackDelete(client.cloudformation, stackName)
+    await utils.awaitStackDelete(client.cloudformation, stackId)
   }
 
   public createDataBundle = async ({ path }) => {
@@ -618,12 +619,13 @@ export class Conf {
 
   public getEndpointInfo = async () => {
     const getApiBaseUrl = this.getApiBaseUrl()
-    const info = await this.invokeAndReturn({
+    const getInfo = this.invokeAndReturn({
       functionName: 'info',
       arg: {},
       noWarning: true
     })
 
+    const [apiBaseUrl, info] = await Promise.all([getApiBaseUrl, getInfo])
     if (info.statusCode !== 200) {
       throw new CustomErrors.ServerError(info.body)
     }
@@ -633,7 +635,7 @@ export class Conf {
     }
 
     const endpoint = JSON.parse(info.body)
-    endpoint.apiBaseUrl = await getApiBaseUrl
+    endpoint.apiBaseUrl = apiBaseUrl
     return endpoint
   }
 
@@ -666,6 +668,10 @@ export class Conf {
 
     const longName = getLongFunctionName({ stackName, functionName })
     const logOpts = getOptsOnly(opts)
+    if (!(logOpts.start || logOpts.end)) {
+      logOpts.start = '5m'
+    }
+
     if (this.profile) logOpts.profile = this.profile
     if (this.region) logOpts['aws-region'] = this.region
 
@@ -745,7 +751,11 @@ export class Conf {
     provider?: string
   }={}):Promise<VersionInfo[]> => {
     let command = 'listupdates'
-    if (provider) command = `${command} --provider ${provider}`
+    // temporarily double-specified for backwards compat
+    // TODO: remove --provider-permalink
+    if (provider) {
+      command = `${command} --provider ${provider} --provider-permalink ${provider}`
+    }
 
     return await this.exec({
       args: [command],
@@ -792,7 +802,7 @@ export class Conf {
     this._ensureStackNameKnown()
 
     await update(this, {
-      stackName: this.stackName,
+      stackId: this.stackId,
       ...opts,
     })
   }
@@ -806,7 +816,7 @@ export class Conf {
     this._ensureStackNameKnown()
 
     await update(this, {
-      stackName: this.stackName,
+      stackId: this.stackId,
       rollback: true,
       ...opts,
     })
@@ -822,11 +832,15 @@ export class Conf {
       Capabilities: ['CAPABILITY_NAMED_IAM'],
     }
 
+    if (update.parameters) {
+      params.Parameters = update.parameters
+    }
+
     if (notificationTopics) {
       params.NotificationARNs = notificationTopics
     }
 
-    await utils.updateStackAndWait({ cloudformation: this.client.cloudformation, params })
+    await utils.updateStack({ cloudformation: this.client.cloudformation, params })
   }
 
   public applyUpdateViaLambda = async (update) => {
@@ -926,17 +940,26 @@ export class Conf {
     this._ensureRemote()
     this._ensureInitialized()
 
-    let { sourceStackArn=this.stackId, stackParameters } = opts
+    let {
+      sourceStackArn=this.stackId,
+      newStackName=this.stackName,
+      stackParameters
+    } = opts
+
     if (stackParameters) {
       stackParameters = readJSON(stackParameters)
     }
 
-    return restoreStack({
+    await restoreStack({
       ...opts,
+      conf: this,
       sourceStackArn,
       stackParameters,
-      profile: this.profile,
+      newStackName,
     })
+
+    logger.info('after restoring, you should re-init')
+    await this.init({ remote: true })
   }
 
   public restoreResources = async (opts) => {
@@ -972,10 +995,7 @@ export class Conf {
     const { sourceStackArn=this.stackId, output } = opts
     const { region } = utils.parseStackArn(sourceStackArn)
     const params = await deriveParametersFromStack({
-      cloudformation: utils.createCloudFormationClient({
-        region,
-        profile: this.profile,
-      }),
+      client: this.createAWSClient({ region }),
       stackId: sourceStackArn
     })
 

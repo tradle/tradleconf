@@ -368,7 +368,7 @@ const updateCommand = program
   .option('-t, --tag [versionTag]')
   .option('-f, --force', 'force update even if deployment is ahead of or equal to the specified version tag')
   .option('-c, --show-release-candidates', 'set if you want to list release candidate versions')
-  // .option('-p, --provider <providerPermalink>', 'if you want to update from someone other than Tradle')
+  .option('-p, --provider [providerPermalink]', 'if you want to update from someone other than Tradle')
   .description('update your MyCloud')
   .allowUnknownOption(false)
   .action(createAction('update'))
@@ -399,13 +399,14 @@ const rollbackCommand = program
 
 const listUpdatesCommand = program
   .command('list-updates')
+  .option('-p, --provider [providerPermalink]', 'if you want to list updates from someone other than Tradle')
   .description('list available updates for your MyCloud')
   .allowUnknownOption(false)
   .action(createAction('listUpdates'))
 
 const createLogCommand = (command, name) => command
   .allowUnknownOption(false)
-  .option('-s, --start <time-expression>', 'see awslogs docs')
+  .option('-s, --start [time-expression]', 'see awslogs docs')
   .option('-e, --end [time-expression]', 'see awslogs docs')
   .option('-w, --watch', 'tail log')
   .option('-t, --timestamp', 'prints the creation timestamp of each event.')
@@ -479,8 +480,9 @@ const getTemplate = program
 
 const restoreFromStack = program
   .command('restore-stack')
-  .option('--new-stack-name <name>', 'name to use for new stack')
+  .option('--new-stack-name [name]', 'name to use for new stack')
   .option('--source-stack-arn [stackArn]', 'arn of stack to restore. Defaults to the one in your .env file')
+  .option('--template-url [templateUrl]', 'if you want to restore the stack to a different version that it was last at')
   .option('--stack-parameters [path/to/parameters.json]', 'if you generated parameters with the "gen-stack-parameters" command')
   // .option('--new-stack-region <region>', 'region to launch new stack in')
   .description(`create a new stack from an existing stack, using the same tables, buckets, and identity`)

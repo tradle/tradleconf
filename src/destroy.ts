@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import partition from 'lodash/partition'
 import sortBy from 'lodash/sortBy'
+import notNull from 'lodash/identity'
 import Listr from 'listr'
 import AWS from 'aws-sdk'
 import Errors from '@tradle/errors'
@@ -79,7 +80,7 @@ I'll be deleting a few things in parallel, try not to get dizzy...`)
 
   const [buckets, other] = partition(resources, r => r.type === 'bucket')
   const promiseDeleteBuckets = buckets.length
-    ? deleteBuckets({ client, buckets: buckets.map(r => r.value), profile })
+    ? deleteBuckets({ client, buckets, profile })
     : Promise.resolve()
 
   const promiseDeleteRest = other.length
@@ -98,7 +99,11 @@ export const destroy = async (opts: DestroyOpts) => {
   const { cloudformation } = client
   await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`, false)
   await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`, false)
-  const retained = sortBy(await utils.listOutputResources({ cloudformation, stackId }), 'type')
+  let retained = await utils.listOutputResources({ cloudformation, stackId })
+  retained = retained.filter(r => r.name !== 'SourceDeploymentBucket')
+  retained = sortBy(retained, 'type')
+  const existence = await Promise.all(retained.map(resource => utils.doesResourceExist({ client, resource })))
+  retained = retained.filter((r, i) => existence[i])
 
   let delResourcesToo
   if (retained.length) {
@@ -165,23 +170,34 @@ export const destroy = async (opts: DestroyOpts) => {
 
 export const deleteBuckets = async ({ client, buckets, profile }: {
   client: AWSClients
-  buckets: string[]
+  buckets: CloudResource[]
   profile?: string
 }) => {
-  const [big, small] = partition(buckets, id => BIG_BUCKETS.find(logical => id.includes(logical.toLowerCase())))
+  const [big, small] = partition(buckets, ({ name }) => BIG_BUCKETS.includes(name))
 
-  await Promise.all(small.map(async id => {
-    logger.info(`emptying and deleting: ${id}`)
-    await utils.destroyBucket(client.s3, id)
+  await Promise.all(small.map(async ({ value }) => {
+    logger.info(`emptying and deleting: ${value}`)
+    await utils.destroyBucket(client.s3, value)
   }))
 
   if (!big.length) return
 
-  await Promise.all(big.map(id => utils.markBucketForDeletion(client.s3, id)))
-  const cleanupScriptPath = path.relative(process.cwd(), createCleanupBucketsScript({ buckets: big, profile }))
+  const bigIds = big.map(b => b.value)
+  await Promise.all(bigIds.map(async id => {
+    try {
+      await utils.markBucketForDeletion(client.s3, id)
+    } catch (err) {
+      Errors.ignore(err, CustomErrors.NotFound)
+    }
+  }))
+
+  const cleanupScriptPath = path.relative(process.cwd(), createCleanupBucketsScript({
+    buckets: bigIds,
+    profile
+  }))
 
   logger.info(`The following buckets are too large to delete directly:
-${big.join('\n')}
+${bigIds.join('\n')}
 
 Instead, I've marked them for deletion by S3. They should be emptied within a day or so
 

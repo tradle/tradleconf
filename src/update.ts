@@ -1,14 +1,31 @@
-import matches from 'lodash/matches'
-import sortBy from 'lodash/sortBy'
+import _ from 'lodash'
 import inquirer from 'inquirer'
 import Listr from 'listr'
 import promiseRetry from 'promise-retry'
 // import { toSortableTag, sortTags, compareTags } from 'lexicographic-semver'
 import Errors from '@tradle/errors'
-import { Conf, UpdateOpts, VersionInfo, GetUpdateInfoResp } from './types'
+import {
+  Conf,
+  UpdateOpts,
+  VersionInfo,
+  GetUpdateInfoResp,
+  ApplyUpdateOpts,
+  CFParameterDef,
+  ListrTask,
+} from './types'
+
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
 import { confirmOrAbort } from './prompts'
+import {
+  deriveParametersFromStack,
+  getPromptForParameter,
+  promptParameters,
+  getBlanksForMissingParameters,
+  createStack,
+} from './restore'
+
+import * as utils from './utils'
 
 const USE_CURRENT_USER_ROLE = true
 const MIN_VERSION = '01.01.0f'
@@ -55,7 +72,7 @@ class Updater {
     }
 
     if (targetTag && rollback) {
-      const idx = this.updates.findIndex(matches({ tag: targetTag }))
+      const idx = this.updates.findIndex(_.matches({ tag: targetTag }))
       if (idx === -1) {
         const previousTags = updates.map(u => u.tag)
         // we don't know what versions are available yet
@@ -78,7 +95,7 @@ ${previousTags.join('\n')}`)
       : conf.listUpdates({ provider })
 
     let updates = await getUpdates
-    updates = sortBy(updates, 'sortableTag')
+    updates = _.sortBy(updates, 'sortableTag')
     updates = updates.filter(u => u.tag !== currentVersion.tag)
     if (rollback) {
       updates = updates.reverse().filter(u => u.sortableTag < currentVersion.sortableTag)
@@ -126,7 +143,7 @@ ${previousTags.join('\n')}`)
   private _update = async () => {
     const { conf, opts, currentVersion, updates, verb } = this
     const {
-      stackName,
+      stackId,
       provider,
       showReleaseCandidates,
       force,
@@ -155,21 +172,63 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
       await this._applyPrerequisiteTransitionTags()
     }
 
-    const promise = await new Listr([
+    const { cloudformation } = conf.client
+    const tasks:ListrTask[] = [
       {
-        title: `load release ${tag} (grab a coffee)`,
+        title: `loading release ${tag} (grab a coffee)`,
         task: async ctx => {
-          const resp = await this._getUpdateWithRetry()
-          if (!resp) return
+          let resp
+          try {
+            resp = await this._getUpdateWithRetry()
+            if (!resp) return
+          } catch (err) {
+            Errors.ignore(err, CustomErrors.NotFound)
+            throw new Error(`failed to fetch version ${tag}. If you're confident it exists, please try again.`)
+          }
 
           const { update, upToDate } = resp
           ctx.upToDate = upToDate
-          ctx.update = update
+          ctx.update = update as ApplyUpdateOpts
           ctx.willUpdate = force || rollback || !upToDate
         }
       },
       {
-        title: `validate release`,
+        title: `checking for any necessary transitional changes`,
+        skip: ctx => !ctx.willUpdate,
+        task: async ctx => {
+          const { update } = ctx
+          const v1ToV2 = await this._maybeTransitionV1ToV2({ update, stackId })
+          if (v1ToV2) {
+            ctx.willUpdate = false
+            ctx.willRecreate = true
+            // throw new Error(`you'll need to destroy your stack (but keep the resources) and update manually to: ${update.templateUrl}`)
+          }
+        }
+      },
+      {
+        title: 'killing and resurrecting',
+        skip: ctx => !ctx.willRecreate,
+        task: async ctx => {
+          const update = ctx.update as ApplyUpdateOpts
+          const { parameters, templateUrl, notificationTopics } = update
+          const { region, stackName } = utils.parseStackArn(stackId)
+
+          logger.info(`if the the process is interrupted after the original stack is deleted, restore manually using:
+
+tradleconf restore-stack --template-url "${templateUrl}"`)
+          await utils.deleteStackAndWait({ cloudformation, params: { StackName: stackId } })
+          await createStack({
+            region,
+            templateUrl,
+            profile: this.opts.profile,
+            stackName,
+            parameters,
+            notificationTopics,
+          })
+        }
+      },
+      {
+        title: `triggering update`,
         skip: ctx => !ctx.willUpdate,
         task: async ctx => {
           try {
@@ -184,11 +243,11 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
         }
       },
       {
-        title: `apply ${verb} (be patient, or else)`,
+        title: `applying ${verb} (be patient, or else)`,
         skip: ctx => !ctx.willUpdate,
         task: async ctx => {
           try {
-            await conf.waitForStackUpdate({ stackName })
+            await conf.waitForStackUpdate({ stackId })
           } catch (err) {
             if (err.code === 'ResourceNotReady') {
               throw new Error(`failed to apply ${verb}`)
@@ -198,17 +257,14 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
           }
         }
       }
-    ]).run()
+    ]
 
-    let ctx
-    try {
-      ctx = await promise
-    } catch (err) {
-      if (Errors.matches(err, CustomErrors.NotFound)) {
-        throw new Error(`failed to fetch version ${tag}. If you're confident it exists, please try again.`)
-      }
+    let ctx:any = {}
+    for (const { title, skip, task } of tasks) {
+      if (skip && skip(ctx)) continue
 
-      throw err
+      logger.warn(`${title}...`)
+      await task(ctx)
     }
 
     if (ctx.upToDate && !ctx.willUpdate) {
@@ -218,6 +274,44 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
 
       this._throwBackwardsError()
     }
+  }
+
+  private _maybeTransitionV1ToV2 = async ({ stackId, update }: {
+    stackId: string
+    update: ApplyUpdateOpts
+  }) => {
+    const { conf } = this
+    const { cloudformation } = conf.client
+    const isV1Stack = await utils.isV1Stack({ cloudformation, stackId })
+    if (!isV1Stack) return
+
+    const parameters = await this._getV1ToV2Parameters({ stackId, update })
+    if (!parameters) return
+
+    update.parameters = parameters
+    logger.info(`this stack cannot be transitioned to the next version
+I can delete your current stack, and restore it under the new version, with template: ${update.templateUrl}`)
+    await confirmOrAbort('would you like me to do that?', false)
+    return true
+  }
+
+  private _getV1ToV2Parameters = async ({ stackId, update }: {
+    stackId: string
+    update: ApplyUpdateOpts
+  }) => {
+    const { conf } = this
+    const { client } = conf
+    const { cloudformation } = conf.client
+    const [parameters, currentTemplate, newTemplate] = await Promise.all([
+      deriveParametersFromStack({ client, stackId }),
+      utils.getStackTemplate({ cloudformation, stackId }),
+      utils.get(update.templateUrl),
+    ])
+
+    if (!utils.isV2Template(newTemplate)) return
+
+    const missing = await getBlanksForMissingParameters({ template: newTemplate, parameters })
+    return parameters.concat(missing)
   }
 
   private _throwBackwardsError = () => {
@@ -271,7 +365,7 @@ To force deploy ${targetTag}, run: tradleconf update --tag ${targetTag} --force`
     })
   }
 
-  private _triggerUpdate = async (update) => {
+  private _triggerUpdate = async (update: ApplyUpdateOpts) => {
     const { conf } = this
     if (USE_CURRENT_USER_ROLE) {
       await conf.applyUpdateAsCurrentUser(update)

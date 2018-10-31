@@ -1,8 +1,4 @@
-import matches from 'lodash/matches'
-import sortBy from 'lodash/sortBy'
-import partition from 'lodash/partition'
-import uniq from 'lodash/uniq'
-import cloneDeep from 'lodash/cloneDeep'
+import _ from 'lodash'
 import inquirer from 'inquirer'
 import AWS from 'aws-sdk'
 import Listr from 'listr'
@@ -31,7 +27,8 @@ import { create as wrapS3 } from './s3'
 import * as utils from './utils'
 import { IMMUTABLE_STACK_PARAMETERS } from './constants'
 
-const shouldRestoreBucket = (output: CloudResource) => output.name !== 'LogsBucket'
+const BUCKETS_SUPPORTED = false
+const shouldRestoreBucket = (output: CloudResource) => BUCKETS_SUPPORTED && output.name !== 'LogsBucket'
 const shouldRestoreTable = (output: CloudResource) => true
 
 // const isBucket = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Bucket')
@@ -81,7 +78,7 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
   const s3 = wrapS3(client.s3)
 
   // const suffix = await ask('enter a short suffix to append to restored tables. Use lowercase letters only.', validateSuffix)
-  const getBaseParams = deriveParametersFromStack({ cloudformation, stackId: sourceStackArn })
+  const getBaseParams = deriveParametersFromStack({ client, stackId: sourceStackArn })
   const getOutputs = utils.listOutputResources({ cloudformation, stackId: sourceStackArn })
   const parameters = await getBaseParams
   const outputs = await getOutputs
@@ -114,11 +111,15 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
     Promise.all(newBucketIds.map((target, i) => setupNewBucket({ source: oldBucketIds[i], target }))),
   ])
 
-  logger.info('\nrestoring buckets:\n')
-  buckets.forEach((bucket, i) => logger.info(`${bucket.name} to ${newBucketIds[i]}`))
+  if (buckets.length) {
+    logger.info('\nrestoring buckets:\n')
+    buckets.forEach((bucket, i) => logger.info(`${bucket.name} to ${newBucketIds[i]}`))
+  }
 
-  logger.info('\nrestoring tables:\n')
-  tables.forEach((table, i) => logger.info(`${table.name} to ${newTableNames[i]}`))
+  if (tables.length) {
+    logger.info('\nrestoring tables:\n')
+    tables.forEach((table, i) => logger.info(`${table.name} to ${newTableNames[i]}`))
+  }
 
   logger.info(`\nthis will take a while. Don't interrupt me!\n`)
 
@@ -170,7 +171,7 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
 
   const old = tables.concat(buckets).map(r => r.value)
   const restored = newTableNames.concat(newBucketIds)
-  const [irreplaceable, replaceable] = partition(parameters, p => p.ParameterKey === 'SourceDeploymentBucket')
+  const [irreplaceable, replaceable] = _.partition(parameters, p => p.ParameterKey === 'SourceDeploymentBucket')
   old.forEach((oldPhysicalId, i) => {
     const newPhysicalId = restored[i]
     const param = replaceable.find(p => p.ParameterValue === oldPhysicalId)
@@ -253,30 +254,30 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
 //   return policy
 // }
 
-export const createStack = async ({ client, sourceStackArn, templateUrl, buckets, tables, immutableParameters=[], logger }: {
-  client: AWSClients
-  sourceStackArn: string
-  templateUrl: string
-  logger: Logger
-  buckets?: string[]
-  tables?: string[]
-  immutableParameters?: string[]
-}) => {
-  const template = utils.getStackTemplate({ cloudformation: client.cloudformation, stackId: sourceStackArn })
-  // const template = await utils.get(templateUrl)
-  const groups = groupParameters(template)
-  const values = {}
-  await utils.series(groups, async ({ name, parameters }) => {
-    parameters = parameters.filter(p => !immutableParameters.includes(p.Name))
-    if (!parameters.length) return
+// export const createStack = async ({ client, sourceStackArn, templateUrl, buckets, tables, immutableParameters=[], logger }: {
+//   client: AWSClients
+//   sourceStackArn: string
+//   templateUrl: string
+//   logger: Logger
+//   buckets?: string[]
+//   tables?: string[]
+//   immutableParameters?: string[]
+// }) => {
+//   const template = utils.getStackTemplate({ cloudformation: client.cloudformation, stackId: sourceStackArn })
+//   // const template = await utils.get(templateUrl)
+//   const groups = groupParameters(template)
+//   const values = {}
+//   await utils.series(groups, async ({ name, parameters }) => {
+//     parameters = parameters.filter(p => !immutableParameters.includes(p.Name))
+//     if (!parameters.length) return
 
-    logger.info(name)
-    await utils.series(parameters, async ({ Name, Label, Description }) => {
-      const message = Description ? `${Label}: ${Description}` : Label
-      values[Name] = await ask(message)
-    })
-  })
-}
+//     logger.info(name)
+//     await utils.series(parameters, async ({ Name, Label, Description }) => {
+//       const message = Description ? `${Label}: ${Description}` : Label
+//       values[Name] = await ask(message)
+//     })
+//   })
+// }
 
 const OUTPUT_NAME_TO_PARAM = {
   // buckets
@@ -295,6 +296,9 @@ const OUTPUT_NAME_TO_PARAM = {
   // keys
   EncryptionKey: 'ExistingEncryptionKey',
   BucketEncryptionKey: 'ExistingBucketEncryptionKey',
+  // api gateway
+  ApiGatewayRestApi: 'ExistingApiGatewayRestApi',
+  ApiGatewayRestApiRootResourceId: 'ExistingApiGatewayRestApiRootResourceId',
 }
 
 const setImmutableParameters = (parameters: CFParameter[]) => {
@@ -318,14 +322,14 @@ export const isOverwrite = (
 ) => {
   const { ParameterKey, ParameterValue } = newParam
   const oldParam = oldParameters.find(p => p.ParameterKey === ParameterKey)
-  return isNonEmptyParameter(oldParam)
+  return oldParam && isNonEmptyParameter(oldParam)
 }
 
-export const deriveParametersFromStack = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
+export const deriveParametersFromStack = async ({ client, stackId }: {
+  client: AWSClients
   stackId: string
 }) => {
-  const { region } = utils.parseStackArn(stackId)
+  const { cloudformation, apigateway } = client
   const oldStack = await utils.getStackInfo({ cloudformation, stackId })
   const oldParameters = oldStack.Parameters
   // if (!forCreate) {
@@ -339,77 +343,158 @@ export const deriveParametersFromStack = async ({ cloudformation, stackId }: {
       ParameterKey: OUTPUT_NAME_TO_PARAM[OutputKey],
       ParameterValue: OutputValue,
     }))
-
-  const parameters = newParameters.slice()
     // don't overwrite anything from old stack
     .filter(newParam => !isOverwrite(oldParameters, newParam))
-    .concat(oldParameters)
+
+  // not too efficient, but there's only 10-20 of them
+  const remainingOld = oldParameters.filter(({ ParameterKey }) => !newParameters.find(p => p.ParameterKey === ParameterKey))
+  // remainingOld.forEach(p => {
+  //   // seems a bit safer this way
+  //   delete p.ParameterValue
+  //   p.UsePreviousValue = true
+  // })
+
+  const parameters = newParameters.concat(remainingOld)
+  const restApi = newParameters.find(o => o.ParameterKey === 'ExistingApiGatewayRestApi')
+  if (restApi) {
+    const rootResourceId = oldOutputs.find(o => o.OutputKey === 'ApiGatewayRestApiRootResourceId')
+    if (!rootResourceId) {
+      const root = await utils.getRestApiRootResourceId({ apigateway, apiId: restApi.ParameterValue })
+      parameters.push({
+        ParameterKey: 'ExistingApiGateway',
+        ParameterValue: root,
+      })
+    }
+  }
 
   return parameters
 }
 
-export const getTemplateAndParametersFromStack = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}) => {
-  const getTemplate = utils.getStackTemplate({ cloudformation, stackId })
-  const getParams = deriveParametersFromStack({ cloudformation, stackId })
-  const template = (await getTemplate) as CFTemplate
-  const parameters = (await getParams) as CFParameter[]
-  return { template, parameters }
-}
+// export const getTemplateAndParametersFromStack = async ({ cloudformation, stackId }: {
+//   cloudformation: AWS.CloudFormation
+//   stackId: string
+// }) => {
+//   const getTemplate = utils.getStackTemplate({ cloudformation, stackId })
+//   const getParams = deriveParametersFromStack({ cloudformation, stackId })
+//   const template = (await getTemplate) as CFTemplate
+//   const parameters = (await getParams) as CFParameter[]
+//   return { template, parameters }
+// }
+
+// export const restoreStackToTemplate = async (opts: {
+//   client: AWSClients
+//   sourceStackArn: string
+//   newStackName: string
+//   templateUrl: string
+//   parameters?: CFParameter[]
+//   profile?: string
+// }) => {
+//   utils.requireOptions(opts, {
+//     client: 'object',
+//     sourceStackArn: 'string',
+//     newStackName: 'string',
+//     templateUrl: 'string',
+//   })
+
+//   utils.validateNewMyCloudStackName(newStackName)
+// }
+
+// export const uploadTemplateToStackDeploymentBucket = async ({ client, stackArn, template }: {
+//   client: AWSClients
+//   stackArn: string
+//   template: CFTemplate
+// }) => {
+//   await utils.getStackInfo({ cloudformation: client.cloudformation, stackId: stackArn })
+
+//   const deploymentBucket = stackParameters.find(p => p.ParameterKey === 'ExistingDeploymentBucket')
+
+//   s3PathToUploadTemplate = `${deploymentBucket.ParameterValue}/tmp/recovery-template-${Date.now()}.json`
+
+//   logger.info(`uploading template to ${s3PathToUploadTemplate}`)
+//   const s3 = utils.createS3Client({ region, profile })
+//   const [Bucket, Key] = utils.splitOnCharAtIdx(s3PathToUploadTemplate, s3PathToUploadTemplate.indexOf('/'))
+//   await s3.putObject({
+//     Bucket,
+//     Key,
+//     Body: new Buffer(JSON.stringify(template)),
+//     ACL: 'public-read',
+//     ContentType: 'application/json',
+//   }).promise()
+
+//   return `https://${Bucket}.s3.amazonaws.com/${Key}`
+// }
 
 export const restoreStack = async (opts: {
+  conf: Conf
   sourceStackArn: string
   newStackName: string
+  templateUrl?: string
   // newStackRegion: string
   stackParameters?: CFParameter[]
-  s3PathToUploadTemplate?: string
-  profile?: string
 }) => {
+  utils.requireOption(opts, 'conf', 'object')
   utils.requireOption(opts, 'sourceStackArn', 'string')
   utils.requireOption(opts, 'newStackName', 'string')
   // if (opts.newStackRegion) {
   //   utils.requireOption(opts, 'newStackRegion', 'string')
   // }
 
-  if (opts.s3PathToUploadTemplate) {
-    utils.requireOption(opts, 's3PathToUploadTemplate', 'string')
-  }
-
   let {
+    conf,
     sourceStackArn,
     newStackName,
+    templateUrl,
     stackParameters,
-    s3PathToUploadTemplate,
-    profile = 'default'
   } = opts
 
-  utils.assertIsMyCloudStackName(newStackName)
+  const { client, profile='default' } = conf
+  utils.validateNewMyCloudStackName(newStackName)
 
   const { region } = utils.parseStackArn(sourceStackArn)
   const cloudformation = utils.createCloudFormationClient({ region, profile })
-  const getTemplate = utils.getStackTemplate({ cloudformation, stackId: sourceStackArn })
+  const getOldTemplate = await utils.getStackTemplate({ cloudformation, stackId: sourceStackArn })
+  const getNewTemplate = templateUrl ? utils.get(templateUrl) : getOldTemplate
+  const [oldTemplate, template] = await Promise.all([getOldTemplate, getNewTemplate])
   if (!stackParameters) {
-    stackParameters = await deriveParametersFromStack({ cloudformation, stackId: sourceStackArn })
+    stackParameters = await deriveParametersFromStack({ client, stackId: sourceStackArn })
   }
 
-  const template = await getTemplate
-  if (!s3PathToUploadTemplate) {
-    const deploymentBucket = stackParameters.find(({ ParameterKey }) => ParameterKey === 'ExistingDeploymentBucket')
-    if (!deploymentBucket) {
-      utils.requireOption(opts, 's3PathToUploadTemplate', 'string')
-    }
+  const getMissing = utils.isV2Template(oldTemplate)
+    // by default, it'll use the previously specified values
+    ? Promise.resolve([])
+    : promptMissingParameters({ conf, template, parameters: stackParameters })
 
-    s3PathToUploadTemplate = `${deploymentBucket.ParameterValue}/tmp/recovery-template-${Date.now()}.json`
+  const missing = await getMissing
+  stackParameters.push(...missing)
+
+  utils.lockLockedParameters({ template, parameters: stackParameters })
+
+  if (!templateUrl) {
+    // await utils.getStackInfo({ cloudformation: client.cloudformation, stackId: stackArn })
+
+    const deploymentBucket = stackParameters.find(p => p.ParameterKey === 'ExistingDeploymentBucket')
+
+    const s3PathToUploadTemplate = `${deploymentBucket.ParameterValue}/tmp/recovery-template-${Date.now()}.json`
+
+    logger.info(`uploading template to ${s3PathToUploadTemplate}`)
+    const s3 = utils.createS3Client({ region, profile })
+    const [Bucket, Key] = utils.splitOnCharAtIdx(s3PathToUploadTemplate, s3PathToUploadTemplate.indexOf('/'))
+    await s3.putObject({
+      Bucket,
+      Key,
+      Body: new Buffer(JSON.stringify(template)),
+      ACL: 'public-read',
+      ContentType: 'application/json',
+    }).promise()
+
+    templateUrl = `https://${Bucket}.s3.amazonaws.com/${Key}`
   }
 
-  return createStackWithParameters({
+  return createStack({
     stackName: newStackName,
-    template,
     parameters: stackParameters,
     region,
-    s3PathToUploadTemplate,
+    templateUrl,
     profile,
   })
 }
@@ -429,39 +514,30 @@ export const validateParameters = async ({ dynamodb, parameters }: {
   }))
 }
 
-export const createStackWithParameters = async (opts: {
+export const createStack = async (opts: {
   stackName: string
   region: string
-  template: CFTemplate
   parameters: CFParameter[]
-  s3PathToUploadTemplate: string
+  templateUrl: string
+  notificationTopics?: string[]
   profile?: string
 }) => {
-  const { stackName, region, template, parameters, s3PathToUploadTemplate, profile } = opts
+  const { stackName, region, templateUrl, parameters, profile, notificationTopics } = opts
   const dynamodb = utils.createDynamoDBClient({ region, profile })
   await validateParameters({ dynamodb, parameters })
 
   const cloudformation = utils.createCloudFormationClient({ region, profile })
-  const s3 = utils.createS3Client({ region, profile })
 
-  logger.info(`uploading template to ${s3PathToUploadTemplate}`)
-  const [Bucket, Key] = utils.splitOnCharAtIdx(s3PathToUploadTemplate, s3PathToUploadTemplate.indexOf('/'))
-  await s3.putObject({
-    Bucket,
-    Key,
-    Body: new Buffer(JSON.stringify(template)),
-    ACL: 'public-read',
-    ContentType: 'application/json',
-  }).promise()
-
+  logger.info('grab some patience, this will take a while (5-20 minutes)')
   await utils.createStackAndWait({
     cloudformation,
     params: {
       StackName: stackName,
       Capabilities: ['CAPABILITY_NAMED_IAM'],
-      TemplateURL: `https://${Bucket}.s3.amazonaws.com/${Key}`,
+      TemplateURL: templateUrl,
       Parameters: parameters,
       DisableRollback: true,
+      NotificationARNs: notificationTopics || [],
     },
   })
 }
@@ -528,8 +604,8 @@ export const getPromptForParameter = (parameter: CFParameterDef) => {
   } = parameter
 
   const base:any = {
-    name: Label,
-    message: Description,
+    name: Name,
+    message: utils.getParameterDescription(parameter),
     validate: createValidatorForParameter(parameter),
   }
 
@@ -554,6 +630,7 @@ export const getPromptForParameter = (parameter: CFParameterDef) => {
   }
 
   return {
+    ...base,
     type: 'input',
   }
 }
@@ -601,4 +678,82 @@ const groupParameters = (template: any):ParameterGroup[] => {
       ...Parameters[name],
     }))
   }))
+}
+
+export const promptParameters = async ({ template, parameters }: {
+  template: CFTemplate
+  parameters: CFParameterDef[]
+}) => {
+  const prompts = getPromptsForParameters(parameters)
+  const answers:CFParameter[] = []
+  for (const prompt of prompts) {
+    const key = prompt.name
+    const resp = await inquirer.prompt([prompt])
+    const value = resp[key]
+    answers.push({ ParameterKey: key, ParameterValue: value })
+  }
+
+  return answers
+}
+
+export const getBlanksForMissingParameters = ({ template, parameters }) => {
+  const missing = utils.getMissingParameters({ template, parameters })
+  return missing.map(m => ({
+    ParameterKey: m.Name,
+    ParameterValue: m.Default || '',
+  }))
+}
+
+export const promptMissingParameters = async ({ conf, template, parameters }: {
+  conf: Conf
+  template: CFTemplate
+  parameters: CFParameter[]
+}) => {
+  let org:any
+  try {
+    ({ org } = await conf.getEndpointInfo())
+  } catch (err) {
+    Errors.rethrow(err, 'developer')
+  }
+
+  let missing = utils.getMissingParameters({ template, parameters })
+  const added:CFParameter[] = []
+  if (org) {
+    const orgName = missing.find(p => p.Name === 'OrgName')
+    const orgDomain = missing.find(p => p.Name === 'OrgDomain')
+    const orgLogo = missing.find(p => p.Name === 'OrgLogo')
+    const added: CFParameter[] = []
+    if (orgName) {
+      added.push({
+        ParameterKey: orgName.Name,
+        ParameterValue: org.name,
+      })
+    }
+
+    if (orgDomain) {
+      added.push({
+        ParameterKey: orgDomain.Name,
+        ParameterValue: org.domain,
+      })
+    }
+
+    if (orgLogo) {
+      added.push({
+        ParameterKey: orgLogo.Name,
+        // doesn't matter for updates
+        ParameterValue: '',
+      })
+    }
+  }
+
+  missing = utils.getMissingParameters({ template, parameters: parameters.concat(added) })
+  const answers = await promptParameters({
+    template,
+    parameters: missing.map(parameter => ({
+      ...parameter,
+      Description: `please remind me: ${utils.getParameterDescription(parameter)}`
+    }))
+  })
+
+  return added.concat(answers)
 }

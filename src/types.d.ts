@@ -19,7 +19,7 @@ export type AWSClients = {
   lambda: AWS.Lambda
   cloudformation: AWS.CloudFormation
   // xray: AWS.XRay
-  // apigateway: AWS.APIGateway
+  apigateway: AWS.APIGateway
   // autoscaling: AWS.AutoScaling
   // applicationAutoScaling: AWS.ApplicationAutoScaling
   ecr: AWS.ECR
@@ -52,7 +52,8 @@ export type ConfOpts = {
 }
 
 export interface UpdateOpts {
-  stackName: string
+  profile: string
+  stackId: string
   tag: string
   provider?: string
   showReleaseCandidates?: boolean
@@ -73,7 +74,7 @@ export type InvokeOpts = {
 }
 
 export type WaitStackOpts = {
-  stackName: string
+  stackId: string
 }
 
 export interface GetUpdateInfoResp {
@@ -83,6 +84,7 @@ export interface GetUpdateInfoResp {
 
 export interface ApplyUpdateOpts {
   templateUrl: string
+  parameters?: CFParameter[]
   notificationTopics?: string[]
 }
 
@@ -98,7 +100,7 @@ export interface SetKYCServicesOpts {
 
 export type PointInTime = string
 
-export type CloudResourceType = 'bucket'|'table'|'key'|'loggroup'
+export type CloudResourceType = 'bucket'|'table'|'key'|'loggroup'|'restapi'
 export interface CloudResource {
   type: CloudResourceType
   name: string
@@ -155,4 +157,10 @@ export interface RestoreTableOpts extends FromToTable {
 }
 
 export interface RestoreTableCliOpts extends RestoreTableOpts, ClientOpts {
+}
+
+export interface ListrTask {
+  task: (ctx: any) => Promise<void>
+  title: string
+  skip?: (ctx: any) => boolean
 }

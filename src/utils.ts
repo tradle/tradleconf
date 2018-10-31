@@ -24,6 +24,11 @@ import {
   CloudResourceType,
   RestoreTableCliOpts,
   ClientOpts,
+  CFParameter,
+  CFResource,
+  CFTemplate,
+  CFParameterDef,
+  AWSClients,
 } from './types'
 
 import { REMOTE_ONLY_COMMANDS, SAFE_REMOTE_COMMANDS } from './constants'
@@ -53,7 +58,8 @@ interface CreateStackInRegionOpts {
   params: AWS.CloudFormation.CreateStackInput
 }
 
-export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-(.*?)-ltd-([a-zA-Z]+)$/
+export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-([a-zA-Z0-9-]*?)-ltd-([a-z]+)$/
+export const MY_CLOUD_STACK_NAME_STRICTER_REGEX = /^tdl-([a-z0-9]*?)-ltd-([a-z]+)$/
 
 export const get = async (url) => {
   const res = await fetch(url)
@@ -115,6 +121,18 @@ export const getStackTemplates = async (cloudformation: AWS.CloudFormation, stac
   return [main].concat(nestedTemplates)
 }
 
+export const isV1Stack = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}):Promise<boolean> => {
+  const childStacks = await listSubstacks(cloudformation, stackId)
+  return childStacks.length === 0
+}
+
+export const isV2Template = (template: CFTemplate) => {
+  return _.some(template.Resources, (value: CFResource) => value.Type === 'AWS::CloudFormation::Stack')
+}
+
 export const getStackInfo = async ({ cloudformation, stackId }: {
   cloudformation: AWS.CloudFormation
   stackId: string
@@ -140,6 +158,22 @@ export const getStackParameters = async ({ cloudformation, stackId }: {
 }):Promise<AWS.CloudFormation.Parameter[]> => {
   const { Parameters } = await getStackInfo({ cloudformation, stackId })
   return Parameters
+}
+
+export const mergeParameters = (base: CFParameter[], more: CFParameter[]) => {
+  const map:any = {}
+  const set = (p: CFParameter) => {
+    if (p.ParameterValue !== '') {
+      map[p.ParameterKey] = p.ParameterValue
+    }
+  }
+
+  base.forEach(p => map[p.ParameterKey] = p.ParameterValue)
+  // overwrite
+  more.forEach(p => map[p.ParameterKey] = p.ParameterValue)
+  return _.transform(map, (result:CFParameter[], ParameterValue:string, ParameterKey:string) => {
+    result.push({ ParameterKey, ParameterValue })
+  }, [])
 }
 
 export const listOutputResources = async ({ cloudformation, stackId }: {
@@ -279,7 +313,12 @@ export const markBucketForDeletion = async (s3: AWS.S3, Bucket: string) => {
     }
   }
 
-  await s3.putBucketLifecycleConfiguration(params).promise()
+  try {
+    await s3.putBucketLifecycleConfiguration(params).promise()
+  } catch (err) {
+    Errors.ignore(err, { code: 'NoSuchBucket' })
+    throw new CustomErrors.NotFound(`bucket: ${Bucket}`)
+  }
 }
 
 export const deleteTable = async ({ dynamodb, tableName }: {
@@ -539,7 +578,8 @@ export const getApiBaseUrl = async (cloudformation: AWS.CloudFormation, StackNam
   return endpoint.OutputValue
 }
 
-export const splitCamelCase = str => str.split(/(?=[A-Z])/g)
+export const splitCamelCase = (str: string) => str.split(/(?=[A-Z])/g)
+export const splitCamelCaseToString = (str: string, delimiter: string=' ') => splitCamelCase(str).join(delimiter)
 export const checkCommandInPath = cmd => {
   const { code } = shelljs.exec(`command -v ${cmd}`)
   if (code !== 0) {
@@ -593,9 +633,9 @@ const parseMyCloudStackName = (name: string) => {
 }
 
 export const isMyCloudStackName = (name: string) => MY_CLOUD_STACK_NAME_REGEX.test(name)
-export const assertIsMyCloudStackName = (name: string) => {
-  if (!isMyCloudStackName(name)) {
-    throw new CustomErrors.InvalidInput(`"newStackName" must adhere to regex: ${MY_CLOUD_STACK_NAME_REGEX}`)
+export const validateNewMyCloudStackName = (name: string) => {
+  if (!MY_CLOUD_STACK_NAME_STRICTER_REGEX.test(name)) {
+    throw new CustomErrors.InvalidInput(`"newStackName" must adhere to regex: ${MY_CLOUD_STACK_NAME_STRICTER_REGEX}`)
   }
 }
 
@@ -785,9 +825,21 @@ export const series = async <T>(arr:T[], exec:Promiser<T>) => {
   }
 }
 
-export const requireOption = (obj: any, option: string, type: 'string'|'number'|'object') => {
+type PrimitiveType = 'string'|'number'|'object'|'boolean'|'undefined'
+
+interface AttrTypeMap {
+  [attr: string]: PrimitiveType
+}
+
+export const requireOption = (obj: any, option: string, type: PrimitiveType) => {
   if (typeof obj[option] !== type) {
     throw new CustomErrors.InvalidInput(`expected ${type} "${option}"`)
+  }
+}
+
+export const requireOptions = (obj: any, typeMap: AttrTypeMap) => {
+  for (let opt in typeMap) {
+    requireOption(obj, opt, typeMap[opt])
   }
 }
 
@@ -868,4 +920,134 @@ export const randomAlphaNumericString = (length: number) => {
   const bytes = crypto.randomBytes(length)
   const letters = [].slice.call(bytes).map(b => ALPHA_NUMERIC[b % ALPHA_NUMERIC.length])
   return letters.join('')
+}
+
+export const doesResourceExist = async ({ client, resource }: {
+  client: AWSClients
+  resource: CloudResource
+}) => {
+  const { type, name, value } = resource
+  switch (type) {
+    case 'bucket':
+      return doesBucketExist({ s3: client.s3, bucket: value })
+    case 'key':
+      return doesKeyExist({ kms: client.kms, keyId: value })
+    case 'table':
+      return doesTableExist({ dynamodb: client.dynamodb, table: value })
+    case 'loggroup':
+      return doesLogGroupExist({ logs: client.logs, name: value })
+    case 'restapi':
+      return doesApiGatewayRestApiExist({ apigateway: client.apigateway, apiId: value })
+    default:
+      throw new CustomErrors.InvalidInput(`unimplemented existence check for resource type: ${type}`)
+  }
+}
+
+export const doesBucketExist = async ({ s3, bucket }: {
+  s3: AWS.S3
+  bucket: string
+}) => {
+  try {
+    await s3.headBucket({ Bucket: bucket }).promise()
+    return true
+  } catch (err) {
+    return false
+  }
+}
+
+export const doesTableExist = async ({ dynamodb, table }: {
+  dynamodb: AWS.DynamoDB
+  table: string
+}) => {
+  try {
+    await dynamodb.describeTable({ TableName: table }).promise()
+    return true
+  } catch (err) {
+    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    return false
+  }
+}
+
+export const doesLogGroupExist = async ({ logs, name }: {
+  logs: AWS.CloudWatchLogs
+  name: string
+}) => {
+  try {
+    await logs.describeLogStreams({ logGroupName: name }).promise()
+    return true
+  } catch (err) {
+    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    return false
+  }
+}
+
+export const doesApiGatewayRestApiExist = async ({ apigateway, apiId }: {
+  apigateway: AWS.APIGateway
+  apiId: string
+}) => {
+  try {
+    await apigateway.getRestApi({ restApiId: apiId }).promise()
+    return true
+  } catch (err) {
+    Errors.ignore(err, { code: 'NotFoundException' })
+    return false
+  }
+}
+
+export const doesKeyExist = async ({ kms, keyId }: {
+  kms: AWS.KMS
+  keyId: string
+}) => {
+  try {
+    const { KeyMetadata } = await kms.describeKey({ KeyId: keyId }).promise()
+    return !KeyMetadata.DeletionDate
+  } catch (err) {
+    Errors.ignore(err, { code: 'NotFoundException' })
+    return false
+  }
+}
+
+export const getLockedParameterValues = ({ Parameters }: CFTemplate) => {
+  return _.transform(Parameters, (result, { AllowedValues=[] }:CFParameterDef, key:string) => {
+    if (AllowedValues.length === 1) {
+      result[key] = AllowedValues[0]
+    }
+  }, {})
+}
+
+export const lockLockedParameters = ({ template, parameters }: {
+  template: CFTemplate
+  parameters: CFParameter[]
+}) => {
+  const locked:any = getLockedParameterValues(template)
+  parameters.forEach(p => {
+    const key = p.ParameterKey
+    const value = p.ParameterValue
+    if (key in locked && value !== locked[key]) {
+      logger.debug(`locking parameter: ${key}`)
+      p.ParameterValue = locked[key]
+    }
+  })
+}
+
+export const getMissingParameters = ({ template, parameters }):CFParameterDef[] => {
+  return _.transform(template.Parameters, (result: CFParameterDef[], value: CFParameterDef, key: string) => {
+    if (!('Default' in value)) {
+      if (!parameters.some(p => p.ParameterKey === key)) {
+        result.push({ ...value, Name: key })
+      }
+    }
+  }, [])
+}
+
+export const getParameterDescription = ({ Name, Label, Description }: CFParameterDef) => {
+  return Description || Label || splitCamelCaseToString(Name)
+}
+
+export const getRestApiRootResourceId = async ({ apigateway, apiId }: {
+  apigateway: AWS.APIGateway
+  apiId: string
+}) => {
+  const { items } = await apigateway.getResources({ restApiId: apiId }).promise()
+  return items.find(i => i.path === '/').id
 }
