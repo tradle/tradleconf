@@ -181,7 +181,7 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
     const { cloudformation } = conf.client
     const tasks:ListrTask[] = [
       {
-        title: `loading release ${tag} (grab a coffee)`,
+        title: `loading release ${tag}, grab a coffee`,
         task: async ctx => {
           let resp
           try {
@@ -256,7 +256,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
         }
       },
       {
-        title: `applying ${verb} (be patient, or else)`,
+        title: `applying ${verb}, be patient, or else`,
         skip: ctx => !ctx.willUpdate,
         task: async ctx => {
           try {
