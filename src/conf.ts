@@ -801,10 +801,15 @@ export class Conf {
     this._ensureRemote()
     this._ensureStackNameKnown()
 
-    await update(this, {
+    const result = await update(this, {
       stackId: this.stackId,
       ...opts,
     })
+
+    if (result.recreated) {
+      logger.info('you should re-init, as your stack information has changed')
+      await this.init({ remote: true })
+    }
   }
 
   public updateManually = async (opts: ApplyUpdateOpts) => {
@@ -958,7 +963,7 @@ export class Conf {
       newStackName,
     })
 
-    logger.info('after restoring, you should re-init')
+    logger.info('you should re-init, as your stack information has changed')
     await this.init({ remote: true })
   }
 

@@ -84,7 +84,7 @@ ${previousTags.join('\n')}`)
       }
     }
 
-    await this._update()
+    return await this._update()
   }
 
   private _loadUpdates = async () => {
@@ -263,7 +263,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
     for (const { title, skip, task } of tasks) {
       if (skip && skip(ctx)) continue
 
-      logger.warn(`${title}...`)
+      logger.warn(`· ${title}...`)
       await task(ctx)
     }
 
@@ -273,6 +273,11 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
       }
 
       this._throwBackwardsError()
+    }
+
+    return {
+      updated: ctx.willUpdate,
+      recreated: ctx.willRecreate,
     }
   }
 
@@ -289,7 +294,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
     if (!parameters) return
 
     update.parameters = parameters
-    logger.info(`this stack cannot be transitioned to the next version
+    logger.warnBold(`· this stack cannot be transitioned to the next version
 I can delete your current stack, and restore it under the new version, with template: ${update.templateUrl}`)
     await confirmOrAbort('would you like me to do that?', false)
     return true
@@ -354,7 +359,7 @@ To force deploy ${targetTag}, run: tradleconf update --tag ${targetTag} --force`
     const transition = updates.slice(0, idx).find(update => isTransitionReleaseTag(update.tag))
     if (!transition) return
 
-    logger.info(`you must apply the transition version first: ${transition.tag}`)
+    logger.warnBold(`you must apply the transition version first: ${transition.tag}`)
     await confirmOrAbort(`apply transition tag ${transition.tag} now?`)
     await update(this.conf, {
       ...this.opts,
