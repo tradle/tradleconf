@@ -113,7 +113,7 @@ ${previousTags.join('\n')}`)
     let choices = updates.slice()
     const noRC = !rollback && !showReleaseCandidates
     if (noRC) {
-      choices = choices.filter(update => !isReleaseCandidateTag(update.tag))
+      choices = choices.filter(update => !(isReleaseCandidateTag(update.tag) || isTransitionReleaseTag(update.tag)))
     }
 
     if (!choices.length) {
@@ -161,7 +161,7 @@ ${previousTags.join('\n')}`)
     }
 
     if (compareTags(currentVersion.tag, VERSION_V2) < 0 &&
-      compareTags(this.targetTag, VERSION_V2) <= 0) {
+      compareTags(this.targetTag, VERSION_V2) >= 0) {
       logger.warnBold(`Updating to version ${this.targetTag} will require me to DELETE and RECREATE your stack
 
 Your data should not be harmed in the process
