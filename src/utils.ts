@@ -435,18 +435,20 @@ export const updateStackInRegion = async ({ region, params }: UpdateStackInRegio
 }
 
 export const createStack = async ({ cloudformation, params }: CreateStackOpts) => {
-  await cloudformation.createStack(params).promise()
+  const { StackId } = await cloudformation.createStack(params).promise()
   return async () => {
     await exports.wait(5000)
     await awaitStackCreate(cloudformation, params.StackName)
+    return StackId
   }
 }
 
 export const updateStack = async ({ cloudformation, params }: UpdateStackOpts) => {
-  await cloudformation.updateStack(params).promise()
+  const { StackId } = await cloudformation.updateStack(params).promise()
   return async () => {
     await exports.wait(5000)
     await awaitStackUpdate(cloudformation, params.StackName)
+    return StackId
   }
 }
 

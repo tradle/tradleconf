@@ -230,7 +230,7 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
 
 tradleconf restore-stack --template-url "${templateUrl}"`)
           await utils.deleteStackAndWait({ cloudformation, params: { StackName: stackId } })
-          await createStack({
+          ctx.newStackArn = await createStack({
             region,
             templateUrl,
             profile: this.opts.profile,
@@ -291,6 +291,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
     return {
       updated: ctx.willUpdate,
       recreated: ctx.willRecreate,
+      newStackArn: ctx.newStackArn,
     }
   }
 

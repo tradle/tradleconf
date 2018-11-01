@@ -369,7 +369,7 @@ export class Conf {
     return result
   }
 
-  public init = async (opts={}) => {
+  public init = async (opts = {}) => {
     const {
       haveLocal,
       haveRemote,
@@ -382,7 +382,6 @@ export class Conf {
     } = await promptInit(this)
 
     if (overwriteEnv === false) return
-
     if (!(haveRemote || projectPath)) {
       logger.warn("Aborting. Re-run `tradleconf init` when you've either deployed a MyCloud, or have a local development environment, or both")
       return
@@ -393,9 +392,15 @@ export class Conf {
     this.profile = awsProfile
     this.stackName = stack.name
     this.stackId = stack.id
+    this.project = projectPath && path.resolve(process.cwd(), projectPath)
+    await this._init({ loadCurrentConf })
+  }
+
+  private _init = async ({ loadCurrentConf }: {
+    loadCurrentConf: boolean
+  }) => {
     // force reload aws profile
     this.client = null
-    this.project = projectPath && path.resolve(process.cwd(), projectPath)
 
     const saveEnv = async () => {
       this._saveEnv()
@@ -413,7 +418,7 @@ export class Conf {
       task: saveEnv
     }
 
-    if (haveRemote) {
+    if (this.remote) {
       const tasks = [
         {
           title: 'loading deployment info',
@@ -800,8 +805,9 @@ export class Conf {
       ...opts,
     })
 
-    if (result.recreated) {
-      await this._requestReinit()
+    const { recreated, newStackArn } = result
+    if (newStackArn) {
+      await this._updateEnvWithNewStackArn(newStackArn)
     }
   }
 
@@ -948,7 +954,7 @@ export class Conf {
       stackParameters = readJSON(stackParameters)
     }
 
-    await restoreStack({
+    const newStackArn = await restoreStack({
       ...opts,
       conf: this,
       sourceStackArn,
@@ -956,7 +962,7 @@ export class Conf {
       newStackName,
     })
 
-    await this._requestReinit()
+    await this._updateEnvWithNewStackArn(newStackArn)
   }
 
   public restoreResources = async (opts) => {
@@ -1094,9 +1100,12 @@ export class Conf {
     write('.env', toEnvFile(env))
   }
 
-  private _requestReinit = async () => {
-    logger.info('you should re-init, as your stack information has changed')
-    await this.init({ remote: true })
+  private _updateEnvWithNewStackArn = async (arn: string) => {
+    const { stackName, region } = utils.parseStackArn(arn)
+    this.stackId = arn
+    this.stackName = stackName
+    this.region = region
+    await this._init({ loadCurrentConf: true })
   }
 }
 
