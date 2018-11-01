@@ -176,6 +176,7 @@ export class Conf {
   private stackName: string
   private stackId: string
   private namespace: string
+  private apiBaseUrl: string
   private project?: string
   private nodeFlags?: NodeFlags
 
@@ -394,17 +395,10 @@ export class Conf {
     this.stackId = stack.id
     // force reload aws profile
     this.client = null
-
-    const env:any = utils.pickNonNull({
-      region,
-      awsProfile,
-      stackName: this.stackName,
-      stackId: this.stackId,
-      project: projectPath && path.resolve(process.cwd(), projectPath)
-    })
+    this.project = projectPath && path.resolve(process.cwd(), projectPath)
 
     const saveEnv = async () => {
-      write('.env', toEnvFile(env))
+      this._saveEnv()
 
       // logger.info('wrote .env')
       await Promise.all([
@@ -430,8 +424,8 @@ export class Conf {
         {
           title: 'initializing local conf',
           task: async (ctx) => {
-            env.apiBaseUrl = ctx.info.apiBaseUrl
-            env.namespace = ctx.info.org.domain
+            this.apiBaseUrl = ctx.info.apiBaseUrl
+            this.namespace = ctx.info.org.domain
               .split('.')
               .reverse()
               .join('.')
@@ -807,8 +801,7 @@ export class Conf {
     })
 
     if (result.recreated) {
-      logger.info('you should re-init, as your stack information has changed')
-      await this.init({ remote: true })
+      await this._requestReinit()
     }
   }
 
@@ -963,8 +956,7 @@ export class Conf {
       newStackName,
     })
 
-    logger.info('you should re-init, as your stack information has changed')
-    await this.init({ remote: true })
+    await this._requestReinit()
   }
 
   public restoreResources = async (opts) => {
@@ -1088,6 +1080,23 @@ export class Conf {
     if (result.code !== 0) throw new Error(`invoke failed: ${res || result.stderr}`)
 
     return res && JSON.parse(res)
+  }
+
+  private _saveEnv = () => {
+    const env = utils.pickNonNull({
+      region: this.region,
+      awsProfile: this.profile,
+      stackName: this.stackName,
+      stackId: this.stackId,
+      project: this.project,
+    })
+
+    write('.env', toEnvFile(env))
+  }
+
+  private _requestReinit = async () => {
+    logger.info('you should re-init, as your stack information has changed')
+    await this.init({ remote: true })
   }
 }
 
