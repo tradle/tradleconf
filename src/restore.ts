@@ -12,6 +12,7 @@ import {
   PointInTime,
   Logger,
   CloudResource,
+  CloudResourceType,
   CFTemplate,
   CFParameter,
   CFParameterDef,
@@ -28,7 +29,12 @@ import * as utils from './utils'
 import { IMMUTABLE_STACK_PARAMETERS } from './constants'
 
 const BUCKETS_SUPPORTED = false
-const shouldRestoreBucket = (output: CloudResource) => BUCKETS_SUPPORTED && output.name !== 'LogsBucket'
+const IS_RESTORABLE = {
+  table: true,
+  // bucket: false, // halfway there
+}
+
+const shouldRestoreBucket = (output: CloudResource) => output.name !== 'LogsBucket'
 const shouldRestoreTable = (output: CloudResource) => true
 
 // const isBucket = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Bucket')
@@ -81,7 +87,7 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
   const getBaseParams = deriveParametersFromStack({ client, stackId: sourceStackArn })
   const getOutputs = utils.listOutputResources({ cloudformation, stackId: sourceStackArn })
   const parameters = await getBaseParams
-  const outputs = await getOutputs
+  const outputs = (await getOutputs).filter(o => IS_RESTORABLE[o.type])
 
   outputs.forEach((o, i) => {
     const param = parameters.find(p => p.ParameterValue === o.value)
@@ -171,7 +177,7 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
 
   const old = tables.concat(buckets).map(r => r.value)
   const restored = newTableNames.concat(newBucketIds)
-  const [irreplaceable, replaceable] = _.partition(parameters, p => p.ParameterKey === 'SourceDeploymentBucket')
+  let [irreplaceable, replaceable] = _.partition(parameters, p => p.ParameterKey === 'SourceDeploymentBucket')
   old.forEach((oldPhysicalId, i) => {
     const newPhysicalId = restored[i]
     const param = replaceable.find(p => p.ParameterValue === oldPhysicalId)
@@ -182,6 +188,11 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
     const streamParam = replaceable.find(p => p.ParameterValue.includes(`table/${oldPhysicalId}/stream`))
     streamParam.ParameterValue = stream
   })
+
+  irreplaceable = irreplaceable.map(r => ({
+    ParameterKey: r.ParameterKey,
+    UsePreviousValue: true,
+  }))
 
   return irreplaceable.concat(replaceable)
 }
@@ -529,7 +540,7 @@ export const createStack = async (opts: {
   const cloudformation = utils.createCloudFormationClient({ region, profile })
 
   logger.info('grab some patience, this will take a while (5-20 minutes)')
-  await utils.createStackAndWait({
+  return await utils.createStackAndWait({
     cloudformation,
     params: {
       StackName: stackName,
