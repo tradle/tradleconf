@@ -182,7 +182,7 @@ export const listOutputResources = async ({ cloudformation, stackId }: {
 }):Promise<CloudResource[]> => {
   const outputs = await getStackOutputs({ cloudformation, stackId })
   return outputs.map(({ OutputKey, OutputValue }) => {
-    const match = OutputKey.match(/(Bucket|Table|Key|LogGroup)$/)
+    const match = OutputKey.match(/(Bucket|Table|Key|LogGroup|RestApi)$/)
     if (match) {
       const type = match[1].toLowerCase() as CloudResourceType
       return { type, name: OutputKey, value: OutputValue }
