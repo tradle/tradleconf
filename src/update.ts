@@ -2,7 +2,7 @@ import _ from 'lodash'
 import inquirer from 'inquirer'
 import Listr from 'listr'
 import promiseRetry from 'promise-retry'
-// import { toSortableTag, sortTags, compareTags } from 'lexicographic-semver'
+import { toSortableTag, sortTags, compareTags } from 'lexicographic-semver'
 import Errors from '@tradle/errors'
 import {
   Conf,
@@ -28,7 +28,8 @@ import {
 import * as utils from './utils'
 
 const USE_CURRENT_USER_ROLE = true
-const MIN_VERSION = '01.01.0f'
+const VERSION_MIN = '1.1.15'
+const VERSION_V2 = '2.0.0'
 
 interface UpdateHelperOpts extends UpdateOpts {
   currentVersion: VersionInfo
@@ -150,13 +151,22 @@ ${previousTags.join('\n')}`)
       rollback,
     } = opts
 
-    if (!(currentVersion.sortableTag && currentVersion.sortableTag > MIN_VERSION)) {
+    if (compareTags(currentVersion.tag, VERSION_MIN) < 0) {
       throw new Error(`you have an old version of MyCloud which doesn't support the new update mechanism
   Please update manually this one time. See instructions on https://github.com/tradle/serverless`)
     }
 
     if (!this.targetTag) {
       await this._loadTargetTag()
+    }
+
+    if (compareTags(currentVersion.tag, VERSION_V2) < 0 &&
+      compareTags(this.targetTag, VERSION_V2) <= 0) {
+      logger.warnBold(`Updating to version ${this.targetTag} will require me to DELETE and RECREATE your stack
+
+Your data should not be harmed in the process
+`)
+      await confirmOrAbort('Continue?', false)
     }
 
     if (!rollback && currentVersion.templateUrl) {
@@ -168,10 +178,6 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
     }
 
     const tag = this.targetTag
-    if (!force) {
-      await this._applyPrerequisiteTransitionTags()
-    }
-
     const { cloudformation } = conf.client
     const tasks:ListrTask[] = [
       {
@@ -190,6 +196,13 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
           ctx.upToDate = upToDate
           ctx.update = update as ApplyUpdateOpts
           ctx.willUpdate = force || rollback || !upToDate
+        }
+      },
+      {
+        title: 'checking for required transitional releases',
+        skip: ctx => force || !ctx.willUpdate,
+        task: async ctx => {
+          await this._applyPrerequisiteTransitionTags()
         }
       },
       {
@@ -263,7 +276,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
     for (const { title, skip, task } of tasks) {
       if (skip && skip(ctx)) continue
 
-      logger.warn(`· ${title}...`)
+      logger.info(`· ${title}...`)
       await task(ctx)
     }
 
@@ -294,9 +307,6 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
     if (!parameters) return
 
     update.parameters = parameters
-    logger.warnBold(`· this stack cannot be transitioned to the next version
-I can delete your current stack, and restore it under the new version, with template: ${update.templateUrl}`)
-    await confirmOrAbort('would you like me to do that?', false)
     return true
   }
 
@@ -354,9 +364,8 @@ To force deploy ${targetTag}, run: tradleconf update --tag ${targetTag} --force`
   private _applyPrerequisiteTransitionTags = async () => {
     const { updates, currentVersion, targetTag } = this
     const idx = updates.findIndex(update => update.tag === targetTag)
-    if (idx === -1) return
-
-    const transition = updates.slice(0, idx).find(update => isTransitionReleaseTag(update.tag))
+    const updatesBeforeTag = idx === -1 ? updates : updates.slice(0, idx)
+    const transition = updatesBeforeTag.find(update => isTransitionReleaseTag(update.tag))
     if (!transition) return
 
     logger.warnBold(`you must apply the transition version first: ${transition.tag}`)
