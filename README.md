@@ -49,6 +49,7 @@ CLI for managing your Tradle MyCloud instance
   - [Webhooks](#webhooks)
   - [Deployment](#deployment)
 - [Data Import / Remediation](#data-import--remediation)
+- [Required Forms](#required-forms)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -638,4 +639,22 @@ Example config:
 
 ### Data Import / Remediation
 
-If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the import and data bundle, see [./docs/data-import.md]('./docs/data-import.md')
+If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the data bundle and claim stub, see [./docs/data-import.md]('./docs/data-import.md')
+
+### Required Forms
+
+Purpose: customize a product's required forms
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "required-forms": {
+    "tradle.EmployeeOnboarding": [
+      "tradle.PhotoID"
+    ]
+  }
+}
+```
