@@ -133,7 +133,7 @@ Continue?`)
           params.DisableRollback = true
         }
 
-        ctx.wait = utils[method]({ params, region, wait: false })
+        ctx.wait = await utils[method]({ params, region })
       },
     },
     {
