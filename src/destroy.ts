@@ -230,6 +230,9 @@ const doDeleteResource = async ({ client, resource }: {
   case 'loggroup':
     await utils.deleteLogGroup({ logs: client.logs, name: resource.value })
     break
+  case 'restapi':
+    await utils.deleteRestApi({ apigateway: client.apigateway, apiId: resource.value })
+    break
   default:
     logger.warn(`don't know how to delete resource of type: ${resource.type}`)
     break

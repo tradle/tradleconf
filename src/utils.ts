@@ -364,6 +364,17 @@ export const deleteLogGroup = async ({ logs, name }: {
   }
 }
 
+export const deleteRestApi = async ({ apigateway, apiId }: {
+  apigateway: AWS.APIGateway
+  apiId: string
+}) => {
+  try {
+    await apigateway.deleteRestApi({ restApiId: apiId }).promise()
+  } catch (err) {
+    Errors.ignore(err, { code: 'NotFoundException' })
+  }
+}
+
 export const getNotDeletedStack = async ({ cloudformation, stackName }: {
   cloudformation: AWS.CloudFormation
   stackName: string
