@@ -895,10 +895,18 @@ export class Conf {
     })
   }
 
-  public getPrivateConfBucket = async () => {
+  public getResourceByOutputName = async (name: string) => {
     this._ensureStackNameKnown()
-    const buckets = await utils.listStackBucketIds(this.client.cloudformation, this.stackName)
-    return buckets.find(bucket => /tdl-.*?-ltd-.*?-privateconfbucket/.test(bucket))
+    const outputs = await utils.listOutputResources({
+      cloudformation: this.client.cloudformation,
+      stackId: this.stackId
+    })
+
+    return outputs.find(o => o.name === name).value
+  }
+
+  public getPrivateConfBucket = async () => {
+    return this.getResourceByOutputName('PrivateConfBucket')
   }
 
   public reboot = async () => {
