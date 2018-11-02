@@ -1095,6 +1095,8 @@ export class Conf {
       stackName: this.stackName,
       stackId: this.stackId,
       project: this.project,
+      apiBaseUrl: this.apiBaseUrl,
+      namespace: this.namespace,
     })
 
     write('.env', toEnvFile(env))
