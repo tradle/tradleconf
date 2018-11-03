@@ -20,7 +20,7 @@ import {
   confirmOrAbort,
   confirm,
 } from './prompts'
-import { update } from './update'
+import { update, getDefaultUpdateParameters } from './update'
 import { destroy } from './destroy'
 import {
   restoreStack,
@@ -835,30 +835,34 @@ export class Conf {
     this._ensureRemote()
     this._ensureStackNameKnown()
     const { templateUrl, notificationTopics } = update
+    const { stackId } = this
     const params:AWS.CloudFormation.UpdateStackInput = {
-      StackName: this.stackId || this.stackName,
+      StackName: stackId,
       TemplateURL: templateUrl,
       Capabilities: ['CAPABILITY_NAMED_IAM'],
     }
 
+    const { cloudformation } = this.client
     if (update.parameters) {
       params.Parameters = update.parameters
+    } else {
+      params.Parameters = await getDefaultUpdateParameters({ cloudformation, stackId, templateUrl })
     }
 
     if (notificationTopics) {
       params.NotificationARNs = notificationTopics
     }
 
-    await utils.updateStack({ cloudformation: this.client.cloudformation, params })
+    await utils.updateStack({ cloudformation, params })
   }
 
-  public applyUpdateViaLambda = async (update) => {
-    const { templateUrl, notificationTopics } = update
-    return await this.invokeAndReturn({
-      functionName: 'updateStack',
-      arg: { templateUrl, notificationTopics }
-    })
-  }
+  // public applyUpdateViaLambda = async (update) => {
+  //   const { templateUrl, notificationTopics } = update
+  //   return await this.invokeAndReturn({
+  //     functionName: 'updateStack',
+  //     arg: { templateUrl, notificationTopics }
+  //   })
+  // }
 
   public enableKYCServices = async () => {
     return this.setKYCServices({ rankOne: true, truefaceSpoof: true })

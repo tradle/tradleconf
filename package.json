@@ -41,6 +41,7 @@
     "@tradle/qr-schema": "^1.2.0",
     "@tradle/validate-model": "^7.1.1",
     "@tradle/validate-resource": "^4.3.0",
+    "amazon-s3-uri": "0.0.3",
     "ansi-colors": "^3.1.0",
     "aws-sdk": "^2.181.0",
     "co": "^4.6.0",

@@ -14,6 +14,7 @@ import YAML from 'js-yaml'
 import Listr from 'listr'
 import ModelsPack from '@tradle/models-pack'
 import Errors from '@tradle/errors'
+import parseS3Url from 'amazon-s3-uri'
 import { emptyBucket } from './empty-bucket'
 import { logger, colors } from './logger'
 import { Errors as CustomErrors } from './errors'
@@ -28,10 +29,13 @@ import {
   CFResource,
   CFTemplate,
   CFParameterDef,
+  CFParameterDefMap,
   AWSClients,
 } from './types'
 
 import { REMOTE_ONLY_COMMANDS, SAFE_REMOTE_COMMANDS } from './constants'
+
+export { parseS3Url }
 
 interface CreateStackOpts {
   cloudformation: AWS.CloudFormation
@@ -482,10 +486,29 @@ export const getStackId = async (cloudformation: AWS.CloudFormation, stackName: 
   return stacks[0] && stacks[0].id
 }
 
+export const getStackTemplateParameters = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}): Promise<CFParameterDefMap> => {
+  const template = await getStackTemplate({ cloudformation, stackId })
+  return template.Parameters || {}
+}
+
+export const getReuseParameters = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}): Promise<CFParameter[]> => {
+  const parameters = await getStackTemplateParameters({ cloudformation, stackId })
+  return Object.keys(parameters).map(p => ({
+    ParameterKey: p,
+    UsePreviousValue: true,
+  }))
+}
+
 export const getStackTemplate = async ({ cloudformation, stackId }: {
   cloudformation: AWS.CloudFormation
   stackId: string
-}):Promise<any> => {
+}):Promise<CFTemplate> => {
   const { TemplateBody } = await cloudformation.getTemplate({
     StackName: stackId
   }).promise()

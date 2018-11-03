@@ -206,7 +206,7 @@ tradleconf update-manually --template-url "${currentVersion.templateUrl}"
         }
       },
       {
-        title: `checking for any necessary transitional changes`,
+        title: `checking for any required transitional changes`,
         skip: ctx => !ctx.willUpdate,
         task: async ctx => {
           const { update } = ctx
@@ -244,8 +244,9 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
         title: `triggering update`,
         skip: ctx => !ctx.willUpdate,
         task: async ctx => {
+          const update = ctx.update as ApplyUpdateOpts
           try {
-            await this._triggerUpdate(ctx.update)
+            await this._triggerUpdate(update)
           } catch (err) {
             if (err.code === 'ValidationError' && err.message.includes('UPDATE_IN_PROGRESS')) {
               throw new Error('stack is currently updating, please wait for it to finish before applying another update')
@@ -385,7 +386,8 @@ To force deploy ${targetTag}, run: tradleconf update --tag ${targetTag} --force`
     if (USE_CURRENT_USER_ROLE) {
       await conf.applyUpdateAsCurrentUser(update)
     } else {
-      await conf.applyUpdateViaLambda(update)
+      throw new CustomErrors.InvalidInput(`updating via lambda is not supported`)
+      // await conf.applyUpdateViaLambda(update)
     }
   }
 }
@@ -408,3 +410,16 @@ export const update = (
   conf: Conf,
   opts: UpdateOpts|UpdateHelperOpts
 ) => new Updater({ conf, opts }).update()
+
+export const getDefaultUpdateParameters = async ({ cloudformation, stackId, templateUrl }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+  templateUrl: string
+}) => {
+  const reused = await utils.getReuseParameters({ cloudformation, stackId })
+  const { bucket } = utils.parseS3Url(templateUrl)
+  const source = reused.find(p => p.ParameterKey === 'SourceDeploymentBucket')
+  delete source.UsePreviousValue
+  source.ParameterValue = bucket
+  return reused
+}
