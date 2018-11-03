@@ -5,6 +5,8 @@ import yn from 'yn'
 import AWS from 'aws-sdk'
 import { Conf, AWSClients, SetKYCServicesOpts } from './types'
 import * as utils from './utils'
+import { Errors as CustomErrors } from './errors'
+import { logger, colors } from './logger'
 import {
   confirm,
   confirmOrAbort,
@@ -31,14 +33,14 @@ interface ConfigureKYCServicesStackOpts extends SetKYCServicesOpts {
 
 export const getStackName = utils.getServicesStackName
 
-export const getStackId = async (cloudformation: AWS.CloudFormation, mycloudStackName: string) => {
+export const getServicesStackId = async (cloudformation: AWS.CloudFormation, mycloudStackName: string) => {
   const servicesStackName = utils.getServicesStackName(mycloudStackName)
   return utils.getStackId(cloudformation, servicesStackName)
 }
 
 export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesStackOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
-  const servicesStackId = await getStackId(client.cloudformation, mycloudStackName)
+  const servicesStackId = await getServicesStackId(client.cloudformation, mycloudStackName)
   const exists = !!servicesStackId
   const bucket = await conf.getPrivateConfBucket()
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
@@ -69,6 +71,20 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
 This stack will create ${azsCount} more. AWS's base limit is 5 per region, so this stack may fail.
 You can request a limit increase from AWS here: https://console.aws.amazon.com/support/v1#/case/create?issueType=service-limit-increase&limitType=service-code-vpc
 Continue?`)
+  }
+
+  const willDeleteStack = !(truefaceSpoof || rankOne)
+  if (willDeleteStack) {
+    await confirmOrAbort(`you've disabled all the services disabled, can I delete the KYC services stack?`)
+    logger.info('deleting KYC services stack: ${servicesStackId}, ETA: 5-10 minutes')
+    await utils.deleteStackAndWait({
+      cloudformation: client.cloudformation,
+      params: {
+        StackName: servicesStackId
+      },
+    })
+
+    return
   }
 
   // change regions
@@ -190,3 +206,24 @@ const getOutput = (Outputs: AWS.CloudFormation.Output[], key: string) => Outputs
 //     availabilityZones,
 //   }
 // }
+
+export const deleteCorrespondingServicesStack = async ({ cloudformation, stackId }: {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}) => {
+  const { stackName } = utils.parseStackArn(stackId)
+  const servicesStackId = await getServicesStackId(cloudformation, stackName)
+  if (!servicesStackId) {
+    throw new CustomErrors.NotFound(`services stack for mycloud stack: ${stackId}`)
+  }
+
+  logger.info(`KYC services stack: deleting ${servicesStackId}, ETA: 5-10 minutes`)
+  await utils.deleteStackAndWait({
+    cloudformation,
+    params: {
+      StackName: servicesStackId
+    },
+  })
+
+  logger.info(`KYC services stack: deleted ${servicesStackId}`)
+}

@@ -14,7 +14,7 @@ import {
 import { TRADLE_ACCOUNT_ID, BIG_BUCKETS } from './constants'
 import { logger, colors } from './logger'
 import * as utils from './utils'
-import { getStackId as getServicesStackId } from './kyc-services'
+import { deleteCorrespondingServicesStack } from './kyc-services'
 import { Errors as CustomErrors } from './errors'
 
 import {
@@ -27,24 +27,6 @@ type DestroyOpts = {
   client: AWSClients
   profile: string
   stackId: string
-}
-
-export const deleteCorrespondingServicesStack = async ({ client, stackId }: DestroyOpts) => {
-  const { stackName } = utils.parseStackArn(stackId)
-  const servicesStackId = await getServicesStackId(client.cloudformation, stackName)
-  if (!servicesStackId) {
-    throw new CustomErrors.NotFound(`services stack for mycloud stack: ${stackId}`)
-  }
-
-  logger.info(`KYC services stack: deleting ${servicesStackId}, ETA: 5-10 minutes`)
-  await utils.deleteStackAndWait({
-    cloudformation: client.cloudformation,
-    params: {
-      StackName: servicesStackId
-    },
-  })
-
-  logger.info(`KYC services stack: deleted ${servicesStackId}`)
 }
 
 export const chooseDeleteVsRetain = async (resources: CloudResource[]) => {
@@ -113,9 +95,9 @@ export const destroy = async (opts: DestroyOpts) => {
   }
 
   const delVsRetain = delResourcesToo ? await chooseDeleteVsRetain(retained) : { delete: [], retain: retained }
-  const delServicesStack = async () => {
+  const tryDelServicesStack = async () => {
     try {
-      await deleteCorrespondingServicesStack({ client, profile, stackId })
+      await deleteCorrespondingServicesStack({ cloudformation, stackId })
     } catch (err) {
       Errors.ignore(err, CustomErrors.NotFound)
       // the show must go on
@@ -125,7 +107,7 @@ export const destroy = async (opts: DestroyOpts) => {
   await new Listr([
     {
       title: 'deleting KYC services stack',
-      task: delServicesStack,
+      task: tryDelServicesStack,
     },
     {
       title: 'disabling termination protection',

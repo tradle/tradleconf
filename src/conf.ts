@@ -21,7 +21,7 @@ import {
   confirm,
 } from './prompts'
 import { update } from './update'
-import { destroy, deleteCorrespondingServicesStack } from './destroy'
+import { destroy } from './destroy'
 import {
   restoreStack,
   deriveParametersFromStack,
@@ -30,7 +30,12 @@ import {
 
 import { create as wrapS3 } from './s3'
 
-import { configureKYCServicesStack, getStackId as getServicesStackId } from './kyc-services'
+import {
+  configureKYCServicesStack,
+  getServicesStackId,
+  deleteCorrespondingServicesStack,
+} from './kyc-services'
+
 import {
   AWSClients,
   ConfOpts,
@@ -877,8 +882,7 @@ export class Conf {
     }
 
     return deleteCorrespondingServicesStack({
-      client: this.client,
-      profile: this.profile,
+      cloudformation: this.client.cloudformation,
       stackId: this.stackId,
     })
   }
