@@ -28,10 +28,9 @@ import { create as wrapS3 } from './s3'
 import * as utils from './utils'
 import { IMMUTABLE_STACK_PARAMETERS } from './constants'
 
-const BUCKETS_SUPPORTED = false
 const IS_RESTORABLE = {
   table: true,
-  // bucket: false, // halfway there
+  bucket: true,
 }
 
 const shouldRestoreBucket = (output: CloudResource) => output.name !== 'LogsBucket'

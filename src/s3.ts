@@ -9,7 +9,7 @@ const assertS3RestoreToolInstalled = () => {
   try {
     execa.sync('command', ['-v', 's3-pit-restore'])
   } catch (err) {
-    throw new CustomErrors.NotFound(`please install this tool first: https://github.com/madisoft/s3-pit-restore`)
+    throw new CustomErrors.NotFound(`please install this tool first: https://github.com/tradle/s3-pit-restore`)
   }
 }
 
@@ -221,10 +221,7 @@ class S3 {
     const env:any = {}
     if (profile) env.AWS_PROFILE = profile
 
-    const destDir = `restore/${dest}`
-    await execa('s3-pit-restore', ['-b', source, '-d', destDir, '-t', date], { env })
-    await execa('aws', ['s3', 'sync', destDir, `s3://${dest}`], { env })
-    await execa('rm', ['-rf', destDir])
+    await execa('s3-pit-restore', ['-b', source, '-d', `s3://${dest}`, '-t', date], { env })
   }
 }
 
