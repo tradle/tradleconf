@@ -30,7 +30,7 @@ type DestroyOpts = {
 export const chooseDeleteVsRetain = async (resources: CloudResource[]) => {
   const [retainedBuckets, retainedOther] = _.partition(resources, r => r.type === 'bucket')
   const del:CloudResource[] = []
-  const retain = BIG_BUCKETS.slice()
+  const retain:string[] = BIG_BUCKETS.slice()
   for (const item of retainedBuckets.concat(retainedOther)) {
     const { type, value } = item
     if (await confirm(`Delete ${type} ${value}?`, false)) {
@@ -79,7 +79,7 @@ export const destroy = async (opts: DestroyOpts) => {
   const { cloudformation } = client
   await confirmOrAbort(`DESTROY REMOTE MYCLOUD ${stackName}?? There's no undo for this one!`, false)
   await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`, false)
-  let retained = await utils.listOutputResources({ cloudformation, stackId })
+  let retained:CloudResource[] = await utils.listOutputResources({ cloudformation, stackId })
   retained = retained.filter(r => r.name !== 'SourceDeploymentBucket')
   retained = _.sortBy(retained, 'type')
   const existence = await Promise.all(retained.map(resource => utils.doesResourceExist({ client, resource })))
@@ -92,7 +92,10 @@ export const destroy = async (opts: DestroyOpts) => {
     delResourcesToo = await confirm(`do you want me to delete them? If you say yes, I'll ask you about them one by one`, false)
   }
 
-  const delVsRetain = delResourcesToo ? await chooseDeleteVsRetain(retained) : { delete: [], retain: retained }
+  const delVsRetain = delResourcesToo
+    ? await chooseDeleteVsRetain(retained)
+    : { delete: [], retain: retained.map(r => r.name) }
+
   const tryDelServicesStack = async () => {
     try {
       await deleteCorrespondingServicesStack({ cloudformation, stackId })
@@ -132,6 +135,11 @@ export const destroy = async (opts: DestroyOpts) => {
         } catch (err) {
           if (Errors.matches(err, CustomErrors.NotFound)) {
             return
+          }
+
+          if (!delVsRetain.retain.includes('ServerlessDeploymentBucket') &&
+            await utils.isV1Stack({ cloudformation, stackId })) {
+            delVsRetain.retain.push('ServerlessDeploymentBucket')
           }
 
           // @ts-ignore
