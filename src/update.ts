@@ -33,6 +33,10 @@ import * as fs from './fs'
 const USE_CURRENT_USER_ROLE = true
 const VERSION_MIN = '1.1.15'
 const VERSION_V2 = '2.0.0'
+const VERSION_V2_TRANS = '2.0.0-trans.0'
+const isUpdatingToV2 = (fromTag: string, toTag: string) => {
+  return compareTags(fromTag, VERSION_V2) < 0 && compareTags(toTag, VERSION_V2) >= 0
+}
 
 interface UpdateHelperOpts extends UpdateOpts {
   currentVersion: VersionInfo
@@ -163,8 +167,7 @@ ${previousTags.join('\n')}`)
       await this._loadTargetTag()
     }
 
-    if (compareTags(currentVersion.tag, VERSION_V2) < 0 &&
-      compareTags(this.targetTag, VERSION_V2) >= 0) {
+    if (isUpdatingToV2(currentVersion.tag, this.targetTag)) {
       logger.warnBold(`Updating to version ${this.targetTag} will require me to DELETE and RECREATE your stack
 
 Your data should not be harmed in the process
@@ -375,7 +378,14 @@ To force deploy ${targetTag}, run: tradleconf update --tag ${targetTag} --force`
     const idx = updates.findIndex(update => update.tag === targetTag)
     const updatesBeforeTag = idx === -1 ? updates : updates.slice(0, idx)
     const transition = updatesBeforeTag.find(update => isTransitionReleaseTag(update.tag))
-    if (!transition) return
+    if (!transition) {
+      // extra safety check
+      if (isUpdatingToV2(currentVersion.tag, targetTag)) {
+        throw new Error(`please run this first: tradleconf update --tag ${VERSION_V2_TRANS}`)
+      }
+
+      return
+    }
 
     logger.warnBold(`you must apply the transition version first: ${transition.tag}`)
     await confirmOrAbort(`apply transition tag ${transition.tag} now?`)
