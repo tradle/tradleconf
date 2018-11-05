@@ -944,8 +944,13 @@ export const execWithListr = async ({ title, fn }) => {
 
 export const validateISODate = (dateString: string) => {
   const date = new Date(dateString)
-  if (date.toISOString() !== dateString) {
-    throw new CustomErrors.InvalidInput(`expected iso date. Did you mean ${date.toISOString()} ?`)
+  let expectedString
+  try {
+    expectedString = date.toISOString()
+  } catch (err) {}
+
+  if (expectedString !== dateString) {
+    throw new CustomErrors.InvalidInput(`expected iso date, e.g. ${new Date('2000-11-30').toISOString()} ?`)
   }
 }
 
@@ -1051,7 +1056,7 @@ export const getLockedParameterValues = ({ Parameters }: CFTemplate) => {
   }, {})
 }
 
-export const lockLockedParameters = ({ template, parameters }: {
+export const lockImmutableParameters = ({ template, parameters }: {
   template: CFTemplate
   parameters: CFParameter[]
 }) => {
@@ -1087,3 +1092,6 @@ export const getRestApiRootResourceId = async ({ apigateway, apiId }: {
   const { items } = await apigateway.getResources({ restApiId: apiId }).promise()
   return items.find(i => i.path === '/').id
 }
+
+const reverseString = (str: string) => str.split('').reverse().join('')
+export const sortParameters = (params: CFParameter[]) => _.sortBy(params, p => reverseString(p.ParameterKey))

@@ -375,7 +375,8 @@ const updateCommand = program
 
 const updateManuallyCommand = program
   .command('update-manually')
-  .option('-t, --template-url <templateUrl>', 'stack template url')
+  .option('-p, --stack-parameters <filePath>', 'path to parameters json file')
+  .option('-t, --template-url [templateUrl]', 'stack template url. Defaults to reuse currently deployed template')
   .description('[ADVANCED] update your MyCloud to a given stack template')
   .allowUnknownOption(false)
   .action(createAction('updateManually'))
@@ -508,12 +509,21 @@ const genParams = program
 
 const restoreBucket = program
   .command('restore-bucket')
-  .option('--source <bucketName>', 'bucket to copy files from')
-  .option('--dest <bucketName>', 'bucket to copy files to')
+  .option('--source-name <bucketName>', 'bucket to copy files from')
+  .option('--dest-name <bucketName>', 'bucket to copy files to')
   .option('--date <isoDate>', 'point in time to restore to')
   .description(`clone "source" bucket's state at a point in time to "dest" bucket`)
   .allowUnknownOption(false)
   .action(createAction('restoreBucket'))
+
+const restoreTable = program
+  .command('restore-table')
+  .option('--source-name <tableName>', 'table to copy')
+  .option('--dest-name <tableName>', 'table to create with the source table\'s content')
+  .option('--date <isoDate>', 'point in time to restore to')
+  .description(`clone "source" table's state at a point in time to "dest" table`)
+  .allowUnknownOption(false)
+  .action(createAction('restoreTable'))
 
 const restoreResources = program
   .command('restore-resources')

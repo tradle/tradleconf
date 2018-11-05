@@ -33,7 +33,7 @@ const IS_RESTORABLE = {
   bucket: true,
 }
 
-const shouldRestoreBucket = (output: CloudResource) => output.name !== 'LogsBucket'
+const shouldRestoreBucket = ({ name }: CloudResource) => name !== 'LogsBucket' && name !== 'SourceDeploymentBucket'
 const shouldRestoreTable = (output: CloudResource) => true
 
 // const isBucket = (output: AWS.CloudFormation.Output) => output.OutputKey.endsWith('Bucket')
@@ -101,61 +101,45 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
   const oldTableNames = tables.map(t => t.value)
 
   const getRestoredResourceName = (resource: CloudResource) => deriveRestoredResourceName({ stackName, ...resource })
-  const newBucketIds = buckets.map(getRestoredResourceName)
-  const newTableNames = tables.map(getRestoredResourceName)
+  const restoreBucketsOpts = buckets.map(source => ({
+    sourceName: source.value,
+    destName: getRestoredResourceName(source),
+    date,
+    profile,
+  }))
 
-  const setupNewBucket = async ({ source, target }) => {
-    await s3.createBucketOrAssertEmpty(target)
-    await s3.copyBucketSettings({ source, target })
-  }
+  const restoreTablesOpts = tables.map(table => ({
+    sourceName: table.value,
+    destName: getRestoredResourceName(table),
+    date,
+  }))
 
   await Promise.all([
-    Promise.all(oldTableNames.map(tableName => dynamodb.assertTableExists(tableName))),
-    Promise.all(newTableNames.map(tableName => dynamodb.assertTableDoesNotExist(tableName))),
-    Promise.all(oldBucketIds.map(id => s3.assertBucketExists(id))),
-    Promise.all(newBucketIds.map((target, i) => setupNewBucket({ source: oldBucketIds[i], target }))),
+    Promise.all(restoreTablesOpts.map(opts => dynamodb.assertCanRestoreTable(opts))),
+    Promise.all(restoreBucketsOpts.map(opts => s3.assertCanRestoreBucket(opts)))
   ])
 
-  if (buckets.length) {
-    logger.info('\nrestoring buckets:\n')
-    buckets.forEach((bucket, i) => logger.info(`${bucket.name} to ${newBucketIds[i]}`))
-  }
-
-  if (tables.length) {
-    logger.info('\nrestoring tables:\n')
-    tables.forEach((table, i) => logger.info(`${table.name} to ${newTableNames[i]}`))
-  }
-
-  logger.info(`\nthis will take a while. Don't interrupt me!\n`)
+  logger.warn(`This will take a while. Do NOT interrupt me!`)
 
   const streams = {}
-  const tableTasks = oldTableNames.map((sourceName, i) => {
-    const destName = newTableNames[i]
+  const tableTasks = restoreTablesOpts.map((opts, i) => {
+    const { sourceName, destName } = opts
     return {
       title: `${sourceName} -> ${destName}`,
       task: async () => {
-        const { table, stream } = await dynamodb.restoreTable({
-          date,
-          sourceName,
-          destName,
-        })
-
+        const { table, stream } = await dynamodb.restoreTable(opts)
         streams[destName] = stream
       }
     }
   })
 
-  const bucketTasks = oldBucketIds.map((source, i) => ({
-    title: `${source} -> ${newBucketIds[i]}`,
-    task: async () => {
-      await s3.restoreBucket({
-        date,
-        source,
-        dest: newBucketIds[i],
-        profile,
-      })
+  const bucketTasks = restoreBucketsOpts.map(opts => {
+    const { sourceName, destName } = opts
+    return {
+      title: `${sourceName} -> ${destName}`,
+      task: () => s3.restoreBucket(opts)
     }
-  }))
+  })
 
   await new Listr(tableTasks.concat(bucketTasks), { concurrent: true }).run()
 
@@ -175,7 +159,7 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
   // await Promise.all([promiseRestoreBuckets, promiseRestoreTables])
 
   const old = tables.concat(buckets).map(r => r.value)
-  const restored = newTableNames.concat(newBucketIds)
+  const restored = _.map(restoreTablesOpts.concat(restoreBucketsOpts), 'destName')
   let [irreplaceable, replaceable] = _.partition(parameters, p => p.ParameterKey === 'SourceDeploymentBucket')
   old.forEach((oldPhysicalId, i) => {
     const newPhysicalId = restored[i]
@@ -185,7 +169,11 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
     if (!stream) return
 
     const streamParam = replaceable.find(p => p.ParameterValue.includes(`table/${oldPhysicalId}/stream`))
-    streamParam.ParameterValue = stream
+    if (streamParam) {
+      streamParam.ParameterValue = stream
+    } else {
+      logger.warn(`relevant parameter not found for stream ${stream} (table ${newPhysicalId})`)
+    }
   })
 
   irreplaceable = irreplaceable.map(r => ({
@@ -195,74 +183,6 @@ export const restoreResources = async (opts: RestoreResourcesOpts) => {
 
   return irreplaceable.concat(replaceable)
 }
-
-// export const enableKMSKeyForStack = async (opts: {
-//   kms: AWS.KMS
-//   keyId: string
-//   accountId: string
-//   stackName: string
-//   region: string
-// }) => {
-//   utils.requireOption(opts, 'keyId', 'string')
-//   utils.requireOption(opts, 'accountId', 'string')
-//   utils.requireOption(opts, 'stackName', 'string')
-//   utils.requireOption(opts, 'region', 'string')
-
-//   const { kms, keyId, accountId, stackName, region } = opts
-//   const lambdaRoleArn = `arn:aws:iam::${accountId}:role/${stackName}-${region}-lambdaRole`
-//   const baseParams = { KeyId: keyId }
-//   const PolicyName = 'default'
-//   const { KeyMetadata } = await kms.describeKey(baseParams).promise()
-//   const getPolicy = kms.getKeyPolicy({ ...baseParams, PolicyName }).promise()
-//   if (KeyMetadata.DeletionDate) {
-//     await kms.cancelKeyDeletion(baseParams).promise()
-//   }
-
-//   if (!KeyMetadata.Enabled) {
-//     await kms.enableKey(baseParams).promise()
-//   }
-
-//   const { Policy } = await getPolicy
-//   const currentPolicy = JSON.parse(Policy)
-//   const updatedPolicy = addKeyUsers(removeInvalidIamArns(currentPolicy), [lambdaRoleArn])
-//   await kms.putKeyPolicy({
-//     ...baseParams,
-//     PolicyName,
-//     Policy: JSON.stringify(updatedPolicy),
-//   }).promise()
-// }
-
-// const removeInvalidIamArns = (policy: any) => {
-//   policy = cloneDeep(policy)
-//   for (const permission of policy.Statement) {
-//     const { Principal } = permission
-//     let { AWS } = Principal
-//     if (typeof AWS === 'string') {
-//       AWS = [AWS]
-//     }
-
-//     Principal.AWS = AWS.filter(isValidIamArn)
-//   }
-
-//   return policy
-// }
-
-// const isValidIamArn = (arn: string) => arn.startsWith('arn:aws:iam::')
-
-// const addKeyUsers = (policy: any, iamArns: string[]) => {
-//   policy = cloneDeep(policy)
-//   const permission = policy.Statement.find(item => {
-//     const { Sid, Effect, Action } = item
-//     if (Sid === 'allowUseKey') return true
-//     if (Effect === 'Allow') {
-//       return Action.includes('kms:Decrypt') && Action.includes('kms:GenerateDataKey')
-//     }
-//   })
-
-//   const { Principal } = permission
-//   Principal.AWS = uniq(iamArns.concat(Principal.AWS || []))
-//   return policy
-// }
 
 // export const createStack = async ({ client, sourceStackArn, templateUrl, buckets, tables, immutableParameters=[], logger }: {
 //   client: AWSClients
@@ -377,7 +297,7 @@ export const deriveParametersFromStack = async ({ client, stackId }: {
     }
   }
 
-  return parameters
+  return utils.sortParameters(parameters)
 }
 
 // export const getTemplateAndParametersFromStack = async ({ cloudformation, stackId }: {
@@ -476,14 +396,11 @@ export const restoreStack = async (opts: {
 
   const missing = await getMissing
   stackParameters.push(...missing)
-
-  utils.lockLockedParameters({ template, parameters: stackParameters })
+  stackParameters = utils.sortParameters(stackParameters)
+  utils.lockImmutableParameters({ template, parameters: stackParameters })
 
   if (!templateUrl) {
-    // await utils.getStackInfo({ cloudformation: client.cloudformation, stackId: stackArn })
-
     const deploymentBucket = stackParameters.find(p => p.ParameterKey === 'ExistingDeploymentBucket')
-
     const s3PathToUploadTemplate = `${deploymentBucket.ParameterValue}/tmp/recovery-template-${Date.now()}.json`
 
     logger.info(`uploading template to ${s3PathToUploadTemplate}`)
@@ -765,5 +682,5 @@ export const promptMissingParameters = async ({ conf, template, parameters }: {
     }))
   })
 
-  return added.concat(answers)
+  return utils.sortParameters(added.concat(answers))
 }

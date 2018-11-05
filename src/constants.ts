@@ -16,3 +16,5 @@ export const IMMUTABLE_STACK_PARAMETERS = [
   'OrgDomain',
   'OrgLogo',
 ]
+
+export const DOT = '·'

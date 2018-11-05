@@ -1,5 +1,4 @@
 import path from 'path'
-import fs from 'fs'
 import os from 'os'
 import yn from 'yn'
 import tmp from 'tmp'
@@ -29,6 +28,7 @@ import {
 } from './restore'
 
 import { create as wrapS3 } from './s3'
+import { create as wrapDynamoDB } from './dynamodb'
 
 import {
   configureKYCServicesStack,
@@ -52,6 +52,8 @@ import { Errors as CustomErrors } from './errors'
 import * as validate from './validate'
 import * as utils from './utils'
 import { logger, colors } from './logger'
+import { DOT } from './constants'
+import * as fs from './fs'
 
 tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
@@ -65,30 +67,12 @@ const silentLogger = Object.keys(logger).reduce((silent, method) => {
 
 const AWS_CONF_PATH = `${os.homedir()}/.aws/config`
 const getFileNameForItem = item => `${item.id}.json`
-const read:any = file => fs.readFileSync(file, { encoding: 'utf8' })
-const maybeRead = file => {
-  if (fs.existsSync(file)) return read(file)
-}
-
-const readJSON = file => JSON.parse(read(file))
-const maybeReadJSON = file => {
-  const result = maybeRead(file)
-  if (result) return JSON.parse(result)
-}
-
-const write = (file, data) => fs.writeFileSync(file, prettify(data))
-const pwrite = (file, data) => pfs.writeFile(file, prettify(data))
-const exists = file => fs.existsSync(file)
 const getLongFunctionName = ({ stackName, functionName }) => {
   // in case it's already expanded
   if (functionName.lastIndexOf(stackName) === 0) return functionName
 
   return `${stackName}-${functionName}`
 }
-
-const readDirOfJSONs = dir => fs.readdirSync(dir)
-  .filter(file => file.endsWith('.json'))
-  .map(file => require(path.resolve(dir, file)))
 
 const DEPLOYABLES = [
   'bot',
@@ -138,11 +122,13 @@ const paths = {
   lenses: './lenses'
 }
 
-read.bot = () => maybeReadJSON(paths.bot)
-read.style = () => maybeReadJSON(paths.style)
-read.models = () => readDirOfJSONs(paths.models)
-read.lenses = () => readDirOfJSONs(paths.lenses)
-read.terms = () => maybeRead(paths.terms)
+const readFile = {
+  bot: () => fs.maybeReadJSON(paths.bot),
+  style: () => fs.maybeReadJSON(paths.style),
+  models: () => fs.readDirOfJSONs(paths.models),
+  lenses: () => fs.readDirOfJSONs(paths.lenses),
+  terms: () => fs.maybeRead(paths.terms),
+}
 
 const createImportDataUtilsMethod = ({
   conf,
@@ -268,24 +254,24 @@ export class Conf {
     opts = normalizeDeployOpts(opts)
     const parts:any = {}
     if (opts.style) {
-      parts.style = read.style()
+      parts.style = readFile.style()
     }
 
     if (opts.terms) {
       // "null" for delete
-      parts.terms = read.terms() || null
+      parts.terms = readFile.terms() || null
     }
 
     if (opts.models) {
-      const models = read.models()
-      const lenses = read.lenses()
+      const models = readFile.models()
+      const lenses = readFile.lenses()
       if (models.length || lenses.length) {
         parts.modelsPack = utils.pack({ models, lenses, namespace: this.namespace })
       }
     }
 
     if (opts.bot) {
-      parts.bot = read.bot()
+      parts.bot = readFile.bot()
     }
 
     return parts
@@ -303,17 +289,17 @@ export class Conf {
 
     if (opts.style && result.style) {
       opLogger.debug('loaded remote style')
-      write(paths.style, result.style)
+      fs.write(paths.style, result.style)
     }
 
     if (opts.bot && result.bot) {
       opLogger.debug('loaded remote bot conf')
-      write(paths.bot, result.bot)
+      fs.write(paths.bot, result.bot)
     }
 
     if (opts.terms && result.termsAndConditions) {
       opLogger.debug('loaded remote terms and conditions')
-      write(paths.terms, result.termsAndConditions.value)
+      fs.write(paths.terms, result.termsAndConditions.value)
     }
 
     if (opts.models && result.modelsPack) {
@@ -338,7 +324,7 @@ export class Conf {
   public writeToFiles = async ({ dir, name, arr }) => {
     await mkdirp(dir)
     await Promise.all(arr.map(item => {
-      return pwrite(path.join(dir, name(item)), item)
+      return fs.pwrite(path.join(dir, name(item)), item)
     }))
   }
 
@@ -525,7 +511,7 @@ export class Conf {
   public createDataBundle = async ({ path }) => {
     let bundle
     try {
-      bundle = readJSON(path)
+      bundle = fs.readJSON(path)
     } catch (err) {
       throw new CustomErrors.InvalidInput('expected "path" to bundle')
     }
@@ -816,8 +802,12 @@ export class Conf {
     }
   }
 
-  public updateManually = async (opts: ApplyUpdateOpts) => {
-    await this.applyUpdateAsCurrentUser(opts)
+  public updateManually = async ({ templateUrl, stackParameters }) => {
+    await this.applyUpdateAsCurrentUser({
+      templateUrl,
+      parameters: stackParameters && fs.readJSON(stackParameters),
+      wait: true,
+    })
   }
 
   public rollback = async (opts: UpdateOpts) => {
@@ -834,11 +824,12 @@ export class Conf {
   public applyUpdateAsCurrentUser = async (update: ApplyUpdateOpts) => {
     this._ensureRemote()
     this._ensureStackNameKnown()
-    const { templateUrl, notificationTopics } = update
+    const { templateUrl, notificationTopics, wait } = update
     const { stackId } = this
     const params:AWS.CloudFormation.UpdateStackInput = {
       StackName: stackId,
       TemplateURL: templateUrl,
+      UsePreviousTemplate: !templateUrl,
       Capabilities: ['CAPABILITY_NAMED_IAM'],
     }
 
@@ -846,14 +837,15 @@ export class Conf {
     if (update.parameters) {
       params.Parameters = update.parameters
     } else {
-      params.Parameters = await getDefaultUpdateParameters({ cloudformation, stackId, templateUrl })
+      params.Parameters = await utils.getReuseParameters({ cloudformation, stackId })
     }
 
     if (notificationTopics) {
       params.NotificationARNs = notificationTopics
     }
 
-    await utils.updateStack({ cloudformation, params })
+    const waitTillComplete = await utils.updateStack({ cloudformation, params })
+    if (wait) await waitTillComplete()
   }
 
   // public applyUpdateViaLambda = async (update) => {
@@ -944,7 +936,7 @@ export class Conf {
     })
 
     const outputPath = output.startsWith('/') ? output : path.resolve(process.cwd(), output)
-    write(outputPath, template)
+    fs.write(outputPath, template)
   }
 
   public warmup = async () => {
@@ -967,7 +959,7 @@ export class Conf {
     } = opts
 
     if (stackParameters) {
-      stackParameters = readJSON(stackParameters)
+      stackParameters = fs.readJSON(stackParameters)
     }
 
     const newStackArn = await restoreStack({
@@ -998,15 +990,43 @@ export class Conf {
     })
 
     if (output) {
-      write(path.resolve(process.cwd(), output), params)
+      fs.write(path.resolve(process.cwd(), output), params)
     } else {
       console.log(prettify(params))
     }
   }
 
   public restoreBucket = async opts => {
+    opts = { ...opts, profile: this.profile }
     const s3 = wrapS3(this.client.s3)
-    await s3.restoreBucket({ ...opts, profile: this.profile })
+    await s3.assertCanRestoreBucket(opts)
+    logger.info(`${DOT} ok, I'll let you know when I'm done`)
+    await s3.restoreBucket(opts)
+    const { destName } = opts
+    logger.info(`all done! Make sure to set ${destName} as Existing[BucketLogicalName] in your stack-parameters before you run restore-stack`)
+  }
+
+  public restoreTable = async opts => {
+    const dynamodb = wrapDynamoDB(this.client.dynamodb)
+    await dynamodb.assertCanRestoreTable(opts)
+    logger.info(`${DOT} yes sir! I'll let you know when I'm done`)
+    const { table, stream } = await dynamodb.restoreTable(opts)
+    const logicalName = stream ? 'ExistingBucket0Table' : 'ExistingEventsTable'
+    const params = [
+      {
+        ParameterKey: logicalName,
+        ParameterValue: table,
+      }
+    ]
+
+    if (stream) {
+      params.push({
+        ParameterKey: `${logicalName}StreamArn`,
+        ParameterValue: stream,
+      })
+    }
+
+    return params
   }
 
   public genStackParameters = async (opts) => {
@@ -1019,7 +1039,7 @@ export class Conf {
     })
 
     if (output) {
-      write(path.resolve(process.cwd(), output), params)
+      fs.write(path.resolve(process.cwd(), output), params)
     } else {
       console.log(prettify(params))
     }
@@ -1038,7 +1058,7 @@ export class Conf {
   }
 
   private _ensureInitialized = () => {
-    if (!fs.existsSync(path.resolve(process.cwd(), '.env'))) {
+    if (!fs.exists(path.resolve(process.cwd(), '.env'))) {
       throw new CustomErrors.InvalidInput(`hm...are you sure you're in the right directory? I don't see a .env file`)
     }
   }
@@ -1080,7 +1100,7 @@ export class Conf {
 
     const tmpInput = tmp.fileSync({ postfix: '.json' })
     const tmpOutput = tmp.fileSync({ postfix: '.json' })
-    write(tmpInput.name, JSON.stringify(arg))
+    fs.write(tmpInput.name, JSON.stringify(arg))
 
     const pwd = process.cwd()
     shelljs.cd(project)
@@ -1098,7 +1118,7 @@ export class Conf {
     logger.debug(`running command: ${command}`)
     const result = shelljs.exec(command, { silent: true })
     shelljs.cd(pwd)
-    const res = read(tmpOutput.name).trim()
+    const res = fs.read(tmpOutput.name).trim()
     if (result.code !== 0) throw new Error(`invoke failed: ${res || result.stderr}`)
 
     return res && JSON.parse(res)
@@ -1115,7 +1135,7 @@ export class Conf {
       namespace: this.namespace,
     })
 
-    write('.env', toEnvFile(env))
+    fs.write('.env', toEnvFile(env))
   }
 
   private _updateEnvWithNewStackArn = async (arn: string) => {

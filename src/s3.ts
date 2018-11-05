@@ -4,18 +4,22 @@ import execa from 'execa'
 import Errors from '@tradle/errors'
 import { Errors as CustomErrors } from './errors'
 import { validateISODate } from './utils'
+import {
+  FromTo,
+  RestoreBucketOpts,
+} from './types'
 
 const assertS3RestoreToolInstalled = () => {
   try {
     execa.sync('command', ['-v', 's3-pit-restore'])
   } catch (err) {
-    throw new CustomErrors.NotFound(`please install this tool first: https://github.com/tradle/s3-pit-restore`)
-  }
-}
+    throw new CustomErrors.NotFound(`please install the s3-pit-restore tool first. Here's how:
 
-type FromToBucket = {
-  source: string
-  target: string
+git clone https://github.com/tradle/s3-pit-restore
+cd s3-pit-restore
+python3 setup.py install
+`)
+  }
 }
 
 class S3 {
@@ -118,59 +122,59 @@ class S3 {
     await this.client.putBucketCors(params).promise()
   }
 
-  public copyBucketSettings = async ({ source, target }: FromToBucket) => {
+  public copyBucketSettings = async ({ sourceName, destName }: FromTo) => {
     // in series on purpose
     // s3 doesn't like running some of these in parallel
-    await this.copyBucketEncryption({ source, target })
-    await this.copyBucketVersioning({ source, target })
-    await this.copyBucketLifecycle({ source, target })
-    await this.copyBucketCORS({ source, target })
+    await this.copyBucketEncryption({ sourceName, destName })
+    await this.copyBucketVersioning({ sourceName, destName })
+    await this.copyBucketLifecycle({ sourceName, destName })
+    await this.copyBucketCORS({ sourceName, destName })
   }
 
-  public copyBucketEncryption = async ({ source, target }: FromToBucket) => {
+  public copyBucketEncryption = async ({ sourceName, destName }: FromTo) => {
     let encryption
     try {
-      encryption = await this.getBucketEncryption(source)
+      encryption = await this.getBucketEncryption(sourceName)
     } catch (err) {
       Errors.ignore(err, CustomErrors.NotFound)
       return
     }
 
-    await this.setBucketEncryption({ bucket: target, encryption })
+    await this.setBucketEncryption({ bucket: destName, encryption })
   }
 
-  public copyBucketVersioning = async ({ source, target }: FromToBucket) => {
-    const versioning = await this.getBucketVersioning(source)
+  public copyBucketVersioning = async ({ sourceName, destName }: FromTo) => {
+    const versioning = await this.getBucketVersioning(sourceName)
     if (versioning.Status) {
-      await this.setBucketVersioning({ bucket: target, versioning })
+      await this.setBucketVersioning({ bucket: destName, versioning })
     }
   }
 
-  public copyBucketLifecycle = async ({ source, target }: FromToBucket) => {
+  public copyBucketLifecycle = async ({ sourceName, destName }: FromTo) => {
     let lifecycle
     try {
-      lifecycle = await this.getBucketLifecycle(source)
+      lifecycle = await this.getBucketLifecycle(sourceName)
     } catch (err) {
       Errors.ignore(err, CustomErrors.NotFound)
       return
     }
 
-    await this.setBucketLifecycle({ bucket: target, lifecycle })
+    await this.setBucketLifecycle({ bucket: destName, lifecycle })
   }
 
-  public copyBucketCORS = async ({ source, target }: FromToBucket) => {
+  public copyBucketCORS = async ({ sourceName, destName }: FromTo) => {
     let cors
     try {
-      cors = await this.getBucketCORS(source)
+      cors = await this.getBucketCORS(sourceName)
     } catch (err) {
       Errors.ignore(err, CustomErrors.NotFound)
       return
     }
 
-    await this.setBucketCORS({ bucket: target, cors })
+    await this.setBucketCORS({ bucket: destName, cors })
   }
 
-  public createBucketOrAssertEmpty = async (bucket: string) => {
+  public assertBucketIsEmptyOrDoesNotExist = async (bucket: string) => {
     const exists = await this.doesBucketExist(bucket)
     if (exists) {
       await this.assertBucketIsEmpty(bucket)
@@ -209,19 +213,30 @@ class S3 {
     return Contents.length === 0
   }
 
-  public restoreBucket = async ({ source, dest, date, profile }: {
-    source: string
-    dest: string
-    date: string
-    profile?: string
-  }) => {
+  public assertCanRestoreBucket = async (opts: RestoreBucketOpts) => {
+    const { sourceName, destName, date } = opts
     assertS3RestoreToolInstalled()
     validateISODate(date)
+    const exists = await this.doesBucketExist(destName)
+    if (exists) {
+      await this.assertBucketIsEmpty(destName)
+    }
+  }
+
+  public createIfNotExists = async (bucket: string) => {
+    if (!(await this.doesBucketExist(bucket))) {
+      await this.createBucket(bucket)
+    }
+  }
+
+  public restoreBucket = async ({ sourceName, destName, date, profile }: RestoreBucketOpts) => {
+    await this.createIfNotExists(destName)
+    await this.copyBucketSettings({ sourceName, destName })
 
     const env:any = {}
     if (profile) env.AWS_PROFILE = profile
 
-    await execa('s3-pit-restore', ['-b', source, '-d', `s3://${dest}`, '-t', date], { env })
+    await execa('s3-pit-restore', ['-b', sourceName, '-d', `s3://${destName}`, '-t', date], { env })
   }
 }
 

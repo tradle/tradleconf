@@ -86,6 +86,7 @@ export interface ApplyUpdateOpts {
   templateUrl: string
   parameters?: CFParameter[]
   notificationTopics?: string[]
+  wait?: boolean
 }
 
 export interface Choice {
@@ -147,20 +148,25 @@ export interface ClientOpts {
   profile?: string
 }
 
-export interface FromToTable {
-  sourceName: string
-  destName: string
-}
-
-export interface RestoreTableOpts extends FromToTable {
-  date: PointInTime
-}
-
-export interface RestoreTableCliOpts extends RestoreTableOpts, ClientOpts {
-}
-
 export interface ListrTask {
   task: (ctx: any) => Promise<void>
   title: string
   skip?: (ctx: any) => boolean
 }
+
+export interface FromTo {
+  sourceName: string
+  destName: string
+}
+
+export interface RestoreToPointInTimeOpts extends FromTo {
+  date: PointInTime
+}
+
+export interface RestoreBucketOpts extends RestoreToPointInTimeOpts {
+  profile?: string
+}
+
+export interface RestoreTableCliOpts extends RestoreToPointInTimeOpts, ClientOpts {
+}
+

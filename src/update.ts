@@ -1,3 +1,4 @@
+import path from 'path'
 import _ from 'lodash'
 import inquirer from 'inquirer'
 import Listr from 'listr'
@@ -26,6 +27,8 @@ import {
 } from './restore'
 
 import * as utils from './utils'
+import { DOT } from './constants'
+import * as fs from './fs'
 
 const USE_CURRENT_USER_ROLE = true
 const VERSION_MIN = '1.1.15'
@@ -169,16 +172,20 @@ Your data should not be harmed in the process
       await confirmOrAbort('Continue?', false)
     }
 
+    const { cloudformation } = conf.client
     if (!rollback && currentVersion.templateUrl) {
+      const currentParams = await utils.getStackParameters({ cloudformation, stackId })
+      const paramsRelPath = `params-${currentVersion.tag}-${Date.now()}.json`
+      const paramsAbsPath = path.resolve(process.cwd(), paramsRelPath)
+      fs.write(paramsAbsPath, currentParams)
       logger.info(`
 Updating! To roll back, run:
 
-tradleconf update-manually --template-url "${currentVersion.templateUrl}"
+tradleconf update-manually --template-url "${currentVersion.templateUrl}" --stack-parameters "${paramsRelPath}"
 `)
     }
 
     const tag = this.targetTag
-    const { cloudformation } = conf.client
     const tasks:ListrTask[] = [
       {
         title: `loading release ${tag}, grab a coffee`,
@@ -257,7 +264,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
         }
       },
       {
-        title: `applying ${verb}, be patient, or else`,
+        title: `waiting for ${verb} to complete, be patient, or else`,
         skip: ctx => !ctx.willUpdate,
         task: async ctx => {
           try {
@@ -277,7 +284,7 @@ tradleconf restore-stack --template-url "${templateUrl}"`)
     for (const { title, skip, task } of tasks) {
       if (skip && skip(ctx)) continue
 
-      logger.info(`· ${title}...`)
+      logger.info(`${DOT} ${title}...`)
       await task(ctx)
     }
 

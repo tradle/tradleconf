@@ -1,6 +1,10 @@
 import AWS from 'aws-sdk'
 import Errors from '@tradle/errors'
-import { PointInTime, RestoreTableOpts, FromToTable } from './types'
+import {
+  PointInTime,
+  RestoreToPointInTimeOpts,
+  FromTo,
+} from './types'
 import { Errors as CustomErrors } from './errors'
 
 const isTTLEnabled = (ttl: AWS.DynamoDB.TimeToLiveDescription) => {
@@ -21,7 +25,7 @@ class DynamoDB {
     return ContinuousBackupsDescription.ContinuousBackupsStatus === 'ENABLED'
   }
 
-  public copyPointInTimeRecoverySettings = async ({ sourceName, destName }: FromToTable) => {
+  public copyPointInTimeRecoverySettings = async ({ sourceName, destName }: FromTo) => {
     const enabled = await this.isPointInTimeRecoveryEnabled(sourceName)
     await this.setPointInTimeRecovery({ tableName: destName, enabled })
   }
@@ -45,7 +49,40 @@ class DynamoDB {
     }
   }
 
-  public restoreTable = async ({ date, sourceName, destName }: RestoreTableOpts) => {
+  public assertCanRestoreTable = async ({ date, sourceName, destName }: RestoreToPointInTimeOpts) => {
+    await Promise.all([
+      this.assertTableExists(sourceName),
+      this.assertTableDoesNotExist(destName),
+      this.assertTableHasBackupForDate({ tableName: sourceName, date }),
+    ])
+  }
+
+  public assertTableHasBackupForDate = async ({ tableName, date }: {
+    tableName: string
+    date: PointInTime
+  }) => {
+    const {
+      ContinuousBackupsDescription,
+    } = await this.client.describeContinuousBackups({ TableName: tableName }).promise()
+
+    if (ContinuousBackupsDescription.ContinuousBackupsStatus !== 'ENABLED') {
+      throw new CustomErrors.InvalidInput(`table ${tableName} does not have continuous backups enabled`)
+    }
+
+    const {
+      EarliestRestorableDateTime,
+      LatestRestorableDateTime,
+    } = ContinuousBackupsDescription.PointInTimeRecoveryDescription
+
+    const target = new Date(date)
+    const min = new Date(EarliestRestorableDateTime)
+    const max = new Date(LatestRestorableDateTime)
+    if (target < min || target > max) {
+      throw new CustomErrors.InvalidInput(`table ${tableName} can be restored only to a point within the following range: ${min.toISOString()} - ${max.toISOString()}`)
+    }
+  }
+
+  public restoreTable = async ({ date, sourceName, destName }: RestoreToPointInTimeOpts) => {
     const params:AWS.DynamoDB.RestoreTableToPointInTimeInput = {
       RestoreDateTime: new Date(date),
       SourceTableName: sourceName,
@@ -105,7 +142,7 @@ class DynamoDB {
     await this.client.updateTimeToLive(params).promise()
   }
 
-  public copyTTLSettings = async ({ sourceName, destName }: FromToTable) => {
+  public copyTTLSettings = async ({ sourceName, destName }: FromTo) => {
     const ttl = await this.getTTLSettings(sourceName)
     if (ttl.Enabled) {
       await this.setTTLSettings({ tableName: destName, ttl })
@@ -129,7 +166,7 @@ class DynamoDB {
     await this.client.updateTable(params).promise()
   }
 
-  public copyStreamSettings = async ({ sourceName, destName }: FromToTable) => {
+  public copyStreamSettings = async ({ sourceName, destName }: FromTo) => {
     const settings = await this.getStreamSettings(sourceName)
     if (settings && settings.StreamEnabled) {
       await this.setStreamSettings({ tableName: destName, settings })
@@ -147,17 +184,17 @@ class DynamoDB {
     return true
   }
 
-  public assertTableExists = async (tableName: string) => {
+  public assertTableExists = async (tableName: string, errMessage?: string) => {
     const exists = await this.doesTableExist(tableName)
     if (!exists) {
-      throw new CustomErrors.InvalidInput(`table does not exist: ${tableName}`)
+      throw new CustomErrors.InvalidInput(errMessage || `table does not exist: ${tableName}`)
     }
   }
 
-  public assertTableDoesNotExist = async (tableName: string) => {
+  public assertTableDoesNotExist = async (tableName: string, errMessage?: string) => {
     const exists = await this.doesTableExist(tableName)
     if (exists) {
-      throw new CustomErrors.InvalidInput(`table already exists: ${tableName}`)
+      throw new CustomErrors.InvalidInput(errMessage || `table already exists: ${tableName}`)
     }
   }
 }
