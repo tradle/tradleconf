@@ -50,6 +50,7 @@ CLI for managing your Tradle MyCloud instance
   - [Deployment](#deployment)
 - [Data Import / Remediation](#data-import--remediation)
 - [Required Forms](#required-forms)
+- [Verify Phone Number](#verify-phone-number)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -655,6 +656,28 @@ Example config:
     "tradle.EmployeeOnboarding": [
       "tradle.PhotoID"
     ]
+  }
+}
+```
+
+### Verify Phone Number
+
+Purpose: verify a user controls a phone number
+
+Example config:
+
+```js
+// ...
+"plugins": {
+  // ...
+  "verify-phone-number": {
+    "products": {
+      "tradle.CurrentAccount": {
+        "tradle.PersonalInfo": {
+          "property": "phones"
+        }
+      }
+    }
   }
 }
 ```
