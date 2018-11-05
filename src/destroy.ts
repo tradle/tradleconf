@@ -1,8 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import partition from 'lodash/partition'
-import sortBy from 'lodash/sortBy'
-import notNull from 'lodash/identity'
+import _ from 'lodash'
 import Listr from 'listr'
 import AWS from 'aws-sdk'
 import Errors from '@tradle/errors'
@@ -30,7 +28,7 @@ type DestroyOpts = {
 }
 
 export const chooseDeleteVsRetain = async (resources: CloudResource[]) => {
-  const [retainedBuckets, retainedOther] = partition(resources, r => r.type === 'bucket')
+  const [retainedBuckets, retainedOther] = _.partition(resources, r => r.type === 'bucket')
   const del:CloudResource[] = []
   const retain = BIG_BUCKETS.slice()
   for (const item of retainedBuckets.concat(retainedOther)) {
@@ -60,7 +58,7 @@ ${resources.map(r => r.value).join('\n')}
 
 I'll be deleting a few things in parallel, try not to get dizzy...`)
 
-  const [buckets, other] = partition(resources, r => r.type === 'bucket')
+  const [buckets, other] = _.partition(resources, r => r.type === 'bucket')
   const promiseDeleteBuckets = buckets.length
     ? deleteBuckets({ client, buckets, profile })
     : Promise.resolve()
@@ -83,7 +81,7 @@ export const destroy = async (opts: DestroyOpts) => {
   await confirmOrAbort(`Are you REALLY REALLY sure you want to MURDER ${stackName}?`, false)
   let retained = await utils.listOutputResources({ cloudformation, stackId })
   retained = retained.filter(r => r.name !== 'SourceDeploymentBucket')
-  retained = sortBy(retained, 'type')
+  retained = _.sortBy(retained, 'type')
   const existence = await Promise.all(retained.map(resource => utils.doesResourceExist({ client, resource })))
   retained = retained.filter((r, i) => existence[i])
 
@@ -137,7 +135,7 @@ export const destroy = async (opts: DestroyOpts) => {
           }
 
           // @ts-ignore
-          opts.params.RetainResources = uniq(delVsRetain.retain)
+          opts.params.RetainResources = _.uniq(delVsRetain.retain)
           await utils.deleteStackAndWait(opts)
         }
       }
@@ -155,7 +153,7 @@ export const deleteBuckets = async ({ client, buckets, profile }: {
   buckets: CloudResource[]
   profile?: string
 }) => {
-  const [big, small] = partition(buckets, ({ name }) => BIG_BUCKETS.includes(name))
+  const [big, small] = _.partition(buckets, ({ name }) => BIG_BUCKETS.includes(name))
 
   await Promise.all(small.map(async ({ value }) => {
     logger.info(`emptying and deleting: ${value}`)
