@@ -380,7 +380,7 @@ To force deploy ${targetTag}, run: tradleconf update --tag ${targetTag} --force`
     const transition = updatesBeforeTag.find(update => isTransitionReleaseTag(update.tag))
     if (!transition) {
       // extra safety check
-      if (isUpdatingToV2(currentVersion.tag, targetTag)) {
+      if (isUpdatingToV2(currentVersion.tag, targetTag) && compareTags(currentVersion.tag, VERSION_V2_TRANS) < 0) {
         throw new Error(`please run this first: tradleconf update --tag ${VERSION_V2_TRANS}`)
       }
 
