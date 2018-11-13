@@ -66,7 +66,7 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
     : await chooseAZs(client, { region, count: azsCount })
 
   const usedEIPCount = await utils.getUsedEIPCount(client.ec2)
-  if (EIP_LIMIT - usedEIPCount < azsCount) {
+  if (!exists && EIP_LIMIT - usedEIPCount < azsCount) {
     await confirmOrAbort(`WARNING: your account has ${usedEIPCount} Elastic IPs in use in region ${region}.
 This stack will create ${azsCount} more. AWS's base limit is 5 per region, so this stack may fail.
 You can request a limit increase from AWS here: https://console.aws.amazon.com/support/v1#/case/create?issueType=service-limit-increase&limitType=service-code-vpc
