@@ -161,6 +161,12 @@ Continue?`)
         : `create KYC services stack (this will take ~20 minutes)`,
       task: ctx => ctx.wait(),
     },
+    {
+      title: 'poke MyCloud to pick up update',
+      task: async () => {
+        await conf.reboot()
+      }
+    },
   ]
 
   await new Listr(tasks).run()
