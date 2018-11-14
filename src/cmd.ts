@@ -459,6 +459,11 @@ const enableKYCServices = program
   .allowUnknownOption(false)
   .action(createAction('enableKYCServices'))
 
+const updateKYCServices = program
+  .command('update-kyc-services')
+  .allowUnknownOption(false)
+  .action(createAction('updateKYCServices'))
+
 const disableKYCServices = program
   .command('disable-kyc-services')
   .option('--services-stack-arn [arn]', 'set if you know the ARN of the KYC services stack')

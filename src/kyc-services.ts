@@ -23,12 +23,15 @@ import {
 const AZS_COUNT = 3
 const EIP_LIMIT = 5
 
-interface ConfigureKYCServicesStackOpts extends SetKYCServicesOpts {
-  truefaceSpoof?: boolean
-  rankOne?: boolean
+interface UpdateKYCServicesOpts extends SetKYCServicesOpts {
   client: AWSClients
   mycloudStackName: string
   mycloudRegion: string
+}
+
+interface ConfigureKYCServicesOpts extends UpdateKYCServicesOpts {
+  truefaceSpoof?: boolean
+  rankOne?: boolean
 }
 
 export const getStackName = utils.getServicesStackName
@@ -38,7 +41,7 @@ export const getServicesStackId = async (cloudformation: AWS.CloudFormation, myc
   return utils.getStackId(cloudformation, servicesStackName)
 }
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesStackOpts) => {
+export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
   const servicesStackId = await getServicesStackId(client.cloudformation, mycloudStackName)
   const exists = !!servicesStackId
@@ -226,4 +229,50 @@ export const deleteCorrespondingServicesStack = async ({ cloudformation, stackId
   })
 
   logger.info(`KYC services stack: deleted ${servicesStackId}`)
+}
+
+export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackName, mycloudRegion }: UpdateKYCServicesOpts) => {
+  const { cloudformation } = client
+  const servicesStackName = getStackName(mycloudStackName)
+  const servicesStackId = await getServicesStackId(cloudformation, mycloudStackName)
+  if (!servicesStackId) {
+    throw new CustomErrors.NotFound(`existing kyc-services stack not found`)
+  }
+
+  let parameters = await utils.getStackParameters({ cloudformation, stackId: servicesStackId })
+  parameters = parameters
+    .filter(p => !p.ParameterKey.endsWith('Image')) // template will have new Image defaults
+    .map(p => ({
+      ParameterKey: p.ParameterKey,
+      UsePreviousValue: true,
+    }))
+
+  await confirmOrAbort(`About to update KYC services stack. Are you freaking ready?`)
+  const tasks = [
+    {
+      title: 'validate template',
+      task: async (ctx) => {
+        const params: AWS.CloudFormation.UpdateStackInput = {
+          StackName: servicesStackId || servicesStackName,
+          TemplateURL: SERVICES_STACK_TEMPLATE_URL,
+          Parameters: parameters,
+          Capabilities: ['CAPABILITY_NAMED_IAM']
+        }
+
+        ctx.wait = await utils.updateStack({ cloudformation, params })
+      },
+    },
+    {
+      title: `update KYC services stack`,
+      task: ctx => ctx.wait(),
+    },
+    {
+      title: 'poke MyCloud to pick up update',
+      task: async () => {
+        await conf.reboot()
+      }
+    },
+  ]
+
+  await new Listr(tasks).run()
 }
