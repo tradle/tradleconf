@@ -129,6 +129,14 @@ To enable them, run:
 
 After the command completes (~20 minutes), you'll be able to configure the respective plugins
 
+To update your kyc-services stack (Tradle pushes updates to constituent vendor SDK images):
+
+`tradleconf update-kyc-services`
+
+To delete your kyc-services stack (it's stateless, so you can always create a new one):
+
+`tradleconf disable-kyc-services`
+
 ### Deploy
 
 You can deploy your configuration to your local Tradle development environment running on your machine, or to your Tradle MyCloud running in AWS.
