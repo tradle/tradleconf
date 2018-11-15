@@ -923,7 +923,7 @@ export class Conf {
   public reboot = async () => {
     this._ensureRemote()
     const functions = await this.getFunctions()
-    logger.info(`rebooting functions:\n${functions.join('\n')}`)
+    // logger.info(`rebooting functions:\n${functions.join('\n')}`)
 
     const DATE_UPDATED = String(Date.now())
     await utils.updateEnvironments(this.client.lambda, {
