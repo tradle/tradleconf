@@ -838,7 +838,9 @@ export class Conf {
     if (update.parameters) {
       params.Parameters = update.parameters
     } else {
-      params.Parameters = await utils.getReuseParameters({ cloudformation, stackId })
+      // if we previously deployed from cli rather than via tradleconf
+      // SourceDeploymentBucket will change from own DeploymentBucket to Tradle's
+      params.Parameters = await getDefaultUpdateParameters({ cloudformation, stackId, templateUrl })
     }
 
     if (notificationTopics) {
