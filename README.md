@@ -32,6 +32,8 @@ CLI for managing your Tradle MyCloud instance
   - [Load remote models, styles and configuration](#load-remote-models-styles-and-configuration)
   - [Push bot/plugins configuration](#push-botplugins-configuration)
   - [Disable Tradle](#disable-tradle)
+- [Blockchain Account](#blockchain-account)
+- [Alerts](#alerts)
 - [Built-in Plugins](#built-in-plugins)
   - [Terms and Conditions](#terms-and-conditions)
   - [Lens](#lens)
@@ -267,6 +269,18 @@ This will turn most of your cloud functions off. Mobile/web clients will be unab
 To re-enable your deployment, you run:
 
 `tradleconf enable --remote`
+
+### Blockchain Account
+
+To check your address and balance, you can use the `balance` command, e.g. `tradleconf balance --remote`
+
+To top up, send funds to that address. Make sure you're sending funds on the right blockchain network!
+
+Funds are typically specified in the lowest unit of the particular blockchain, e.g. in satoshis for bitcoin, and wei for ethereum.
+
+### Alerts
+
+After deploying MyCloud (and sometimes after a major update), you will receive an email from AWS at the admin email address you specified, asking you to confirm an SNS subscription (Amazon's Simple Notification Service). If you want your MyCloud to alert you when its balance is low, and/or about other issues, confirm that subscription.
 
 ### Built-in Plugins
 
