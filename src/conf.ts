@@ -804,9 +804,20 @@ export class Conf {
   }
 
   public updateManually = async ({ templateUrl, stackParameters }) => {
+    this._ensureRemote()
+    this._ensureStackNameKnown()
+    if (stackParameters) {
+      if (typeof stackParameters === 'string') {
+        stackParameters = fs.readJSON(stackParameters)
+      }
+    } else {
+      const { stackId } = this
+      stackParameters = await this._genStackParameters({ stackId })
+    }
+
     await this.applyUpdateAsCurrentUser({
       templateUrl,
-      parameters: stackParameters && fs.readJSON(stackParameters),
+      parameters: stackParameters,
       wait: true,
     })
   }
@@ -1045,17 +1056,20 @@ export class Conf {
   public genStackParameters = async (opts) => {
     this._ensureRemote()
     const { sourceStackArn=this.stackId, output } = opts
-    const { region } = utils.parseStackArn(sourceStackArn)
-    const params = await deriveParametersFromStack({
-      client: this.createAWSClient({ region }),
-      stackId: sourceStackArn
-    })
-
+    const params = await this._genStackParameters({ stackId: sourceStackArn })
     if (output) {
       fs.write(path.resolve(process.cwd(), output), params)
     } else {
       console.log(prettify(params))
     }
+  }
+
+  private _genStackParameters = async ({ stackId }: { stackId: string }) => {
+    const { region } = utils.parseStackArn(stackId)
+    return await deriveParametersFromStack({
+      client: this.createAWSClient({ region }),
+      stackId,
+    })
   }
 
   private _ensureStackNameKnown = () => {
