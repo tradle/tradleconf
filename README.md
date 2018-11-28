@@ -676,7 +676,7 @@ Example config:
 ```
 #### ConditionalAutoApprove
 
-Purpose: allow to auto approve customer application if some all the listed checks passed
+Purpose: allow to auto approve customer application if all the listed checks passed
 ```js
 ...
 "plugins": {
