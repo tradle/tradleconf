@@ -834,16 +834,11 @@ export class Conf {
   }
 
   public applyUpdateAsCurrentUser = async (update: ApplyUpdateOpts) => {
-    this._ensureRemote()
-    this._ensureStackNameKnown()
     const { templateUrl, notificationTopics, wait } = update
     const { stackId } = this
-    const params:AWS.CloudFormation.UpdateStackInput = {
-      StackName: stackId,
-      TemplateURL: templateUrl,
-      UsePreviousTemplate: !templateUrl,
-      Capabilities: ['CAPABILITY_NAMED_IAM'],
-    }
+    const params = this._getBaseUpdateStackOpts()
+    params.TemplateURL = templateUrl
+    params.UsePreviousTemplate = !templateUrl
 
     const { cloudformation } = this.client
     if (update.parameters) {
@@ -1064,6 +1059,24 @@ export class Conf {
     }
   }
 
+  public setSealingMode = async opts => {
+    const { mode, periodInMinutes } = opts
+    if (!(mode === 'single' || mode === 'batch')) {
+      throw new CustomErrors.InvalidInput(`expected mode to be 'single' or 'batch'`)
+    }
+
+    const params:any = {
+      SealingMode: mode,
+    }
+
+    if (mode === 'batch' && periodInMinutes) {
+      params.SealBatchingPeriodInMinutes = periodInMinutes
+    }
+
+    logger.info('updating stack, be patient')
+    await this._updateWithParameters(params)
+  }
+
   private _genStackParameters = async ({ stackId }: { stackId: string }) => {
     const { region } = utils.parseStackArn(stackId)
     return await deriveParametersFromStack({
@@ -1171,6 +1184,37 @@ export class Conf {
     this.stackName = stackName
     this.region = region
     await this._init({ loadCurrentConf: true })
+  }
+
+  private _getBaseUpdateStackOpts = ():AWS.CloudFormation.UpdateStackInput => {
+    this._ensureStackNameKnown()
+    this._ensureRemote()
+    return {
+      StackName: this.stackId,
+      Capabilities: ['CAPABILITY_NAMED_IAM'],
+    }
+  }
+
+  private _updateWithParameters = async (paramMap: any) => {
+    this._ensureStackNameKnown()
+    this._ensureRemote()
+
+    const { stackId, client } = this
+    const params = await this._genStackParameters({ stackId })
+    for (let key in paramMap) {
+      let param = params.find(p => p.ParameterKey === key)
+      if (!param) {
+        throw new CustomErrors.InvalidInput(`unknown param: ${key}`)
+      }
+
+      param.ParameterValue = String(paramMap[key])
+    }
+
+    await this.applyUpdateAsCurrentUser({
+      templateUrl: null, // re-use current template
+      parameters: params,
+      wait: true,
+    })
   }
 }
 

@@ -217,6 +217,7 @@ const OUTPUT_NAME_TO_PARAM = {
   FileUploadBucket: 'ExistingFileUploadBucket',
   LogsBucket: 'ExistingLogsBucket',
   DeploymentBucket: 'ExistingDeploymentBucket',
+  // SourceDeploymentBucket: 'SourceDeploymentBucket',
   // ServerlessDeploymentBucket: 'ExistingDeploymentBucket',
   // tables
   EventsTable: 'ExistingEventsTable',
@@ -294,6 +295,14 @@ export const deriveParametersFromStack = async ({ client, stackId }: {
         ParameterKey: 'ExistingApiGateway',
         ParameterValue: root,
       })
+    }
+  }
+
+  const sourceParam = parameters.find(p => p.ParameterKey === 'SourceDeploymentBucket')
+  if (sourceParam && !sourceParam.ParameterValue) {
+    const deploymentBucketParam = parameters.find(p => p.ParameterKey === 'ExistingDeploymentBucket')
+    if (deploymentBucketParam && deploymentBucketParam.ParameterValue) {
+      sourceParam.ParameterValue = deploymentBucketParam.ParameterValue
     }
   }
 

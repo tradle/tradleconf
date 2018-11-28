@@ -538,6 +538,14 @@ const restoreResources = program
   .allowUnknownOption(false)
   .action(createAction('restoreResources'))
 
+const setSealingMode = program
+  .command('set-sealing-mode')
+  .option('--mode <sealingMode>', '"single" or "batch"')
+  .option('--period-in-minutes [period]', 'only relevant in "batch" mode. Example: set "5" to seal every 5 minutes')
+  .description(`clone buckets (except logs bucket) and tables at the specified point in time`)
+  .allowUnknownOption(false)
+  .action(createAction('setSealingMode'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')

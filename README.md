@@ -270,13 +270,25 @@ To re-enable your deployment, you run:
 
 `tradleconf enable --remote`
 
-### Blockchain Account
+### Blockchain
+
+#### Balance
 
 To check your address and balance, you can use the `balance` command, e.g. `tradleconf balance --remote`
 
 To top up, send funds to that address. Make sure you're sending funds on the right blockchain network!
 
 Funds are typically specified in the lowest unit of the particular blockchain, e.g. in satoshis for bitcoin, and wei for ethereum.
+
+#### Sealing Mode
+
+By default, MyCloud seals in 'single' sealing mode, meaning it seals objects individually. If you're up to MyCloud version `v2.3.0`, you can change the sealing mode to 'batch'. For example, to batch objects every 10 minutes, and create one seal per batch, you would run:
+
+`tradleconf set-sealing-mode --mode batch --period-in-minutes 10`
+
+To switch back to 'single' mode:
+
+`tradleconf set-sealing-mode --mode single`
 
 ### Alerts
 
