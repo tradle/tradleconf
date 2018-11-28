@@ -9,7 +9,7 @@ CLI for managing your Tradle MyCloud instance
 - [Prerequisites](#prerequisites)
   - [AWS Account](#aws-account)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli-&-credentials)
+  - [AWS cli & credentials](#aws-cli--credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
@@ -32,7 +32,9 @@ CLI for managing your Tradle MyCloud instance
   - [Load remote models, styles and configuration](#load-remote-models-styles-and-configuration)
   - [Push bot/plugins configuration](#push-botplugins-configuration)
   - [Disable Tradle](#disable-tradle)
-- [Blockchain Account](#blockchain-account)
+- [Blockchain](#blockchain)
+  - [Balance](#balance)
+  - [Sealing Mode](#sealing-mode)
 - [Alerts](#alerts)
 - [Built-in Plugins](#built-in-plugins)
   - [Terms and Conditions](#terms-and-conditions)
@@ -50,6 +52,7 @@ CLI for managing your Tradle MyCloud instance
   - [Customize message](#customize-message)
   - [Webhooks](#webhooks)
   - [Deployment](#deployment)
+  - [ConditionalAutoApprove](#conditionalautoapprove)
 - [Data Import / Remediation](#data-import--remediation)
 - [Required Forms](#required-forms)
 - [Verify Phone Number](#verify-phone-number)
@@ -671,6 +674,30 @@ Example config:
   }
 }
 ```
+#### ConditionalAutoApprove
+
+Purpose: allow to auto approve customer application if some all the listed checks passed
+```js
+...
+"plugins": {
+  // ...
+  "conditional-auto-approve": {
+    // [product]: [list of Check types]
+    "tradle.CertifiedID": [
+      // List of checks that need to 'Pass' in order to auto-approve the application 
+       "tradle.SanctionsCheck",
+       "tradle.DocumentValidityCheck",
+       ...
+    ],
+    "tradle.CorporateBankAccount": [
+      "tradle.CorporationExistsCheck",
+      "tradle.SanctionsCheck",
+      ...
+    ]
+  }
+}
+```
+
 
 ### Data Import / Remediation
 
