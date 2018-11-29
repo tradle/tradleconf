@@ -682,18 +682,19 @@ Purpose: allow to auto approve customer application if all the listed checks pas
 "plugins": {
   // ...
   "conditional-auto-approve": {
-    // [product]: [list of Check types]
-    "tradle.CertifiedID": [
-      // List of checks that need to 'Pass' in order to auto-approve the application 
-       "tradle.SanctionsCheck",
-       "tradle.DocumentValidityCheck",
-       ...
-    ],
-    "tradle.CorporateBankAccount": [
-      "tradle.CorporationExistsCheck",
-      "tradle.SanctionsCheck",
-      ...
-    ]
+    "products": {
+      "tradle.CertifiedID": [
+        // List of checks that need to 'Pass' in order to auto-approve the application 
+        "tradle.SanctionsCheck",
+        "tradle.DocumentValidityCheck",
+        ...
+      ],
+      "tradle.CorporateBankAccount": [
+        "tradle.CorporationExistsCheck",
+        "tradle.SanctionsCheck",
+        ...
+      ]
+    }
   }
 }
 ```
