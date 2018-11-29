@@ -9,7 +9,7 @@ CLI for managing your Tradle MyCloud instance
 - [Prerequisites](#prerequisites)
   - [AWS Account](#aws-account)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli--credentials)
+  - [AWS cli & credentials](#aws-cli-&-credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
