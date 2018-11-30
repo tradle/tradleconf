@@ -63,9 +63,13 @@ CLI for managing your Tradle MyCloud instance
 
 #### AWS Account
 
+*Note: optional if you only plan on running MyCloud in development mode on your machine.*
+
 If you don't have one yet, get one. There's a pretty generous free tier.
 
 #### Launch a MyCloud instance
+
+*Note: optional if you only plan on running MyCloud in development mode on your machine.*
 
 Click [here](https://app.tradle.io/#/applyForProduct?provider=9658992cbb1499c1fd9f7d92e1dee43eb65f403b3a32f2d888d2f241c4bdf7b6&host=https%3A%2F%2Ft22ju1ga5c.execute-api.us-east-1.amazonaws.com%2Fdev&product=tradle.cloud.Deployment). You'll be prompted to fill out a MyCloud configuration form. When you do, you'll be given a launch link. Follow it to launch your MyCloud in AWS.
 
