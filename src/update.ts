@@ -436,7 +436,10 @@ export const getDefaultUpdateParameters = async ({ cloudformation, stackId, temp
   const reused = await utils.getReuseParameters({ cloudformation, stackId })
   const { bucket } = utils.parseS3Url(templateUrl)
   const source = reused.find(p => p.ParameterKey === 'SourceDeploymentBucket')
-  delete source.UsePreviousValue
-  source.ParameterValue = bucket
+  if (source) {
+    delete source.UsePreviousValue
+    source.ParameterValue = bucket
+  }
+
   return reused
 }
