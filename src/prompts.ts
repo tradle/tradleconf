@@ -56,12 +56,11 @@ export const init = async (conf: Conf) => {
     await confirmOrAbort('This will overwrite your .env file')
   }
 
-  const haveRemote = !conf.local && await confirm('Have you already deployed your MyCloud to AWS?')
+  const haveRemote = await confirm('Have you already deployed your MyCloud to AWS?')
   const getLocal:PromptList = [
     {
       type: 'confirm',
       name: 'haveLocal',
-      when: () => haveRemote,
       message: 'Do you have a local development environment? (a clone of https://github.com/tradle/serverless)',
     },
     {
