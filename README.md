@@ -102,7 +102,7 @@ Note: the below instructions are for managing a single MyCloud instance. If you 
 
 ### Updating tradleconf
 
-Try to be use the latest version of `tradleconf` at all times. `tradleconf` checks for updates as you use it, but at any time, you can update it yourself in the same way you installed it (see the [Install](#install-and-load-current-configuration) section)
+Try to use the latest version of `tradleconf` at all times. `tradleconf` checks for updates as you use it, but at any time, you can update it yourself in the same way you installed it (see the [Install](#install-and-load-current-configuration) section)
 
 ### Customize
 
