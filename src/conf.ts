@@ -585,7 +585,7 @@ export class Conf {
       return null
     }
 
-    return utils.getApiBaseUrl(this.client.cloudformation, this.stackName)
+    return utils.getApiBaseUrl(this.client.cloudformation, this.stackId || this.stackName)
   }
 
   public info = async () => {
@@ -632,8 +632,8 @@ export class Conf {
 
   public getFunctions = async () => {
     this._ensureStackNameKnown()
-    const { client, stackName } = this
-    return await utils.listStackFunctionIds(client.cloudformation, stackName)
+    const { client, stackId, stackName } = this
+    return await utils.listStackFunctionIds(client.cloudformation, stackId || stackName)
   }
 
   public getFunctionShortNames = async () => {
