@@ -815,6 +815,7 @@ export class Conf {
       stackParameters = await this._genStackParameters({ stackId })
     }
 
+    await confirmOrAbort(`I'm about to update your MyCloud. Continue?`)
     await this.applyUpdateAsCurrentUser({
       templateUrl,
       parameters: stackParameters,
