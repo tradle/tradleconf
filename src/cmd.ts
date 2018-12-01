@@ -375,8 +375,8 @@ const updateCommand = program
 
 const updateManuallyCommand = program
   .command('update-manually')
-  .option('-p, --stack-parameters <filePath>', 'path to parameters json file')
   .option('-t, --template-url [templateUrl]', 'stack template url. Defaults to reuse currently deployed template')
+  .option('-p, --stack-parameters [filePath]', 'path to parameters json file')
   .description('[ADVANCED] update your MyCloud to a given stack template')
   .allowUnknownOption(false)
   .action(createAction('updateManually'))
