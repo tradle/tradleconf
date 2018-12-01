@@ -89,7 +89,7 @@ If you want to inspect logs from your lambda functions in realtime, you'll need 
 
 ### Install and load current configuration
 
-Note: the below instructions are for managing a single MyCloud instance. If you are managing multiple instances, do so from separate directories.
+Note: the below instructions are for managing a single MyCloud instance. 
 
 1. Install `tradleconf` globally: `npm install -g @tradle/conf` (you may need `sudo` depending on how you installed Node.js)
 1. Create a new directory in which you will keep your configuration. In it, initialize your configuration with `tradleconf init`. This will create a file called `.env`
