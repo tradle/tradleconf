@@ -85,7 +85,7 @@ While you wait, read on.
 
 #### AWSLogs (optional)
 
-If you want to inspect logs from your lambda functions in realtime, you'll need [awslogs](https://github.com/jorgebastida/awslogs)
+If you want to inspect logs from your lambda functions in realtime, you'll need to install [awslogs](https://github.com/jorgebastida/awslogs), as the command `tradleconf log` uses awslogs underneath.
 
 ### Install and load current configuration
 
