@@ -138,6 +138,10 @@ To enable them, run:
 
 After the command completes (~20 minutes), you'll be able to configure the respective plugins
 
+To specify which kyc services to enable, run:
+
+`tradleconf set-kyc-services --name1 --name2` (run `tradleconf set-kyc-services --help` to see what's available)
+
 To update your kyc-services stack (Tradle pushes updates to constituent vendor SDK images):
 
 `tradleconf update-kyc-services`
