@@ -3,7 +3,13 @@ import inquirer from 'inquirer'
 import Listr from 'listr'
 import yn from 'yn'
 import AWS from 'aws-sdk'
-import { Conf, AWSClients, SetKYCServicesOpts } from './types'
+import {
+  Conf,
+  AWSClients,
+  SetKYCServicesOpts,
+  KYCServiceName,
+} from './types'
+
 import * as utils from './utils'
 import { Errors as CustomErrors } from './errors'
 import { logger, colors } from './logger'
@@ -18,6 +24,8 @@ import {
 import {
   SERVICES_STACK_TEMPLATE_URL,
   REPO_NAMES,
+  LICENSE_PATHS,
+  PARAM_TO_KYC_SERVICE_NAME,
 } from './constants'
 
 const AZS_COUNT = 3
@@ -62,6 +70,15 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
   ].filter(nonNull).join(', ')
 
   await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
+  const enabledServices = Object.keys(REPO_NAMES).filter(service => service in LICENSE_PATHS) as KYCServiceName[]
+  if (enabledServices.length) {
+    await checkLicenses({
+      s3: client.s3,
+      licenses: enabledServices,
+      bucket,
+    })
+  }
+
   const region = mycloudRegion
   const azsCount = AZS_COUNT
   const availabilityZones = exists
@@ -111,12 +128,22 @@ Continue?`)
       ParameterKey: 'EnableTruefaceSpoof',
       ParameterValue: 'true'
     })
+
+    parameters.push({
+      ParameterKey: 'S3PathToTrueFaceLicense',
+      ParameterValue: LICENSE_PATHS.truefaceSpoof,
+    })
   }
 
   if (rankOne) {
     parameters.push({
       ParameterKey: 'EnableRankOne',
       ParameterValue: 'true',
+    })
+
+    parameters.push({
+      ParameterKey: 'S3PathToRankOneLicense',
+      ParameterValue: LICENSE_PATHS.rankOne,
     })
   }
 
@@ -170,6 +197,36 @@ Continue?`)
   ]
 
   await new Listr(tasks).run()
+}
+
+const checkLicenses = async ({ s3, bucket, licenses }: {
+  s3: AWS.S3
+  bucket: string
+  licenses: KYCServiceName[]
+}) => {
+  if (!licenses.length) return
+
+  const licenseToDest = licenses.map(license => {
+    return `${license}:
+
+  bucket: ${bucket}
+  key: ${LICENSE_PATHS[license]}`
+  })
+
+  await confirmOrAbort(`have you uploaded the following licenses?
+
+${licenseToDest.join('\n\n')}
+`)
+
+  const opts = { s3, bucket }
+  try {
+    await Promise.all(licenses.map(service => utils.assertS3ObjectExists({
+      ...opts,
+      key: LICENSE_PATHS[service],
+    })))
+  } catch (err) {
+    throw new CustomErrors.NotFound(`Missing license file(s): ${err.message}`)
+  }
 }
 
 const getServicesStackInfo = async (client: AWSClients, { stackId }: {
@@ -245,7 +302,24 @@ export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackN
     throw new CustomErrors.NotFound(`existing kyc-services stack not found`)
   }
 
+  const enabledServices:KYCServiceName[] = []
+
   let parameters = await utils.getStackParameters({ cloudformation, stackId: servicesStackId })
+  parameters.forEach(p => {
+    const { ParameterKey, ParameterValue } = p
+    if (ParameterKey in PARAM_TO_KYC_SERVICE_NAME && ParameterValue === 'true') {
+      enabledServices.push(ParameterValue as KYCServiceName)
+    }
+  })
+
+  if (enabledServices.length) {
+    await checkLicenses({
+      s3: client.s3,
+      licenses: enabledServices,
+      bucket: await conf.getPrivateConfBucket(),
+    })
+  }
+
   parameters = parameters
     .filter(p => !p.ParameterKey.endsWith('Image')) // template will have new Image defaults
     .map(p => ({

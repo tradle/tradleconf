@@ -170,3 +170,15 @@ export interface RestoreBucketOpts extends RestoreToPointInTimeOpts {
 export interface RestoreTableCliOpts extends RestoreToPointInTimeOpts, ClientOpts {
 }
 
+export type KYCServicesConf = {
+  truefaceSpoof?: any
+  rankOne?: any
+  nginx?: any
+}
+
+export type KYCServiceName = keyof KYCServicesConf
+
+export type MapToKYCService = {
+  [x: string]: KYCServiceName
+}
+
