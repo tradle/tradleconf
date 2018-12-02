@@ -158,6 +158,16 @@ ${previousTags.join('\n')}`)
       rollback,
     } = opts
 
+    const { cloudformation } = conf.client
+    try {
+      await utils.assertStackExistsAndIsNotDeleted({ cloudformation, stackId })
+    } catch (err) {
+      throw new CustomErrors.InvalidEnvironment(`stack not found: ${stackId}
+
+This can happen if your .env file is out of date. Re-run "tradleconf init" and try again.
+`)
+    }
+
     if (compareTags(currentVersion.tag, VERSION_MIN) < 0) {
       throw new Error(`you have an old version of MyCloud which doesn't support the new update mechanism
   Please update manually this one time. See instructions on https://github.com/tradle/serverless`)
@@ -175,7 +185,6 @@ Your data should not be harmed in the process
       await confirmOrAbort('Continue?', false)
     }
 
-    const { cloudformation } = conf.client
     if (!rollback && currentVersion.templateUrl) {
       const currentParams = await utils.getStackParameters({ cloudformation, stackId })
       const paramsRelPath = `params-${currentVersion.tag}-${Date.now()}.json`

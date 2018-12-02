@@ -751,3 +751,10 @@ Example config:
   }
 }
 ```
+
+# Troubleshooting
+
+## tradleconf update
+
+**Symptom**: InvalidInput: expected "adminEmail"  
+**Cause**: in MyCloud <= 2.3.0, you need to confirm the AWS SNS Subscription for Alerts. Look for an email with subject "AWS Notification - Subscription Confirmation" and confirm it. If the confirmation expired, go to the AWS SNS Console for your AWS region (e.g. https://console.aws.amazon.com/sns/v2/home?region=us-east-1#/topics), find the topic that looks like `[your-stack-name]-alerts-alarm` (e.g. `tdl-tradle-ltd-dev-alerts-alarm`), and create and confirm an Email subscription to that topic.

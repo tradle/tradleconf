@@ -114,7 +114,7 @@ export const destroy = async (opts: DestroyOpts) => {
       title: 'disabling termination protection',
       task: async (ctx) => {
         try {
-          await utils.disableStackTerminationProtection({ cloudformation, stackName: stackId })
+          await utils.disableStackTerminationProtection({ cloudformation, stackId })
         } catch (err) {
           Errors.ignore(err, CustomErrors.NotFound)
           ctx.stackNotFound = true

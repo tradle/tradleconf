@@ -379,41 +379,41 @@ export const deleteRestApi = async ({ apigateway, apiId }: {
   }
 }
 
-export const getNotDeletedStack = async ({ cloudformation, stackName }: {
+export const getNotDeletedStack = async ({ cloudformation, stackId }: {
   cloudformation: AWS.CloudFormation
-  stackName: string
+  stackId: string
 }) => {
-  const { Stacks } = await cloudformation.describeStacks({ StackName: stackName }).promise()
+  const { Stacks } = await cloudformation.describeStacks({ StackName: stackId }).promise()
   const notDeleted = Stacks.filter(s => s.StackStatus !== 'DELETE_COMPLETE')
   if (!notDeleted.length) {
-    throw new CustomErrors.NotFound(`stack not found: ${stackName}`)
+    throw new CustomErrors.NotFound(`stack not found: ${stackId}`)
   }
 
   return notDeleted[0]
 }
 
-export const assertStackIsNotDeleted = async (opts: {
+export const assertStackExistsAndIsNotDeleted = async (opts: {
   cloudformation: AWS.CloudFormation
-  stackName: string
+  stackId: string
 }) => {
   // ignore return value
   await getNotDeletedStack(opts)
 }
 
-export const disableStackTerminationProtection = async ({ cloudformation, stackName }: {
+export const disableStackTerminationProtection = async ({ cloudformation, stackId }: {
   cloudformation: AWS.CloudFormation
-  stackName: string
+  stackId: string
 }) => {
-  await assertStackIsNotDeleted({ cloudformation, stackName })
+  await assertStackExistsAndIsNotDeleted({ cloudformation, stackId })
   return await cloudformation.updateTerminationProtection({
-    StackName: stackName,
+    StackName: stackId,
     EnableTerminationProtection: false,
   }).promise()
 }
 
 export const deleteStack = async ({ cloudformation, params }: DeleteStackOpts) => {
   const { StackName } = params
-  await assertStackIsNotDeleted({ cloudformation, stackName: params.StackName })
+  await assertStackExistsAndIsNotDeleted({ cloudformation, stackId: params.StackName })
 
   while (true) {
     try {
