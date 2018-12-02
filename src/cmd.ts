@@ -546,6 +546,13 @@ const setSealingMode = program
   .allowUnknownOption(false)
   .action(createAction('setSealingMode'))
 
+const setAdminEmail = program
+  .command('set-admin-email')
+  .option('--email <email>')
+  .description(`AWS admin email address, for various alerts`)
+  .allowUnknownOption(false)
+  .action(createAction('setAdminEmail'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')

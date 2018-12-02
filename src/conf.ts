@@ -815,7 +815,7 @@ export class Conf {
       stackParameters = await this._genStackParameters({ stackId })
     }
 
-    await confirmOrAbort(`I'm about to update your MyCloud. Continue?`)
+    await this._confirmAboutToUpdate()
     await this.applyUpdateAsCurrentUser({
       templateUrl,
       parameters: stackParameters,
@@ -853,6 +853,8 @@ export class Conf {
     if (notificationTopics) {
       params.NotificationARNs = notificationTopics
     }
+
+    logger.info('updating stack, be patient')
 
     const waitTillComplete = await utils.updateStack({ cloudformation, params })
     if (wait) await waitTillComplete()
@@ -1074,8 +1076,24 @@ export class Conf {
       params.SealBatchingPeriodInMinutes = periodInMinutes
     }
 
-    logger.info('updating stack, be patient')
+    await this._confirmAboutToUpdate()
     await this._updateWithParameters(params)
+  }
+
+  public setAdminEmail = async opts => {
+    const { email } = opts
+    if (!email) {
+      throw new CustomErrors.InvalidInput(`expected string "email"'`)
+    }
+
+    await this._confirmAboutToUpdate()
+    await this._updateWithParameters({
+      OrgAdminEmail: email,
+    })
+  }
+
+  private _confirmAboutToUpdate = async () => {
+    await confirmOrAbort(`I'm about to update your MyCloud. Continue?`)
   }
 
   private _genStackParameters = async ({ stackId }: { stackId: string }) => {
