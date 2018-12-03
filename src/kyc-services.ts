@@ -308,7 +308,7 @@ export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackN
   parameters.forEach(p => {
     const { ParameterKey, ParameterValue } = p
     if (ParameterKey in PARAM_TO_KYC_SERVICE_NAME && ParameterValue === 'true') {
-      enabledServices.push(ParameterValue as KYCServiceName)
+      enabledServices.push(PARAM_TO_KYC_SERVICE_NAME[ParameterKey])
     }
   })
 
