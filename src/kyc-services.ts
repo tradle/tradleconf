@@ -131,7 +131,7 @@ Continue?`)
 
     parameters.push({
       ParameterKey: 'S3PathToTrueFaceLicense',
-      ParameterValue: LICENSE_PATHS.truefaceSpoof,
+      ParameterValue: `${bucket}/${LICENSE_PATHS.truefaceSpoof}`,
     })
   }
 
@@ -143,7 +143,7 @@ Continue?`)
 
     parameters.push({
       ParameterKey: 'S3PathToRankOneLicense',
-      ParameterValue: LICENSE_PATHS.rankOne,
+      ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
     })
   }
 
@@ -312,11 +312,12 @@ export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackN
     }
   })
 
+  const bucket = await conf.getPrivateConfBucket()
   if (enabledServices.length) {
     await checkLicenses({
       s3: client.s3,
       licenses: enabledServices,
-      bucket: await conf.getPrivateConfBucket(),
+      bucket,
     })
   }
 
@@ -326,6 +327,26 @@ export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackN
       ParameterKey: p.ParameterKey,
       UsePreviousValue: true,
     }))
+
+  if (enabledServices.includes('truefaceSpoof')) {
+    let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToTrueFaceLicense')
+    if (idx === -1) idx = parameters.length
+
+    parameters[idx] = {
+      ParameterKey: 'S3PathToTrueFaceLicense',
+      ParameterValue: `${bucket}/${LICENSE_PATHS.truefaceSpoof}`,
+    }
+  }
+
+  if (enabledServices.includes('rankOne')) {
+    let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToRankOneLicense')
+    if (idx === -1) idx = parameters.length
+
+    parameters.push({
+      ParameterKey: 'S3PathToRankOneLicense',
+      ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
+    })
+  }
 
   await confirmOrAbort(`About to update KYC services stack. Are you freaking ready?`)
   const tasks = [
