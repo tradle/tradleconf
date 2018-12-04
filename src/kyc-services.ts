@@ -294,86 +294,88 @@ export const deleteCorrespondingServicesStack = async ({ cloudformation, stackId
   logger.info(`KYC services stack: deleted ${servicesStackId}`)
 }
 
-export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackName, mycloudRegion }: UpdateKYCServicesOpts) => {
-  const { cloudformation } = client
-  const servicesStackName = getStackName(mycloudStackName)
-  const servicesStackId = await getServicesStackId(cloudformation, mycloudStackName)
-  if (!servicesStackId) {
-    throw new CustomErrors.NotFound(`existing kyc-services stack not found`)
-  }
+// export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackName, mycloudRegion }: UpdateKYCServicesOpts) => {
+//   const { cloudformation } = client
+//   const servicesStackName = getStackName(mycloudStackName)
+//   const servicesStackId = await getServicesStackId(cloudformation, mycloudStackName)
+//   if (!servicesStackId) {
+//     throw new CustomErrors.NotFound(`existing kyc-services stack not found`)
+//   }
 
-  const enabledServices:KYCServiceName[] = []
+//   const enabledServices:KYCServiceName[] = []
 
-  let parameters = await utils.getStackParameters({ cloudformation, stackId: servicesStackId })
-  parameters.forEach(p => {
-    const { ParameterKey, ParameterValue } = p
-    if (ParameterKey in PARAM_TO_KYC_SERVICE_NAME && ParameterValue === 'true') {
-      enabledServices.push(PARAM_TO_KYC_SERVICE_NAME[ParameterKey])
-    }
-  })
+//   let parameters = await utils.getStackParameters({ cloudformation, stackId: servicesStackId })
+//   parameters.forEach(p => {
+//     const { ParameterKey, ParameterValue } = p
+//     if (ParameterKey in PARAM_TO_KYC_SERVICE_NAME && ParameterValue === 'true') {
+//       enabledServices.push(PARAM_TO_KYC_SERVICE_NAME[ParameterKey])
+//     }
+//   })
 
-  const bucket = await conf.getPrivateConfBucket()
-  if (enabledServices.length) {
-    await checkLicenses({
-      s3: client.s3,
-      licenses: enabledServices,
-      bucket,
-    })
-  }
+//   const bucket = await conf.getPrivateConfBucket()
+//   if (enabledServices.length) {
+//     await checkLicenses({
+//       s3: client.s3,
+//       licenses: enabledServices,
+//       bucket,
+//     })
+//   }
 
-  parameters = parameters
-    .filter(p => !p.ParameterKey.endsWith('Image')) // template will have new Image defaults
-    .map(p => ({
-      ParameterKey: p.ParameterKey,
-      UsePreviousValue: true,
-    }))
+//   parameters = parameters
+//     .filter(p => !p.ParameterKey.endsWith('Image')) // template will have new Image defaults
+//     .map(p => ({
+//       ParameterKey: p.ParameterKey,
+//       UsePreviousValue: true,
+//     }))
 
-  if (enabledServices.includes('truefaceSpoof')) {
-    let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToTrueFaceLicense')
-    if (idx === -1) idx = parameters.length
+//   if (enabledServices.includes('truefaceSpoof')) {
+//     let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToTrueFaceLicense')
+//     if (idx === -1) idx = parameters.length
 
-    parameters[idx] = {
-      ParameterKey: 'S3PathToTrueFaceLicense',
-      ParameterValue: `${bucket}/${LICENSE_PATHS.truefaceSpoof}`,
-    }
-  }
+//     parameters[idx] = {
+//       ParameterKey: 'S3PathToTrueFaceLicense',
+//       ParameterValue: `${bucket}/${LICENSE_PATHS.truefaceSpoof}`,
+//     }
+//   }
 
-  if (enabledServices.includes('rankOne')) {
-    let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToRankOneLicense')
-    if (idx === -1) idx = parameters.length
+//   if (enabledServices.includes('rankOne')) {
+//     let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToRankOneLicense')
+//     if (idx === -1) idx = parameters.length
 
-    parameters.push({
-      ParameterKey: 'S3PathToRankOneLicense',
-      ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
-    })
-  }
+//     parameters.push({
+//       ParameterKey: 'S3PathToRankOneLicense',
+//       ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
+//     })
+//   }
 
-  await confirmOrAbort(`About to update KYC services stack. Are you freaking ready?`)
-  const tasks = [
-    {
-      title: 'validate template',
-      task: async (ctx) => {
-        const params: AWS.CloudFormation.UpdateStackInput = {
-          StackName: servicesStackId || servicesStackName,
-          TemplateURL: SERVICES_STACK_TEMPLATE_URL,
-          Parameters: parameters,
-          Capabilities: ['CAPABILITY_NAMED_IAM']
-        }
+//   console.log(JSON.stringify(parameters, null, 2))
 
-        ctx.wait = await utils.updateStack({ cloudformation, params })
-      },
-    },
-    {
-      title: `update KYC services stack`,
-      task: ctx => ctx.wait(),
-    },
-    {
-      title: 'poke MyCloud to pick up update',
-      task: async () => {
-        await conf.reboot()
-      }
-    },
-  ]
+//   await confirmOrAbort(`About to update KYC services stack. Are you freaking ready?`)
+//   const tasks = [
+//     {
+//       title: 'validate template',
+//       task: async (ctx) => {
+//         const params: AWS.CloudFormation.UpdateStackInput = {
+//           StackName: servicesStackId || servicesStackName,
+//           TemplateURL: SERVICES_STACK_TEMPLATE_URL,
+//           Parameters: parameters,
+//           Capabilities: ['CAPABILITY_NAMED_IAM']
+//         }
 
-  await new Listr(tasks).run()
-}
+//         ctx.wait = await utils.updateStack({ cloudformation, params })
+//       },
+//     },
+//     {
+//       title: `update KYC services stack`,
+//       task: ctx => ctx.wait(),
+//     },
+//     {
+//       title: 'poke MyCloud to pick up update',
+//       task: async () => {
+//         await conf.reboot()
+//       }
+//     },
+//   ]
+
+//   await new Listr(tasks).run()
+// }

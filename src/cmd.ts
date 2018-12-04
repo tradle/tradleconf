@@ -459,10 +459,10 @@ const enableKYCServices = program
   .allowUnknownOption(false)
   .action(createAction('enableKYCServices'))
 
-const updateKYCServices = program
-  .command('update-kyc-services')
-  .allowUnknownOption(false)
-  .action(createAction('updateKYCServices'))
+// const updateKYCServices = program
+//   .command('update-kyc-services')
+//   .allowUnknownOption(false)
+//   .action(createAction('updateKYCServices'))
 
 const disableKYCServices = program
   .command('disable-kyc-services')

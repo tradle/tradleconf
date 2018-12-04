@@ -32,7 +32,7 @@ import { create as wrapDynamoDB } from './dynamodb'
 
 import {
   configureKYCServicesStack,
-  updateKYCServicesStack,
+  // updateKYCServicesStack,
   getServicesStackId,
   deleteCorrespondingServicesStack,
 } from './kyc-services'
@@ -872,15 +872,15 @@ export class Conf {
     return this.setKYCServices({ rankOne: true, truefaceSpoof: true })
   }
 
-  public updateKYCServices = async () => {
-    this._ensureRemote()
-    this._ensureRegionKnown()
-    await updateKYCServicesStack(this, {
-      mycloudStackName: this.stackName,
-      mycloudRegion: this.region,
-      client: this.client,
-    })
-  }
+  // public updateKYCServices = async () => {
+  //   this._ensureRemote()
+  //   this._ensureRegionKnown()
+  //   await updateKYCServicesStack(this, {
+  //     mycloudStackName: this.stackName,
+  //     mycloudRegion: this.region,
+  //     client: this.client,
+  //   })
+  // }
 
   public disableKYCServices = async ({ servicesStackArn, ...opts }) => {
     if (servicesStackArn) {

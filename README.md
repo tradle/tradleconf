@@ -132,7 +132,7 @@ You will also need to add a block in the `plugins` block in `conf/bot.json` to e
 
 Several of the services Tradle pre-integrates with need to be enabled explicitly before use, and are launched in a separate AWS cloudformation stack.
 
-To enable them, run:
+To enable/update them, run:
 
 `tradleconf enable-kyc-services`
 
@@ -141,10 +141,6 @@ After the command completes (~20 minutes), you'll be able to configure the respe
 To specify which kyc services to enable, run:
 
 `tradleconf set-kyc-services --name1 --name2` (run `tradleconf set-kyc-services --help` to see what's available)
-
-To update your kyc-services stack (Tradle pushes updates to constituent vendor SDK images):
-
-`tradleconf update-kyc-services`
 
 To delete your kyc-services stack (it's stateless, so you can always create a new one):
 
