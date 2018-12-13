@@ -35,6 +35,7 @@ interface UpdateKYCServicesOpts extends SetKYCServicesOpts {
   client: AWSClients
   mycloudStackName: string
   mycloudRegion: string
+  accountId: string
 }
 
 interface ConfigureKYCServicesOpts extends UpdateKYCServicesOpts {
@@ -49,11 +50,13 @@ export const getServicesStackId = async (cloudformation: AWS.CloudFormation, myc
   return utils.getStackId(cloudformation, servicesStackName)
 }
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesOpts) => {
+export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, accountId, mycloudStackName, mycloudRegion }: ConfigureKYCServicesOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
   const servicesStackId = await getServicesStackId(client.cloudformation, mycloudStackName)
   const exists = !!servicesStackId
   const bucket = await conf.getPrivateConfBucket()
+  const bucketEncryptionKey = await utils.getBucketEncryptionKey({ s3: client.s3, kms: client.kms, bucket })
+
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
   if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean') {
     // user knows what they want
@@ -152,6 +155,13 @@ Continue?`)
     parameters.push({
       ParameterKey: 'KeyName',
       ParameterValue: key
+    })
+  }
+
+  if (bucketEncryptionKey) {
+    parameters.push({
+      ParameterKey: 'S3KMSKey',
+      ParameterValue: `arn:aws:kms:${mycloudRegion}:${accountId}:${bucketEncryptionKey}`
     })
   }
 

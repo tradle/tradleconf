@@ -913,6 +913,7 @@ export class Conf {
       rankOne,
       mycloudStackName: this.stackName,
       mycloudRegion: this.region,
+      accountId: utils.parseStackArn(this.stackId).accountId,
       client: this.client,
     })
   }

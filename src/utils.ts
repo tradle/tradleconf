@@ -67,6 +67,10 @@ interface S3OpBaseOpts {
   bucket: string
 }
 
+interface S3EncOpBaseOpts extends S3OpBaseOpts {
+  kms: AWS.KMS
+}
+
 interface S3ObjectOpBaseOpts extends S3OpBaseOpts {
   key: string
 }
@@ -1132,3 +1136,22 @@ export const assertS3ObjectExists = s3HeadObject
 
 const reverseString = (str: string) => str.split('').reverse().join('')
 export const sortParameters = (params: CFParameter[]) => _.sortBy(params, p => reverseString(p.ParameterKey))
+
+export const getBucketEncryptionKey = async ({ s3, kms, bucket }: S3EncOpBaseOpts) => {
+  const { ServerSideEncryptionConfiguration } = await s3.getBucketEncryption({ Bucket: bucket }).promise()
+  if (!ServerSideEncryptionConfiguration) return
+
+  const { Rules = [] } = ServerSideEncryptionConfiguration
+  if (!Rules.length) return
+
+  const kmsRule = Rules.find(r => !!r.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
+  if (!kmsRule) return
+
+  const id = kmsRule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID
+  if (id.startsWith('key/')) {
+    return id
+  }
+
+  const { KeyMetadata } = await kms.describeKey({ KeyId: id }).promise()
+  return `key/${KeyMetadata.KeyId}`
+}
