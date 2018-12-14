@@ -9,7 +9,7 @@ CLI for managing your Tradle MyCloud instance
 - [Prerequisites](#prerequisites)
   - [AWS Account](#aws-account)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli-&-credentials)
+  - [AWS cli & credentials](#aws-cli--credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
@@ -52,7 +52,7 @@ CLI for managing your Tradle MyCloud instance
   - [Customize message](#customize-message)
   - [Webhooks](#webhooks)
   - [Deployment](#deployment)
-  - [ConditionalAutoApprove](#conditionalautoapprove)
+  - [Conditional auto-approve](#conditional-auto-approve)
 - [Data Import / Remediation](#data-import--remediation)
 - [Required Forms](#required-forms)
 - [Verify Phone Number](#verify-phone-number)
@@ -674,7 +674,7 @@ Example config:
   }
 }
 ```
-#### ConditionalAutoApprove
+#### Conditional auto-approve
 
 Purpose: allow to auto approve customer application if all the listed checks passed
 ```js
