@@ -62,8 +62,31 @@ interface CreateStackInRegionOpts {
   params: AWS.CloudFormation.CreateStackInput
 }
 
+interface S3OpBaseOpts {
+  s3: AWS.S3
+  bucket: string
+}
+
+interface S3EncOpBaseOpts extends S3OpBaseOpts {
+  kms: AWS.KMS
+}
+
+interface S3ObjectOpBaseOpts extends S3OpBaseOpts {
+  key: string
+}
+
 export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-([a-zA-Z0-9-]*?)-ltd-([a-z]+)$/
 export const MY_CLOUD_STACK_NAME_STRICTER_REGEX = /^tdl-([a-z0-9]*?)-ltd-([a-z]+)$/
+
+const NOT_FOUND_ERRORS = [
+  { code: 'NotFound' }, // s3
+  { code: 'NoSuchBucket' }, // s3
+  { code: 'NoSuchKey' }, // s3
+  { code: 'NotFoundException' }, // delete restapi
+  { code: 'ResourceNotFoundException' }, // dynamodb, misc
+]
+
+const ignoreNotFound = err => Errors.ignore(err, NOT_FOUND_ERRORS)
 
 export const get = async (url) => {
   const res = await fetch(url)
@@ -290,10 +313,7 @@ export const destroyBucket = async (s3: AWS.S3, Bucket: string) => {
   try {
     await s3.deleteBucket({ Bucket }).promise()
   } catch (err) {
-    Errors.ignore(err, [
-      { code: 'ResourceNotFoundException' },
-      { code: 'NoSuchBucket' },
-    ])
+    ignoreNotFound(err)
   }
 }
 
@@ -320,7 +340,7 @@ export const markBucketForDeletion = async (s3: AWS.S3, Bucket: string) => {
   try {
     await s3.putBucketLifecycleConfiguration(params).promise()
   } catch (err) {
-    Errors.ignore(err, { code: 'NoSuchBucket' })
+    ignoreNotFound(err)
     throw new CustomErrors.NotFound(`bucket: ${Bucket}`)
   }
 }
@@ -332,7 +352,7 @@ export const deleteTable = async ({ dynamodb, tableName }: {
   try {
     await dynamodb.deleteTable({ TableName: tableName }).promise()
   } catch (err) {
-    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    ignoreNotFound(err)
     throw new CustomErrors.NotFound(`table not found: ${tableName}`)
   }
 }
@@ -363,7 +383,7 @@ export const deleteLogGroup = async ({ logs, name }: {
   try {
     await logs.deleteLogGroup({ logGroupName: name }).promise()
   } catch (err) {
-    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    ignoreNotFound(err)
     throw new CustomErrors.NotFound(`log group with name: ${name}`)
   }
 }
@@ -375,45 +395,45 @@ export const deleteRestApi = async ({ apigateway, apiId }: {
   try {
     await apigateway.deleteRestApi({ restApiId: apiId }).promise()
   } catch (err) {
-    Errors.ignore(err, { code: 'NotFoundException' })
+    ignoreNotFound(err)
   }
 }
 
-export const getNotDeletedStack = async ({ cloudformation, stackName }: {
+export const getNotDeletedStack = async ({ cloudformation, stackId }: {
   cloudformation: AWS.CloudFormation
-  stackName: string
+  stackId: string
 }) => {
-  const { Stacks } = await cloudformation.describeStacks({ StackName: stackName }).promise()
+  const { Stacks } = await cloudformation.describeStacks({ StackName: stackId }).promise()
   const notDeleted = Stacks.filter(s => s.StackStatus !== 'DELETE_COMPLETE')
   if (!notDeleted.length) {
-    throw new CustomErrors.NotFound(`stack not found: ${stackName}`)
+    throw new CustomErrors.NotFound(`stack not found: ${stackId}`)
   }
 
   return notDeleted[0]
 }
 
-export const assertStackIsNotDeleted = async (opts: {
+export const assertStackExistsAndIsNotDeleted = async (opts: {
   cloudformation: AWS.CloudFormation
-  stackName: string
+  stackId: string
 }) => {
   // ignore return value
   await getNotDeletedStack(opts)
 }
 
-export const disableStackTerminationProtection = async ({ cloudformation, stackName }: {
+export const disableStackTerminationProtection = async ({ cloudformation, stackId }: {
   cloudformation: AWS.CloudFormation
-  stackName: string
+  stackId: string
 }) => {
-  await assertStackIsNotDeleted({ cloudformation, stackName })
+  await assertStackExistsAndIsNotDeleted({ cloudformation, stackId })
   return await cloudformation.updateTerminationProtection({
-    StackName: stackName,
+    StackName: stackId,
     EnableTerminationProtection: false,
   }).promise()
 }
 
 export const deleteStack = async ({ cloudformation, params }: DeleteStackOpts) => {
   const { StackName } = params
-  await assertStackIsNotDeleted({ cloudformation, stackName: params.StackName })
+  await assertStackExistsAndIsNotDeleted({ cloudformation, stackId: params.StackName })
 
   while (true) {
     try {
@@ -1004,7 +1024,7 @@ export const doesTableExist = async ({ dynamodb, table }: {
     await dynamodb.describeTable({ TableName: table }).promise()
     return true
   } catch (err) {
-    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    ignoreNotFound(err)
     return false
   }
 }
@@ -1017,7 +1037,7 @@ export const doesLogGroupExist = async ({ logs, name }: {
     await logs.describeLogStreams({ logGroupName: name }).promise()
     return true
   } catch (err) {
-    Errors.ignore(err, { code: 'ResourceNotFoundException' })
+    ignoreNotFound(err)
     return false
   }
 }
@@ -1030,7 +1050,7 @@ export const doesApiGatewayRestApiExist = async ({ apigateway, apiId }: {
     await apigateway.getRestApi({ restApiId: apiId }).promise()
     return true
   } catch (err) {
-    Errors.ignore(err, { code: 'NotFoundException' })
+    ignoreNotFound(err)
     return false
   }
 }
@@ -1043,7 +1063,7 @@ export const doesKeyExist = async ({ kms, keyId }: {
     const { KeyMetadata } = await kms.describeKey({ KeyId: keyId }).promise()
     return !KeyMetadata.DeletionDate
   } catch (err) {
-    Errors.ignore(err, { code: 'NotFoundException' })
+    ignoreNotFound(err)
     return false
   }
 }
@@ -1093,5 +1113,45 @@ export const getRestApiRootResourceId = async ({ apigateway, apiId }: {
   return items.find(i => i.path === '/').id
 }
 
+export const s3HeadObject = async ({ s3, bucket, key }: S3ObjectOpBaseOpts) => {
+  try {
+    return await s3.headObject({ Bucket: bucket, Key: key }).promise()
+  } catch (err) {
+    ignoreNotFound(err)
+    throw new CustomErrors.NotFound(`object not found. bucket: ${bucket}, key: ${key}`)
+  }
+}
+
+export const doesS3ObjectExist = async (opts: S3ObjectOpBaseOpts) => {
+  try {
+    await s3HeadObject(opts)
+    return true
+  } catch (err) {
+    Errors.ignore(err, CustomErrors.NotFound)
+    return false
+  }
+}
+
+export const assertS3ObjectExists = s3HeadObject
+
 const reverseString = (str: string) => str.split('').reverse().join('')
 export const sortParameters = (params: CFParameter[]) => _.sortBy(params, p => reverseString(p.ParameterKey))
+
+export const getBucketEncryptionKey = async ({ s3, kms, bucket }: S3EncOpBaseOpts) => {
+  const { ServerSideEncryptionConfiguration } = await s3.getBucketEncryption({ Bucket: bucket }).promise()
+  if (!ServerSideEncryptionConfiguration) return
+
+  const { Rules = [] } = ServerSideEncryptionConfiguration
+  if (!Rules.length) return
+
+  const kmsRule = Rules.find(r => !!r.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
+  if (!kmsRule) return
+
+  const id = kmsRule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID
+  if (id.startsWith('key/')) {
+    return id
+  }
+
+  const { KeyMetadata } = await kms.describeKey({ KeyId: id }).promise()
+  return `key/${KeyMetadata.KeyId}`
+}

@@ -375,8 +375,8 @@ const updateCommand = program
 
 const updateManuallyCommand = program
   .command('update-manually')
-  .option('-p, --stack-parameters <filePath>', 'path to parameters json file')
   .option('-t, --template-url [templateUrl]', 'stack template url. Defaults to reuse currently deployed template')
+  .option('-p, --stack-parameters [filePath]', 'path to parameters json file')
   .description('[ADVANCED] update your MyCloud to a given stack template')
   .allowUnknownOption(false)
   .action(createAction('updateManually'))
@@ -459,10 +459,10 @@ const enableKYCServices = program
   .allowUnknownOption(false)
   .action(createAction('enableKYCServices'))
 
-const updateKYCServices = program
-  .command('update-kyc-services')
-  .allowUnknownOption(false)
-  .action(createAction('updateKYCServices'))
+// const updateKYCServices = program
+//   .command('update-kyc-services')
+//   .allowUnknownOption(false)
+//   .action(createAction('updateKYCServices'))
 
 const disableKYCServices = program
   .command('disable-kyc-services')
@@ -545,6 +545,13 @@ const setSealingMode = program
   .description(`clone buckets (except logs bucket) and tables at the specified point in time`)
   .allowUnknownOption(false)
   .action(createAction('setSealingMode'))
+
+const setAdminEmail = program
+  .command('set-admin-email')
+  .option('--email <email>')
+  .description(`AWS admin email address, for various alerts`)
+  .allowUnknownOption(false)
+  .action(createAction('setAdminEmail'))
 
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')

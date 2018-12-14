@@ -32,7 +32,7 @@ import { create as wrapDynamoDB } from './dynamodb'
 
 import {
   configureKYCServicesStack,
-  updateKYCServicesStack,
+  // updateKYCServicesStack,
   getServicesStackId,
   deleteCorrespondingServicesStack,
 } from './kyc-services'
@@ -585,7 +585,7 @@ export class Conf {
       return null
     }
 
-    return utils.getApiBaseUrl(this.client.cloudformation, this.stackName)
+    return utils.getApiBaseUrl(this.client.cloudformation, this.stackId || this.stackName)
   }
 
   public info = async () => {
@@ -632,8 +632,8 @@ export class Conf {
 
   public getFunctions = async () => {
     this._ensureStackNameKnown()
-    const { client, stackName } = this
-    return await utils.listStackFunctionIds(client.cloudformation, stackName)
+    const { client, stackId, stackName } = this
+    return await utils.listStackFunctionIds(client.cloudformation, stackId || stackName)
   }
 
   public getFunctionShortNames = async () => {
@@ -815,6 +815,7 @@ export class Conf {
       stackParameters = await this._genStackParameters({ stackId })
     }
 
+    await this._confirmAboutToUpdate()
     await this.applyUpdateAsCurrentUser({
       templateUrl,
       parameters: stackParameters,
@@ -853,6 +854,8 @@ export class Conf {
       params.NotificationARNs = notificationTopics
     }
 
+    logger.info('updating stack, be patient')
+
     const waitTillComplete = await utils.updateStack({ cloudformation, params })
     if (wait) await waitTillComplete()
   }
@@ -869,15 +872,15 @@ export class Conf {
     return this.setKYCServices({ rankOne: true, truefaceSpoof: true })
   }
 
-  public updateKYCServices = async () => {
-    this._ensureRemote()
-    this._ensureRegionKnown()
-    await updateKYCServicesStack(this, {
-      mycloudStackName: this.stackName,
-      mycloudRegion: this.region,
-      client: this.client,
-    })
-  }
+  // public updateKYCServices = async () => {
+  //   this._ensureRemote()
+  //   this._ensureRegionKnown()
+  //   await updateKYCServicesStack(this, {
+  //     mycloudStackName: this.stackName,
+  //     mycloudRegion: this.region,
+  //     client: this.client,
+  //   })
+  // }
 
   public disableKYCServices = async ({ servicesStackArn, ...opts }) => {
     if (servicesStackArn) {
@@ -910,6 +913,7 @@ export class Conf {
       rankOne,
       mycloudStackName: this.stackName,
       mycloudRegion: this.region,
+      accountId: utils.parseStackArn(this.stackId).accountId,
       client: this.client,
     })
   }
@@ -1073,8 +1077,24 @@ export class Conf {
       params.SealBatchingPeriodInMinutes = periodInMinutes
     }
 
-    logger.info('updating stack, be patient')
+    await this._confirmAboutToUpdate()
     await this._updateWithParameters(params)
+  }
+
+  public setAdminEmail = async opts => {
+    const { email } = opts
+    if (!email) {
+      throw new CustomErrors.InvalidInput(`expected string "email"'`)
+    }
+
+    await this._confirmAboutToUpdate()
+    await this._updateWithParameters({
+      OrgAdminEmail: email,
+    })
+  }
+
+  private _confirmAboutToUpdate = async () => {
+    await confirmOrAbort(`I'm about to update your MyCloud. Continue?`)
   }
 
   private _genStackParameters = async ({ stackId }: { stackId: string }) => {

@@ -3,7 +3,13 @@ import inquirer from 'inquirer'
 import Listr from 'listr'
 import yn from 'yn'
 import AWS from 'aws-sdk'
-import { Conf, AWSClients, SetKYCServicesOpts } from './types'
+import {
+  Conf,
+  AWSClients,
+  SetKYCServicesOpts,
+  KYCServiceName,
+} from './types'
+
 import * as utils from './utils'
 import { Errors as CustomErrors } from './errors'
 import { logger, colors } from './logger'
@@ -18,6 +24,8 @@ import {
 import {
   SERVICES_STACK_TEMPLATE_URL,
   REPO_NAMES,
+  LICENSE_PATHS,
+  PARAM_TO_KYC_SERVICE_NAME,
 } from './constants'
 
 const AZS_COUNT = 3
@@ -27,6 +35,7 @@ interface UpdateKYCServicesOpts extends SetKYCServicesOpts {
   client: AWSClients
   mycloudStackName: string
   mycloudRegion: string
+  accountId: string
 }
 
 interface ConfigureKYCServicesOpts extends UpdateKYCServicesOpts {
@@ -41,11 +50,13 @@ export const getServicesStackId = async (cloudformation: AWS.CloudFormation, myc
   return utils.getStackId(cloudformation, servicesStackName)
 }
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, mycloudStackName, mycloudRegion }: ConfigureKYCServicesOpts) => {
+export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, accountId, mycloudStackName, mycloudRegion }: ConfigureKYCServicesOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
   const servicesStackId = await getServicesStackId(client.cloudformation, mycloudStackName)
   const exists = !!servicesStackId
   const bucket = await conf.getPrivateConfBucket()
+  const bucketEncryptionKey = await utils.getBucketEncryptionKey({ s3: client.s3, kms: client.kms, bucket })
+
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
   if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean') {
     // user knows what they want
@@ -62,6 +73,15 @@ export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, ran
   ].filter(nonNull).join(', ')
 
   await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
+  const enabledServices = Object.keys(REPO_NAMES).filter(service => service in LICENSE_PATHS) as KYCServiceName[]
+  if (enabledServices.length) {
+    await checkLicenses({
+      s3: client.s3,
+      licenses: enabledServices,
+      bucket,
+    })
+  }
+
   const region = mycloudRegion
   const azsCount = AZS_COUNT
   const availabilityZones = exists
@@ -111,12 +131,22 @@ Continue?`)
       ParameterKey: 'EnableTruefaceSpoof',
       ParameterValue: 'true'
     })
+
+    parameters.push({
+      ParameterKey: 'S3PathToTrueFaceLicense',
+      ParameterValue: `${bucket}/${LICENSE_PATHS.truefaceSpoof}`,
+    })
   }
 
   if (rankOne) {
     parameters.push({
       ParameterKey: 'EnableRankOne',
       ParameterValue: 'true',
+    })
+
+    parameters.push({
+      ParameterKey: 'S3PathToRankOneLicense',
+      ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
     })
   }
 
@@ -125,6 +155,13 @@ Continue?`)
     parameters.push({
       ParameterKey: 'KeyName',
       ParameterValue: key
+    })
+  }
+
+  if (bucketEncryptionKey) {
+    parameters.push({
+      ParameterKey: 'S3KMSKey',
+      ParameterValue: `arn:aws:kms:${mycloudRegion}:${accountId}:${bucketEncryptionKey}`
     })
   }
 
@@ -170,6 +207,36 @@ Continue?`)
   ]
 
   await new Listr(tasks).run()
+}
+
+const checkLicenses = async ({ s3, bucket, licenses }: {
+  s3: AWS.S3
+  bucket: string
+  licenses: KYCServiceName[]
+}) => {
+  if (!licenses.length) return
+
+  const licenseToDest = licenses.map(license => {
+    return `${license}:
+
+  bucket: ${bucket}
+  key: ${LICENSE_PATHS[license]}`
+  })
+
+  await confirmOrAbort(`have you uploaded the following licenses?
+
+${licenseToDest.join('\n\n')}
+`)
+
+  const opts = { s3, bucket }
+  try {
+    await Promise.all(licenses.map(service => utils.assertS3ObjectExists({
+      ...opts,
+      key: LICENSE_PATHS[service],
+    })))
+  } catch (err) {
+    throw new CustomErrors.NotFound(`Missing license file(s): ${err.message}`)
+  }
 }
 
 const getServicesStackInfo = async (client: AWSClients, { stackId }: {
@@ -237,48 +304,88 @@ export const deleteCorrespondingServicesStack = async ({ cloudformation, stackId
   logger.info(`KYC services stack: deleted ${servicesStackId}`)
 }
 
-export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackName, mycloudRegion }: UpdateKYCServicesOpts) => {
-  const { cloudformation } = client
-  const servicesStackName = getStackName(mycloudStackName)
-  const servicesStackId = await getServicesStackId(cloudformation, mycloudStackName)
-  if (!servicesStackId) {
-    throw new CustomErrors.NotFound(`existing kyc-services stack not found`)
-  }
+// export const updateKYCServicesStack = async (conf: Conf, { client, mycloudStackName, mycloudRegion }: UpdateKYCServicesOpts) => {
+//   const { cloudformation } = client
+//   const servicesStackName = getStackName(mycloudStackName)
+//   const servicesStackId = await getServicesStackId(cloudformation, mycloudStackName)
+//   if (!servicesStackId) {
+//     throw new CustomErrors.NotFound(`existing kyc-services stack not found`)
+//   }
 
-  let parameters = await utils.getStackParameters({ cloudformation, stackId: servicesStackId })
-  parameters = parameters
-    .filter(p => !p.ParameterKey.endsWith('Image')) // template will have new Image defaults
-    .map(p => ({
-      ParameterKey: p.ParameterKey,
-      UsePreviousValue: true,
-    }))
+//   const enabledServices:KYCServiceName[] = []
 
-  await confirmOrAbort(`About to update KYC services stack. Are you freaking ready?`)
-  const tasks = [
-    {
-      title: 'validate template',
-      task: async (ctx) => {
-        const params: AWS.CloudFormation.UpdateStackInput = {
-          StackName: servicesStackId || servicesStackName,
-          TemplateURL: SERVICES_STACK_TEMPLATE_URL,
-          Parameters: parameters,
-          Capabilities: ['CAPABILITY_NAMED_IAM']
-        }
+//   let parameters = await utils.getStackParameters({ cloudformation, stackId: servicesStackId })
+//   parameters.forEach(p => {
+//     const { ParameterKey, ParameterValue } = p
+//     if (ParameterKey in PARAM_TO_KYC_SERVICE_NAME && ParameterValue === 'true') {
+//       enabledServices.push(PARAM_TO_KYC_SERVICE_NAME[ParameterKey])
+//     }
+//   })
 
-        ctx.wait = await utils.updateStack({ cloudformation, params })
-      },
-    },
-    {
-      title: `update KYC services stack`,
-      task: ctx => ctx.wait(),
-    },
-    {
-      title: 'poke MyCloud to pick up update',
-      task: async () => {
-        await conf.reboot()
-      }
-    },
-  ]
+//   const bucket = await conf.getPrivateConfBucket()
+//   if (enabledServices.length) {
+//     await checkLicenses({
+//       s3: client.s3,
+//       licenses: enabledServices,
+//       bucket,
+//     })
+//   }
 
-  await new Listr(tasks).run()
-}
+//   parameters = parameters
+//     .filter(p => !p.ParameterKey.endsWith('Image')) // template will have new Image defaults
+//     .map(p => ({
+//       ParameterKey: p.ParameterKey,
+//       UsePreviousValue: true,
+//     }))
+
+//   if (enabledServices.includes('truefaceSpoof')) {
+//     let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToTrueFaceLicense')
+//     if (idx === -1) idx = parameters.length
+
+//     parameters[idx] = {
+//       ParameterKey: 'S3PathToTrueFaceLicense',
+//       ParameterValue: `${bucket}/${LICENSE_PATHS.truefaceSpoof}`,
+//     }
+//   }
+
+//   if (enabledServices.includes('rankOne')) {
+//     let idx = parameters.findIndex(p => p.ParameterKey === 'S3PathToRankOneLicense')
+//     if (idx === -1) idx = parameters.length
+
+//     parameters.push({
+//       ParameterKey: 'S3PathToRankOneLicense',
+//       ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
+//     })
+//   }
+
+//   console.log(JSON.stringify(parameters, null, 2))
+
+//   await confirmOrAbort(`About to update KYC services stack. Are you freaking ready?`)
+//   const tasks = [
+//     {
+//       title: 'validate template',
+//       task: async (ctx) => {
+//         const params: AWS.CloudFormation.UpdateStackInput = {
+//           StackName: servicesStackId || servicesStackName,
+//           TemplateURL: SERVICES_STACK_TEMPLATE_URL,
+//           Parameters: parameters,
+//           Capabilities: ['CAPABILITY_NAMED_IAM']
+//         }
+
+//         ctx.wait = await utils.updateStack({ cloudformation, params })
+//       },
+//     },
+//     {
+//       title: `update KYC services stack`,
+//       task: ctx => ctx.wait(),
+//     },
+//     {
+//       title: 'poke MyCloud to pick up update',
+//       task: async () => {
+//         await conf.reboot()
+//       }
+//     },
+//   ]
+
+//   await new Listr(tasks).run()
+// }

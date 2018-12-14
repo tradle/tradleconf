@@ -63,9 +63,13 @@ CLI for managing your Tradle MyCloud instance
 
 #### AWS Account
 
+*Note: optional if you only plan on running MyCloud in development mode on your machine.*
+
 If you don't have one yet, get one. There's a pretty generous free tier.
 
 #### Launch a MyCloud instance
+
+*Note: optional if you only plan on running MyCloud in development mode on your machine.*
 
 Click [here](https://app.tradle.io/#/applyForProduct?provider=9658992cbb1499c1fd9f7d92e1dee43eb65f403b3a32f2d888d2f241c4bdf7b6&host=https%3A%2F%2Ft22ju1ga5c.execute-api.us-east-1.amazonaws.com%2Fdev&product=tradle.cloud.Deployment). You'll be prompted to fill out a MyCloud configuration form. When you do, you'll be given a launch link. Follow it to launch your MyCloud in AWS.
 
@@ -81,11 +85,11 @@ While you wait, read on.
 
 #### AWSLogs (optional)
 
-If you want to inspect logs from your lambda functions in realtime, you'll need [awslogs](https://github.com/jorgebastida/awslogs)
+If you want to inspect logs from your lambda functions in realtime, you'll need to install [awslogs](https://github.com/jorgebastida/awslogs), as the command `tradleconf log` uses awslogs underneath.
 
 ### Install and load current configuration
 
-Note: the below instructions are for managing a single MyCloud instance. If you are managing multiple instances, do so from separate directories.
+Note: the below instructions are for managing a single MyCloud instance. 
 
 1. Install `tradleconf` globally: `npm install -g @tradle/conf` (you may need `sudo` depending on how you installed Node.js)
 1. Create a new directory in which you will keep your configuration. In it, initialize your configuration with `tradleconf init`. This will create a file called `.env`
@@ -98,7 +102,7 @@ Note: the below instructions are for managing a single MyCloud instance. If you 
 
 ### Updating tradleconf
 
-Try to be use the latest version of `tradleconf` at all times. `tradleconf` checks for updates as you use it, but at any time, you can update it yourself in the same way you installed it (see the [Install](#install-and-load-current-configuration) section)
+Try to use the latest version of `tradleconf` at all times. `tradleconf` checks for updates as you use it, but at any time, you can update it yourself in the same way you installed it (see the [Install](#install-and-load-current-configuration) section)
 
 ### Customize
 
@@ -128,15 +132,15 @@ You will also need to add a block in the `plugins` block in `conf/bot.json` to e
 
 Several of the services Tradle pre-integrates with need to be enabled explicitly before use, and are launched in a separate AWS cloudformation stack.
 
-To enable them, run:
+To enable/update them, run:
 
 `tradleconf enable-kyc-services`
 
 After the command completes (~20 minutes), you'll be able to configure the respective plugins
 
-To update your kyc-services stack (Tradle pushes updates to constituent vendor SDK images):
+To specify which kyc services to enable, run:
 
-`tradleconf update-kyc-services`
+`tradleconf set-kyc-services --name1 --name2` (run `tradleconf set-kyc-services --help` to see what's available)
 
 To delete your kyc-services stack (it's stateless, so you can always create a new one):
 
@@ -743,3 +747,16 @@ Example config:
   }
 }
 ```
+
+# Troubleshooting
+
+## tradleconf update
+
+**Symptom**: InvalidInput: expected "adminEmail"  
+**Cause**: in MyCloud <= 2.3.0, you need to confirm the AWS SNS Subscription for Alerts. Look for an email with subject "AWS Notification - Subscription Confirmation" and confirm it. If the confirmation expired, go to the AWS SNS Console for your AWS region (e.g. https://console.aws.amazon.com/sns/v2/home?region=us-east-1#/topics), find the topic that looks like `[your-stack-name]-alerts-alarm` (e.g. `tdl-tradle-ltd-dev-alerts-alarm`), and create and confirm an Email subscription to that topic.
+
+## tradleconf enable-kyc-services
+
+This command creates an additional CloudFormation stack. Should it fail when you run it, find the failed stack in the AWS CloudFormation console, and ask the Tradle team to help you interpret the error.
+
+In general, this stack is stateless (doesn't store any data), so it's safe to delete and re-create.
