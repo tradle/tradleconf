@@ -1138,7 +1138,14 @@ const reverseString = (str: string) => str.split('').reverse().join('')
 export const sortParameters = (params: CFParameter[]) => _.sortBy(params, p => reverseString(p.ParameterKey))
 
 export const getBucketEncryptionKey = async ({ s3, kms, bucket }: S3EncOpBaseOpts) => {
-  const { ServerSideEncryptionConfiguration } = await s3.getBucketEncryption({ Bucket: bucket }).promise()
+  let ServerSideEncryptionConfiguration
+  try {
+    ({ ServerSideEncryptionConfiguration } = await s3.getBucketEncryption({ Bucket: bucket }).promise())
+  } catch (err) {
+    Errors.ignore(err, { code: 'ServerSideEncryptionConfigurationNotFoundError' })
+    return
+  }
+
   if (!ServerSideEncryptionConfiguration) return
 
   const { Rules = [] } = ServerSideEncryptionConfiguration
