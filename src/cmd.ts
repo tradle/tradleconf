@@ -553,6 +553,14 @@ const setAdminEmail = program
   .allowUnknownOption(false)
   .action(createAction('setAdminEmail'))
 
+const setDBAutoscaling = program
+  .command('set-db-autoscaling')
+  .option('--on-demand', 'cheaper for small to medium load')
+  .option('--provisioned', 'cheaper for high load')
+  .description(`set DynamoDB autoscaling style`)
+  .allowUnknownOption(false)
+  .action(createAction('setDBAutoscaling'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')

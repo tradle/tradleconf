@@ -75,6 +75,20 @@ interface S3ObjectOpBaseOpts extends S3OpBaseOpts {
   key: string
 }
 
+interface StackInfoParams {
+  cloudformation: AWS.CloudFormation
+  stackId: string
+}
+
+interface TableParams {
+  dynamodb: AWS.DynamoDB
+  tableName: string
+}
+
+interface SetTableBillingModeParams extends TableParams {
+  billingMode: AWS.DynamoDB.BillingMode
+}
+
 export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-([a-zA-Z0-9-]*?)-ltd-([a-z]+)$/
 export const MY_CLOUD_STACK_NAME_STRICTER_REGEX = /^tdl-([a-z0-9]*?)-ltd-([a-z]+)$/
 
@@ -148,10 +162,7 @@ export const getStackTemplates = async (cloudformation: AWS.CloudFormation, stac
   return [main].concat(nestedTemplates)
 }
 
-export const isV1Stack = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}):Promise<boolean> => {
+export const isV1Stack = async ({ cloudformation, stackId }: StackInfoParams):Promise<boolean> => {
   const childStacks = await listSubstacks(cloudformation, stackId)
   return childStacks.length === 0
 }
@@ -160,10 +171,7 @@ export const isV2Template = (template: CFTemplate) => {
   return _.some(template.Resources, (value: CFResource) => value.Type === 'AWS::CloudFormation::Stack')
 }
 
-export const getStackInfo = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}):Promise<AWS.CloudFormation.Stack> => {
+export const getStackInfo = async ({ cloudformation, stackId }: StackInfoParams):Promise<AWS.CloudFormation.Stack> => {
   const {
     Stacks,
   } = await cloudformation.describeStacks({ StackName: stackId }).promise()
@@ -171,18 +179,17 @@ export const getStackInfo = async ({ cloudformation, stackId }: {
   return Stacks[0]
 }
 
-export const getStackOutputs = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}):Promise<AWS.CloudFormation.Output[]> => {
+export const getStackOutputs = async ({ cloudformation, stackId }: StackInfoParams):Promise<AWS.CloudFormation.Output[]> => {
   const { Outputs } = await getStackInfo({ cloudformation, stackId })
   return Outputs
 }
 
-export const getStackParameters = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}):Promise<AWS.CloudFormation.Parameter[]> => {
+export const getMyCloudStackTables = async ({ cloudformation, stackId }: StackInfoParams) => {
+  const outputs = await getStackOutputs({ cloudformation, stackId })
+  return outputs.filter(o => o.OutputKey.endsWith('Table')).map(o => o.OutputValue)
+}
+
+export const getStackParameters = async ({ cloudformation, stackId }: StackInfoParams):Promise<AWS.CloudFormation.Parameter[]> => {
   const { Parameters } = await getStackInfo({ cloudformation, stackId })
   return Parameters
 }
@@ -203,10 +210,7 @@ export const mergeParameters = (base: CFParameter[], more: CFParameter[]) => {
   }, [])
 }
 
-export const listOutputResources = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}):Promise<CloudResource[]> => {
+export const listOutputResources = async ({ cloudformation, stackId }: StackInfoParams):Promise<CloudResource[]> => {
   const outputs = await getStackOutputs({ cloudformation, stackId })
   return outputs.map(({ OutputKey, OutputValue }) => {
     const match = OutputKey.match(/(Bucket|Table|Key|LogGroup|RestApi)$/)
@@ -291,7 +295,7 @@ export const listStackFunctionIds = (
 export const listStackTables = (
   cloudformation: AWS.CloudFormation,
   stackName: string
-) => listStackResourcesByType('AWS::Dynamodb::Table', cloudformation, stackName)
+) => listStackResourcesByType('AWS::DynamoDB::Table', cloudformation, stackName)
 
 export const listStackTableIds = (
   cloudformation: AWS.CloudFormation,
@@ -399,10 +403,7 @@ export const deleteRestApi = async ({ apigateway, apiId }: {
   }
 }
 
-export const getNotDeletedStack = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}) => {
+export const getNotDeletedStack = async ({ cloudformation, stackId }: StackInfoParams) => {
   const { Stacks } = await cloudformation.describeStacks({ StackName: stackId }).promise()
   const notDeleted = Stacks.filter(s => s.StackStatus !== 'DELETE_COMPLETE')
   if (!notDeleted.length) {
@@ -412,18 +413,12 @@ export const getNotDeletedStack = async ({ cloudformation, stackId }: {
   return notDeleted[0]
 }
 
-export const assertStackExistsAndIsNotDeleted = async (opts: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}) => {
+export const assertStackExistsAndIsNotDeleted = async (opts: StackInfoParams) => {
   // ignore return value
   await getNotDeletedStack(opts)
 }
 
-export const disableStackTerminationProtection = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}) => {
+export const disableStackTerminationProtection = async ({ cloudformation, stackId }: StackInfoParams) => {
   await assertStackExistsAndIsNotDeleted({ cloudformation, stackId })
   return await cloudformation.updateTerminationProtection({
     StackName: stackId,
@@ -506,18 +501,12 @@ export const getStackId = async (cloudformation: AWS.CloudFormation, stackName: 
   return stacks[0] && stacks[0].id
 }
 
-export const getStackTemplateParameters = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}): Promise<CFParameterDefMap> => {
+export const getStackTemplateParameters = async ({ cloudformation, stackId }: StackInfoParams): Promise<CFParameterDefMap> => {
   const template = await getStackTemplate({ cloudformation, stackId })
   return template.Parameters || {}
 }
 
-export const getReuseParameters = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}): Promise<CFParameter[]> => {
+export const getReuseParameters = async ({ cloudformation, stackId }: StackInfoParams): Promise<CFParameter[]> => {
   const parameters = await getStackTemplateParameters({ cloudformation, stackId })
   return Object.keys(parameters).map(p => ({
     ParameterKey: p,
@@ -525,10 +514,7 @@ export const getReuseParameters = async ({ cloudformation, stackId }: {
   }))
 }
 
-export const getStackTemplate = async ({ cloudformation, stackId }: {
-  cloudformation: AWS.CloudFormation
-  stackId: string
-}):Promise<CFTemplate> => {
+export const getStackTemplate = async ({ cloudformation, stackId }: StackInfoParams):Promise<CFTemplate> => {
   const { TemplateBody } = await cloudformation.getTemplate({
     StackName: stackId
   }).promise()
@@ -789,7 +775,7 @@ export const updateEnvironments = async (lambda: AWS.Lambda, { functions, transf
 }
 
 export const xor = (...args) => args.reduce((acc, next) => {
-
+  return (acc || next) && !(acc && next)
 }, false)
 
 const isLocal = ({ local, remote, project }: ConfOpts) => {
@@ -1161,4 +1147,41 @@ export const getBucketEncryptionKey = async ({ s3, kms, bucket }: S3EncOpBaseOpt
 
   const { KeyMetadata } = await kms.describeKey({ KeyId: id }).promise()
   return `key/${KeyMetadata.KeyId}`
+}
+
+export const describeTable = async ({ dynamodb, tableName }: TableParams) => {
+  const { Table } = await dynamodb.describeTable({ TableName: tableName }).promise()
+  return Table
+}
+
+export const setTableBillingMode = async ({ dynamodb, tableName, billingMode }: SetTableBillingModeParams) => {
+  const info = await describeTable({ dynamodb, tableName })
+  const currentBillingMode = info.BillingModeSummary ? info.BillingModeSummary.BillingMode : 'PROVISIONED'
+  if (currentBillingMode === billingMode) return
+
+  const ProvisionedThroughput = {
+    ReadCapacityUnits: 10,
+    WriteCapacityUnits: 10,
+  }
+
+  const params:AWS.DynamoDB.UpdateTableInput = {
+    TableName: tableName,
+    BillingMode: billingMode,
+  }
+
+  if (billingMode === 'PROVISIONED') {
+    const { GlobalSecondaryIndexes=[] } = info
+    if (GlobalSecondaryIndexes.length) {
+      params.GlobalSecondaryIndexUpdates = GlobalSecondaryIndexes.map(i => ({
+        Update: {
+          IndexName: i.IndexName,
+          ProvisionedThroughput,
+        }
+      } as AWS.DynamoDB.GlobalSecondaryIndexUpdate))
+    }
+
+    params.ProvisionedThroughput = ProvisionedThroughput
+  }
+
+  await dynamodb.updateTable(params).promise()
 }

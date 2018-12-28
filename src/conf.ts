@@ -1093,6 +1093,35 @@ export class Conf {
     })
   }
 
+  public setDBAutoscaling = async opts => {
+    this._ensureRemote()
+    this._ensureStackNameKnown()
+
+    if (!utils.xor(opts.onDemand, opts.provisioned)) {
+      throw new CustomErrors.InvalidInput(`expected --on-demand or --provisioned`)
+    }
+
+    const { stackId } = this
+    const { cloudformation, dynamodb } = this.client
+
+    const stackInfoParams = { cloudformation, stackId }
+    const billingMode = opts.provisioned ? 'PROVISIONED' : 'PAY_PER_REQUEST'
+    const tables = await utils.getMyCloudStackTables(stackInfoParams)
+    await Promise.all(tables.map(async tableName => {
+      await utils.setTableBillingMode({ dynamodb, tableName, billingMode })
+    }))
+
+    const currentParams = await utils.getStackParameters(stackInfoParams)
+    const currentVal = currentParams.find(p => p.ParameterKey === 'ProvisionDynamoDBScaling').ParameterValue
+    const newVal = String(!!opts.provisioned)
+    if (newVal === currentVal) return
+
+    await this._confirmAboutToUpdate()
+    await this._updateWithParameters({
+      ProvisionDynamoDBScaling: newVal,
+    })
+  }
+
   private _confirmAboutToUpdate = async () => {
     await confirmOrAbort(`I'm about to update your MyCloud. Continue?`)
   }

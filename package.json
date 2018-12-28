@@ -43,7 +43,7 @@
     "@tradle/validate-resource": "^4.3.0",
     "amazon-s3-uri": "0.0.3",
     "ansi-colors": "^3.1.0",
-    "aws-sdk": "^2.181.0",
+    "aws-sdk": "^2.382.0",
     "co": "^4.6.0",
     "commander": "^2.13.0",
     "debug": "^3.1.0",

@@ -627,7 +627,7 @@ Example config:
         "topic": "msg:i",
         "endpoint": "https://example.com/tradle/webhook1"
       },
-      // ... get notified about inbound messages of a particular time
+      // ... get notified about inbound messages of a particular type
       {
         "topic": "msg:i:tradle.PhotoID",
         "endpoint": "https://example.com/tradle/webhook2"
