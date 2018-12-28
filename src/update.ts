@@ -13,6 +13,7 @@ import {
   ApplyUpdateOpts,
   CFParameterDef,
   ListrTask,
+  CFTemplate,
 } from './types'
 
 import { Errors as CustomErrors } from './errors'
@@ -442,7 +443,11 @@ export const getDefaultUpdateParameters = async ({ cloudformation, stackId, temp
   stackId: string
   templateUrl: string
 }) => {
-  const reused = await utils.getReuseParameters({ cloudformation, stackId })
+  const template = await utils.get(templateUrl) as CFTemplate
+  const allParamNames = Object.keys(template.Parameters)
+  let reused = await utils.getReuseParameters({ cloudformation, stackId })
+  reused = reused.filter(({ ParameterKey }) => allParamNames.includes(ParameterKey))
+
   const { bucket } = utils.parseS3Url(templateUrl)
   const source = reused.find(p => p.ParameterKey === 'SourceDeploymentBucket')
   if (source) {
