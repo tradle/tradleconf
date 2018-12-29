@@ -19,7 +19,7 @@ CLI for managing your Tradle MyCloud instance
   - [Custom Bot Configuration (and plugins)](#custom-bot-configuration-and-plugins)
   - [Custom Terms and Conditions](#custom-terms-and-conditions)
   - [Custom KYC Services](#custom-kyc-services)
-  - [Change Database Autoscaling](#database-autoscaling)
+  - [Change Database Autoscaling](#change-database-autoscaling)
 - [Deploy](#deploy)
   - [To your local development environment](#to-your-local-development-environment)
   - [To the cloud](#to-the-cloud)
