@@ -19,6 +19,7 @@ CLI for managing your Tradle MyCloud instance
   - [Custom Bot Configuration (and plugins)](#custom-bot-configuration-and-plugins)
   - [Custom Terms and Conditions](#custom-terms-and-conditions)
   - [Custom KYC Services](#custom-kyc-services)
+  - [Change Database Autoscaling](#database-autoscaling)
 - [Deploy](#deploy)
   - [To your local development environment](#to-your-local-development-environment)
   - [To the cloud](#to-the-cloud)
@@ -145,6 +146,18 @@ To specify which kyc services to enable, run:
 To delete your kyc-services stack (it's stateless, so you can always create a new one):
 
 `tradleconf disable-kyc-services`
+
+#### Change Database Autoscaling
+
+Command to let you change to the new on-demand autoscaling:
+
+`tradleconf set-db-autoscaling --on-demand`
+
+or to revert:
+
+`tradleconf set-db-autoscaling --provision`
+
+be aware, it's very strictly throttled (when running --on-demand):
 
 ### Deploy
 
