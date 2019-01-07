@@ -189,9 +189,22 @@ export const getMyCloudStackTables = async ({ cloudformation, stackId }: StackIn
   return outputs.filter(o => o.OutputKey.endsWith('Table')).map(o => o.OutputValue)
 }
 
-export const getStackParameters = async ({ cloudformation, stackId }: StackInfoParams):Promise<AWS.CloudFormation.Parameter[]> => {
-  const { Parameters } = await getStackInfo({ cloudformation, stackId })
+export const getStackParameters = async (opts: StackInfoParams):Promise<AWS.CloudFormation.Parameter[]> => {
+  const { Parameters } = await getStackInfo(opts)
   return Parameters
+
+  // const [info, templateParams] = await Promise.all([
+  //   getStackInfo(opts),
+  //   getStackTemplateParameters(opts),
+  // ])
+
+  // return Object.keys(templateParams).map(ParameterKey => {
+  //   const defined = info.Parameters.find(p => p.ParameterKey === ParameterKey)
+  //   return {
+  //     ParameterKey,
+  //     ParameterValue: defined ? defined.ParameterValue : templateParams[ParameterKey].Default
+  //   }
+  // })
 }
 
 export const mergeParameters = (base: CFParameter[], more: CFParameter[]) => {

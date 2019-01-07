@@ -97,6 +97,7 @@ export interface Choice {
 export interface SetKYCServicesOpts {
   truefaceSpoof?: boolean
   rankOne?: boolean
+  paramInstanceType?: string
 }
 
 export type PointInTime = string

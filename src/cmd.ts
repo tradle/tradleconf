@@ -451,11 +451,13 @@ const setKYCServices = program
   .command('set-kyc-services')
   .option('--trueface-spoof', 'enable / disable TrueFace Spoof')
   .option('--rank-one', 'enable / disable RankOne')
+  .option('--param-instance-type [instanceType]', 'EC2 instance type (default: m5.xlarge')
   .allowUnknownOption(false)
   .action(createAction('setKYCServices'))
 
 const enableKYCServices = program
   .command('enable-kyc-services')
+  .option('--param-instance-type [instanceType]', 'EC2 instance type (default: m5.xlarge')
   .allowUnknownOption(false)
   .action(createAction('enableKYCServices'))
 

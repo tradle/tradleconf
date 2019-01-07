@@ -868,8 +868,12 @@ export class Conf {
   //   })
   // }
 
-  public enableKYCServices = async () => {
-    return this.setKYCServices({ rankOne: true, truefaceSpoof: true })
+  public enableKYCServices = async ({ paramInstanceType }: Partial<SetKYCServicesOpts>) => {
+    return this.setKYCServices({
+      rankOne: true,
+      truefaceSpoof: true,
+      paramInstanceType,
+    })
   }
 
   // public updateKYCServices = async () => {
@@ -905,9 +909,15 @@ export class Conf {
     })
   }
 
-  public setKYCServices = async ({ truefaceSpoof, rankOne }: SetKYCServicesOpts) => {
+  public setKYCServices = async ({ truefaceSpoof, rankOne, paramInstanceType }: SetKYCServicesOpts) => {
     this._ensureRemote()
     this._ensureRegionKnown()
+
+    const stackParameters:any = {}
+    if (paramInstanceType) {
+      stackParameters.InstanceType = paramInstanceType
+    }
+
     await configureKYCServicesStack(this, {
       truefaceSpoof,
       rankOne,
@@ -915,6 +925,7 @@ export class Conf {
       mycloudRegion: this.region,
       accountId: utils.parseStackArn(this.stackId).accountId,
       client: this.client,
+      stackParameters,
     })
   }
 
@@ -1112,7 +1123,13 @@ export class Conf {
     }))
 
     const currentParams = await utils.getStackParameters(stackInfoParams)
-    const currentVal = currentParams.find(p => p.ParameterKey === 'ProvisionDynamoDBScaling').ParameterValue
+    const currentParam = currentParams.find(p => p.ParameterKey === 'ProvisionDynamoDBScaling')
+    if (!currentParam) {
+      logger.error(`your stack does not support on-demand autoscaling, perhaps you need to update first?`)
+      return
+    }
+
+    const currentVal = currentParam.ParameterValue
     const newVal = String(!!opts.provisioned)
     if (newVal === currentVal) return
 
