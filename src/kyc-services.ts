@@ -31,11 +31,14 @@ import {
 const AZS_COUNT = 3
 const EIP_LIMIT = 5
 
-interface UpdateKYCServicesOpts extends SetKYCServicesOpts {
+interface UpdateKYCServicesOpts {
   client: AWSClients
   mycloudStackName: string
   mycloudRegion: string
   accountId: string
+  truefaceSpoof?: boolean
+  rankOne?: boolean
+  stackParameters?: any
 }
 
 interface ConfigureKYCServicesOpts extends UpdateKYCServicesOpts {
@@ -50,7 +53,15 @@ export const getServicesStackId = async (cloudformation: AWS.CloudFormation, myc
   return utils.getStackId(cloudformation, servicesStackName)
 }
 
-export const configureKYCServicesStack = async (conf: Conf, { truefaceSpoof, rankOne, client, accountId, mycloudStackName, mycloudRegion }: ConfigureKYCServicesOpts) => {
+export const configureKYCServicesStack = async (conf: Conf, {
+  truefaceSpoof,
+  rankOne,
+  client,
+  accountId,
+  mycloudStackName,
+  mycloudRegion,
+  stackParameters={},
+}: ConfigureKYCServicesOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
   const servicesStackId = await getServicesStackId(client.cloudformation, mycloudStackName)
   const exists = !!servicesStackId
@@ -163,6 +174,11 @@ Continue?`)
       ParameterKey: 'S3KMSKey',
       ParameterValue: `arn:aws:kms:${mycloudRegion}:${accountId}:${bucketEncryptionKey}`
     })
+  }
+
+  for (let ParameterKey in stackParameters) {
+    let ParameterValue = String(stackParameters[ParameterKey])
+    parameters.push({ ParameterKey, ParameterValue })
   }
 
   await confirmOrAbort(`are you freaking ready?`)
