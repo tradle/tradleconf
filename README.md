@@ -9,7 +9,7 @@ CLI for managing your Tradle MyCloud instance
 - [Prerequisites](#prerequisites)
   - [AWS Account](#aws-account)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli--credentials)
+  - [AWS cli & credentials](#aws-cli-&-credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
@@ -19,7 +19,6 @@ CLI for managing your Tradle MyCloud instance
   - [Custom Bot Configuration (and plugins)](#custom-bot-configuration-and-plugins)
   - [Custom Terms and Conditions](#custom-terms-and-conditions)
   - [Custom KYC Services](#custom-kyc-services)
-  - [Change Database Autoscaling](#change-database-autoscaling)
 - [Deploy](#deploy)
   - [To your local development environment](#to-your-local-development-environment)
   - [To the cloud](#to-the-cloud)
@@ -32,7 +31,9 @@ CLI for managing your Tradle MyCloud instance
   - [Get web/mobile app links, deployment info, blockchain address](#get-webmobile-app-links-deployment-info-blockchain-address)
   - [Load remote models, styles and configuration](#load-remote-models-styles-and-configuration)
   - [Push bot/plugins configuration](#push-botplugins-configuration)
-  - [Disable Tradle](#disable-tradle)
+  - [Set admin email for alerts](#set-admin-email-for-alerts)
+  - [Change database autoscaling](#change-database-autoscaling)
+  - [Disable MyCloud](#disable-mycloud)
 - [Blockchain](#blockchain)
   - [Balance](#balance)
   - [Sealing Mode](#sealing-mode)
@@ -54,9 +55,12 @@ CLI for managing your Tradle MyCloud instance
   - [Webhooks](#webhooks)
   - [Deployment](#deployment)
   - [Conditional auto-approve](#conditional-auto-approve)
-- [Data Import / Remediation](#data-import--remediation)
-- [Required Forms](#required-forms)
-- [Verify Phone Number](#verify-phone-number)
+  - [Data Import / Remediation](#data-import--remediation)
+  - [Required Forms](#required-forms)
+  - [Verify Phone Number](#verify-phone-number)
+- [Troubleshooting](#troubleshooting)
+  - [tradleconf update](#tradleconf-update)
+  - [tradleconf enable-kyc-services](#tradleconf-enable-kyc-services)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -146,18 +150,6 @@ To specify which kyc services to enable, run:
 To delete your kyc-services stack (it's stateless, so you can always create a new one):
 
 `tradleconf disable-kyc-services`
-
-#### Change Database Autoscaling
-
-Command to let you change to the new on-demand autoscaling:
-
-`tradleconf set-db-autoscaling --on-demand`
-
-or to revert:
-
-`tradleconf set-db-autoscaling --provision`
-
-be aware, it's very strictly throttled (when running --on-demand):
 
 ### Deploy
 
@@ -278,7 +270,23 @@ sample response:
 
 `tradleconf deploy --remote --bot`
 
-#### Disable Tradle
+#### Set admin email for alerts
+
+`tradleconf set-admin-email --email <email>`
+
+#### Change database autoscaling
+
+Command to let you change to the new on-demand autoscaling:
+
+`tradleconf set-db-autoscaling --on-demand`
+
+*Note: changing to on-demand autoscaling is a strictly throttled DB configuration operation*
+
+to revert:
+
+`tradleconf set-db-autoscaling --provision`
+
+#### Disable MyCloud
 
 If for some reason or other, you need to disable your deployment temporarily, you can run:
 
@@ -294,7 +302,9 @@ To re-enable your deployment, you run:
 
 #### Balance
 
-To check your address and balance, you can use the `balance` command, e.g. `tradleconf balance --remote`
+To check your address and balance, you can use the `balance` command, e.g.:
+
+`tradleconf balance --remote`
 
 To top up, send funds to that address. Make sure you're sending funds on the right blockchain network!
 
@@ -716,12 +726,11 @@ Purpose: allow to auto approve customer application if all the listed checks pas
 }
 ```
 
-
-### Data Import / Remediation
+#### Data Import / Remediation
 
 If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the data bundle and claim stub, see [./docs/data-import.md]('./docs/data-import.md')
 
-### Required Forms
+#### Required Forms
 
 Purpose: customize a product's required forms
 
@@ -739,7 +748,7 @@ Example config:
 }
 ```
 
-### Verify Phone Number
+#### Verify Phone Number
 
 Purpose: verify a user controls a phone number
 
@@ -761,14 +770,14 @@ Example config:
 }
 ```
 
-# Troubleshooting
+### Troubleshooting
 
-## tradleconf update
+#### tradleconf update
 
 **Symptom**: InvalidInput: expected "adminEmail"  
 **Cause**: in MyCloud <= 2.3.0, you need to confirm the AWS SNS Subscription for Alerts. Look for an email with subject "AWS Notification - Subscription Confirmation" and confirm it. If the confirmation expired, go to the AWS SNS Console for your AWS region (e.g. https://console.aws.amazon.com/sns/v2/home?region=us-east-1#/topics), find the topic that looks like `[your-stack-name]-alerts-alarm` (e.g. `tdl-tradle-ltd-dev-alerts-alarm`), and create and confirm an Email subscription to that topic.
 
-## tradleconf enable-kyc-services
+#### tradleconf enable-kyc-services
 
 This command creates an additional CloudFormation stack. Should it fail when you run it, find the failed stack in the AWS CloudFormation console, and ask the Tradle team to help you interpret the error.
 
