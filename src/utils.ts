@@ -75,6 +75,20 @@ interface S3ObjectOpBaseOpts extends S3OpBaseOpts {
   key: string
 }
 
+interface S3SetBucketExpirationOpts extends S3OpBaseOpts {
+  days: number
+}
+
+interface S3SetBucketLifeCycleRuleOpts extends S3OpBaseOpts {
+  filter: (rule: AWS.S3.LifecycleRule) => boolean
+  create: () => AWS.S3.LifecycleRule
+  update: (rule: AWS.S3.LifecycleRule) => void
+}
+
+interface S3SetBucketTransitionOpts extends S3OpBaseOpts {
+  days: number
+}
+
 interface StackInfoParams {
   cloudformation: AWS.CloudFormation
   stackId: string
@@ -334,31 +348,12 @@ export const destroyBucket = async (s3: AWS.S3, Bucket: string) => {
   }
 }
 
-export const markBucketForDeletion = async (s3: AWS.S3, Bucket: string) => {
-  const params: AWS.S3.PutBucketLifecycleConfigurationRequest = {
-    Bucket,
-    LifecycleConfiguration: {
-      Rules: [
-        {
-          Status: 'Enabled',
-          ID: 'expires-in-1-day',
-          Prefix: '',
-          Expiration: {
-            Days: 1,
-          },
-          NoncurrentVersionExpiration: {
-            NoncurrentDays: 1
-          }
-        }
-      ]
-    }
-  }
-
+export const markBucketForDeletion = async (s3: AWS.S3, bucket: string) => {
   try {
-    await s3.putBucketLifecycleConfiguration(params).promise()
+    await setBucketExpirationDays({ s3, bucket, days: 1 })
   } catch (err) {
     ignoreNotFound(err)
-    throw new CustomErrors.NotFound(`bucket: ${Bucket}`)
+    throw new CustomErrors.NotFound(`bucket: ${bucket}`)
   }
 }
 
@@ -1162,6 +1157,66 @@ export const getBucketEncryptionKey = async ({ s3, kms, bucket }: S3EncOpBaseOpt
   return `key/${KeyMetadata.KeyId}`
 }
 
+export const setBucketExpirationDays = async ({ s3, bucket, days }: S3SetBucketExpirationOpts) => {
+  return await setBucketLifeCycleRule({
+    s3,
+    bucket,
+    filter: r => r.Prefix === '' && !!r.Expiration,
+    update: r => {
+      r.Expiration.Days = days
+      r.NoncurrentVersionExpiration.NoncurrentDays = days
+    },
+    create: () => ({
+      ID: 'bucket-level-expiration',
+      Status: 'Enabled',
+      Expiration: {
+        Days: days
+      },
+      NoncurrentVersionExpiration: {
+        NoncurrentDays: days
+      }
+    })
+  })
+}
+
+export const setBucketLifeCycleRule = async ({ s3, bucket, filter, create }: S3SetBucketLifeCycleRuleOpts) => {
+  const { Rules } = await s3.getBucketLifecycleConfiguration({ Bucket: bucket }).promise()
+
+  let rule = Rules.find(filter)
+  if (!rule) {
+    rule = {} as AWS.S3.LifecycleRule
+    Rules.push(rule)
+  }
+
+  _.merge(rule, create())
+  await s3.putBucketLifecycleConfiguration({
+    Bucket: bucket,
+    LifecycleConfiguration: { Rules }
+  }).promise()
+}
+
+export const setBucketTransitionToGlacier = async ({ s3, bucket, days }: S3SetBucketTransitionOpts) => {
+  return await setBucketLifeCycleRule({
+    s3,
+    bucket,
+    filter: r => r.Prefix === '' &&
+      r.Transitions &&
+      r.Transitions.some(t => t.StorageClass === 'GLACIER'),
+    update: r => {
+      r.Transitions.find(r => r.StorageClass === 'GLACIER').Days = days
+    },
+    create: () => ({
+      Status: 'Enabled',
+      Transitions: [
+        {
+          StorageClass: 'GLACIER',
+          Days: days,
+        }
+      ],
+    })
+  })
+}
+
 export const describeTable = async ({ dynamodb, tableName }: TableParams) => {
   const { Table } = await dynamodb.describeTable({ TableName: tableName }).promise()
   return Table
@@ -1198,3 +1253,8 @@ export const setTableBillingMode = async ({ dynamodb, tableName, billingMode }: 
 
   await dynamodb.updateTable(params).promise()
 }
+
+export const paramsToObject = (params: CFParameter[]) => params.reduce((obj, { ParameterKey, ParameterValue }) => {
+  obj[ParameterKey] = ParameterValue
+  return obj
+}, {})

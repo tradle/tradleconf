@@ -939,9 +939,8 @@ export class Conf {
     return outputs.find(o => o.name === name).value
   }
 
-  public getPrivateConfBucket = async () => {
-    return this.getResourceByOutputName('PrivateConfBucket')
-  }
+  public getPrivateConfBucket = () => this.getResourceByOutputName('PrivateConfBucket')
+  public getLogsBucket = () => this.getResourceByOutputName('LogsBucket')
 
   public reboot = async () => {
     this._ensureRemote()
@@ -1088,7 +1087,6 @@ export class Conf {
       params.SealBatchingPeriodInMinutes = periodInMinutes
     }
 
-    await this._confirmAboutToUpdate()
     await this._updateWithParameters(params)
   }
 
@@ -1098,7 +1096,6 @@ export class Conf {
       throw new CustomErrors.InvalidInput(`expected string "email"'`)
     }
 
-    await this._confirmAboutToUpdate()
     await this._updateWithParameters({
       OrgAdminEmail: email,
     })
@@ -1133,14 +1130,63 @@ export class Conf {
     const newVal = String(!!opts.provisioned)
     if (newVal === currentVal) return
 
-    await this._confirmAboutToUpdate()
     await this._updateWithParameters({
       ProvisionDynamoDBScaling: newVal,
     })
   }
 
+  public setLogsTTL = async ({ days }) => {
+    days = parseInt(days)
+    await this._updateWithParametersIfChanged({
+      LogsTTL: String(days)
+    })
+
+    await this._setLogsTTLOnLogsBucket(days)
+  }
+
+  public setLogsTransition = async ({ days }) => {
+    days = parseInt(days)
+    await this._updateWithParametersIfChanged({
+      LogsDaysBeforeTransitionToGlacier: String(days)
+    })
+
+    await this._setLogsTransitionOnLogsBucket(days)
+  }
+
+  private _setLogsTTLOnLogsBucket = async (days: number) => {
+    const bucket = await this.getLogsBucket()
+    await utils.setBucketExpirationDays({ s3: this.client.s3, bucket, days })
+  }
+
+  private _setLogsTransitionOnLogsBucket = async (days: number) => {
+    const bucket = await this.getLogsBucket()
+    await utils.setBucketTransitionToGlacier({ s3: this.client.s3, bucket, days })
+  }
+
   private _confirmAboutToUpdate = async () => {
     await confirmOrAbort(`I'm about to update your MyCloud. Continue?`)
+  }
+
+  private _confirmAndUpdateWithParameters = async opts => {
+    await this._confirmAboutToUpdate()
+    await this._updateWithParameters(opts)
+  }
+
+  private _updateWithParametersIfChanged = async opts => {
+    this._ensureRemote()
+    this._ensureStackNameKnown()
+
+    const { stackId } = this
+    const { cloudformation } = this.client
+    const currentParams = await utils.getStackParameters({ cloudformation, stackId })
+    const currentParamsObj = utils.paramsToObject(currentParams)
+    if (_.isMatch(currentParamsObj, opts)) {
+      logger.info(`skipping stack update, parameters haven't changed`)
+      return false
+    }
+
+    await this._confirmAndUpdateWithParameters(opts)
+    return true
   }
 
   private _genStackParameters = async ({ stackId }: { stackId: string }) => {

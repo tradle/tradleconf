@@ -563,6 +563,20 @@ const setDBAutoscaling = program
   .allowUnknownOption(false)
   .action(createAction('setDBAutoscaling'))
 
+const setLogsTransition = program
+  .command('set-logs-transition')
+  .option('--days <days>', 'days before logs are transitioned to Glacier')
+  .description(`set logs persistance duration`)
+  .allowUnknownOption(false)
+  .action(createAction('setLogsTransition'))
+
+const setLogsTTL = program
+  .command('set-logs-ttl')
+  .option('--days <days>', 'days before logs are deleted forever')
+  .description(`set logs persistance duration`)
+  .allowUnknownOption(false)
+  .action(createAction('setLogsTTL'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')
