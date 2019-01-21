@@ -34,6 +34,8 @@ CLI for managing your Tradle MyCloud instance
   - [Set admin email for alerts](#set-admin-email-for-alerts)
   - [Change database autoscaling](#change-database-autoscaling)
   - [Disable MyCloud](#disable-mycloud)
+  - [Set days before logs transition to Amazon Glacier](#set-days-before-logs-transition-to-amazon-glacier)
+  - [Set days before logs are deleted permanently](#set-days-before-logs-are-deleted-permanently)
 - [Blockchain](#blockchain)
   - [Balance](#balance)
   - [Sealing Mode](#sealing-mode)
@@ -297,6 +299,14 @@ This will turn most of your cloud functions off. Mobile/web clients will be unab
 To re-enable your deployment, you run:
 
 `tradleconf enable --remote`
+
+#### Set days before logs transition to Amazon Glacier
+
+`tradleconf set-logs-transition --days <days>`
+
+#### Set days before logs are deleted permanently
+
+`tradleconf set-logs-ttl --days <days>`
 
 ### Blockchain
 
