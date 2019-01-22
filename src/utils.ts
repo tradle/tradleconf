@@ -1161,14 +1161,17 @@ export const setBucketExpirationDays = async ({ s3, bucket, days }: S3SetBucketE
   return await setBucketLifeCycleRule({
     s3,
     bucket,
-    filter: r => r.Prefix === '' && !!r.Expiration,
+    filter: r => r.Filter.Prefix === '' && !!r.Expiration,
     update: r => {
       r.Expiration.Days = days
       r.NoncurrentVersionExpiration.NoncurrentDays = days
     },
-    create: () => ({
+    create: ():AWS.S3.LifecycleRule => ({
       ID: 'bucket-level-expiration',
       Status: 'Enabled',
+      Filter: {
+        Prefix: '',
+      },
       Expiration: {
         Days: days
       },
@@ -1199,7 +1202,7 @@ export const setBucketTransitionToGlacier = async ({ s3, bucket, days }: S3SetBu
   return await setBucketLifeCycleRule({
     s3,
     bucket,
-    filter: r => r.Prefix === '' &&
+    filter: r => r.Filter.Prefix === '' &&
       r.Transitions &&
       r.Transitions.some(t => t.StorageClass === 'GLACIER'),
     update: r => {
@@ -1207,6 +1210,9 @@ export const setBucketTransitionToGlacier = async ({ s3, bucket, days }: S3SetBu
     },
     create: () => ({
       Status: 'Enabled',
+      Filter: {
+        Prefix: ''
+      },
       Transitions: [
         {
           StorageClass: 'GLACIER',
