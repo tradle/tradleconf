@@ -1064,8 +1064,12 @@ export class Conf {
 
   public genStackParameters = async (opts) => {
     this._ensureRemote()
-    const { sourceStackArn=this.stackId, output } = opts
-    const params = await this._genStackParameters({ stackId: sourceStackArn })
+    const { sourceStackArn=this.stackId, output, asObject } = opts
+    let params:any = await this._genStackParameters({ stackId: sourceStackArn })
+    if (asObject) {
+      params = utils.paramsToObject(params)
+    }
+
     if (output) {
       fs.write(path.resolve(process.cwd(), output), params)
     } else {

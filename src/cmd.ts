@@ -510,6 +510,7 @@ const genParams = program
   .command('gen-stack-parameters')
   .option('--source-stack-arn [stackArn]', 'defaults to the one in your .env file')
   .option('--output <filePath>', 'path to write generated parameters file')
+  .option('--as-object', 'if you prefer the result as a key-value (you probably don\'t)')
   .description('generate parameters for creating/updating a stack')
   .allowUnknownOption(false)
   .action(createAction('genStackParameters'))
