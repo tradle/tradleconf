@@ -578,6 +578,13 @@ const setLogsTTL = program
   .allowUnknownOption(false)
   .action(createAction('setLogsTTL'))
 
+const setStackParameters = program
+  .command('set-stack-parameters')
+  .option('--parameters <key1=value1,key2=value2>', 'set stack parameters (advanced users)')
+  .description(`set logs persistance duration`)
+  .allowUnknownOption(false)
+  .action(createAction('setStackParameters'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')

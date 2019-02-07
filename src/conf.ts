@@ -1077,6 +1077,18 @@ export class Conf {
     }
   }
 
+  public setStackParameters = async ({ parameters }) => {
+    const paramsObj = parameters
+      .split(',')
+      .map(pair => pair.trim().split('='))
+      .reduce((kv, [key, value]) => {
+        kv[key.trim()] = value.trim()
+        return kv
+      }, {})
+
+    return this._updateWithParameters(paramsObj)
+  }
+
   public setSealingMode = async opts => {
     const { mode, periodInMinutes } = opts
     if (!(mode === 'single' || mode === 'batch')) {
