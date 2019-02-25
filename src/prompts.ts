@@ -2,10 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import inquirer from 'inquirer'
-import models from '@tradle/models-cloud'
 import Errors from '@tradle/errors'
 import { Errors as CustomErrors } from './errors'
 import { logger } from './logger'
+import { models } from './models'
 import {
   isValidProjectPath,
   doKeyPairsExist,
