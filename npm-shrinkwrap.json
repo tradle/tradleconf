@@ -1,6 +1,6 @@
 {
   "name": "@tradle/conf",
-  "version": "1.45.0",
+  "version": "1.45.1",
   "dependencies": {
     "@tradle/constants": {
       "version": "2.4.0",
