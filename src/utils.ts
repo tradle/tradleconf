@@ -110,6 +110,7 @@ const NOT_FOUND_ERRORS = [
   { code: 'NotFound' }, // s3
   { code: 'NoSuchBucket' }, // s3
   { code: 'NoSuchKey' }, // s3
+  { code: 'NoSuchLifecycleConfiguration' }, // s3
   { code: 'NotFoundException' }, // delete restapi
   { code: 'ResourceNotFoundException' }, // dynamodb, misc
 ]
@@ -1183,7 +1184,13 @@ export const setBucketExpirationDays = async ({ s3, bucket, days }: S3SetBucketE
 }
 
 export const setBucketLifeCycleRule = async ({ s3, bucket, filter, create }: S3SetBucketLifeCycleRuleOpts) => {
-  const { Rules } = await s3.getBucketLifecycleConfiguration({ Bucket: bucket }).promise()
+  let Rules
+  try {
+    ({ Rules } = await s3.getBucketLifecycleConfiguration({ Bucket: bucket }).promise())
+  } catch (err) {
+    ignoreNotFound(err)
+    Rules = []
+  }
 
   let rule = Rules.find(filter)
   if (!rule) {
