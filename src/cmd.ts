@@ -585,6 +585,15 @@ const setStackParameters = program
   .allowUnknownOption(false)
   .action(createAction('setStackParameters'))
 
+const createQRCode = program
+  .command('qr')
+  .option('-o, --output <output>', 'output file path')
+  .option('--host [host]', 'provider host, e.g. http://localhost:21012')
+  .option('--permalink [permalink]', 'provider permalink')
+  .description(`generate a qr code for adding a provider`)
+  .allowUnknownOption(false)
+  .action(createAction('createQRCode'))
+
 // require AWS sdk after env variables are set
 const AWS = require('aws-sdk')
 const { createConf } = require('./')

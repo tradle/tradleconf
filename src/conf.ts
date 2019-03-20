@@ -1,4 +1,6 @@
 import path from 'path'
+import { parse as parseUrl } from 'url'
+import querystring from 'querystring'
 import os from 'os'
 import yn from 'yn'
 import tmp from 'tmp'
@@ -11,6 +13,8 @@ import AWS from 'aws-sdk'
 import _mkdirp from 'mkdirp'
 import shelljs from 'shelljs'
 import Listr from 'listr'
+import QR from '@tradle/qr'
+import QRSchema from '@tradle/qr-schema'
 import Errors from '@tradle/errors'
 import ModelsPack from '@tradle/models-pack'
 import {
@@ -560,6 +564,28 @@ export class Conf {
     props: ['key', 'claimId'],
     required: []
   })
+
+  public createQRCode = async ({ host, permalink, output }) => {
+    if (output && !output.endsWith('.png')) {
+      throw new CustomErrors.InvalidInput(`expected qr code path to end with .png`)
+    }
+
+    if (!(permalink && host)) {
+      const { links } = await this.info()
+      const { query } = QRSchema.links.parseLink(links.mobile)
+      permalink = query.provider
+      host = query.host
+    }
+
+    const dataUrl = await promisify(QR.toDataURL)({
+      schema: QRSchema.schema.AddProvider,
+      data: { host, provider: permalink }
+    })
+
+    const buf = new Buffer(dataUrl.slice(dataUrl.indexOf('base64,') + 7), 'base64')
+    require('fs').writeFileSync(output, buf)
+    logger.info(`wrote qr code to: ${output}\n`)
+  }
 
   private _ensureRemote = () => {
     if (!this.remote) {
