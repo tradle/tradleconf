@@ -286,7 +286,7 @@ Command to let you change to the new on-demand autoscaling:
 
 to revert:
 
-`tradleconf set-db-autoscaling --provision`
+`tradleconf set-db-autoscaling --provisioned`
 
 #### Disable MyCloud
 
