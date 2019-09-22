@@ -123,7 +123,7 @@ See sample custom models in `./models-sample`. You can create your own in `./mod
 
 Define your provider's style in `./conf/style.json` (see [./conf/style.sample.json](./conf/style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
 
-See more details and screenshots for styles [here](./docs/style.md)
+See more details and screenshots for styles [here](https://github.com/tradle/tradleconf/blob/master/docs/data-import.md)
 
 #### Custom Bot Configuration (and plugins)
 
@@ -738,7 +738,7 @@ Purpose: allow to auto approve customer application if all the listed checks pas
 
 #### Data Import / Remediation
 
-If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the data bundle and claim stub, see [./docs/data-import.md]('./docs/data-import.md')
+If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the data bundle and claim stub, see  [./docs/data-import.md](https://github.com/tradle/tradleconf/blob/master/docs/data-import.md)
 
 #### Required Forms
 
