@@ -9,7 +9,7 @@ CLI for managing your Tradle MyCloud instance
 - [Prerequisites](#prerequisites)
   - [AWS Account](#aws-account)
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
-  - [AWS cli & credentials](#aws-cli-&-credentials)
+  - [AWS cli & credentials](#aws-cli--credentials)
   - [AWSLogs (optional)](#awslogs-optional)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
@@ -57,8 +57,12 @@ CLI for managing your Tradle MyCloud instance
   - [Webhooks](#webhooks)
   - [Deployment](#deployment)
   - [Conditional auto-approve](#conditional-auto-approve)
+  - [Sme onboarding](#sme-onboarding)
+  - [Sme auto-approve](#sme-auto-approve)
   - [Data Import / Remediation](#data-import--remediation)
   - [Required Forms](#required-forms)
+  - [Controlling person registration](#controlling-person-registration)
+  - [Controlling entity validation](#controlling-entity-validation)
   - [Verify Phone Number](#verify-phone-number)
 - [Troubleshooting](#troubleshooting)
   - [tradleconf update](#tradleconf-update)
@@ -96,16 +100,16 @@ If you want to inspect logs from your lambda functions in realtime, you'll need 
 
 ### Install and load current configuration
 
-Note: the below instructions are for managing a single MyCloud instance. 
+Note: the below instructions are for managing a single MyCloud instance.
 
 1. Install `tradleconf` globally: `npm install -g @tradle/conf` (you may need `sudo` depending on how you installed Node.js)
 1. Create a new directory in which you will keep your configuration. In it, initialize your configuration with `tradleconf init`. This will create a file called `.env`
 1. Pull your remote configuration in with `tradleconf load --all`. Or pull in a specific part of it, e.g.:
 
-`tradleconf load --models`  
-`tradleconf load --style`  
-`tradleconf load --bot`  
-`tradleconf load --terms`  
+`tradleconf load --models`
+`tradleconf load --style`
+`tradleconf load --bot`
+`tradleconf load --terms`
 
 ### Updating tradleconf
 
@@ -163,10 +167,10 @@ You can deploy your configuration to your local Tradle development environment r
 
 Or if you only want to deploy a particular item:
 
-- models: `tradleconf deploy --local --models`  
-- styles: `tradleconf deploy --local --style`  
-- bot configuration: `tradleconf deploy --local --bot`  
-- terms and conditions: `tradleconf deploy --local --terms`  
+- models: `tradleconf deploy --local --models`
+- styles: `tradleconf deploy --local --style`
+- bot configuration: `tradleconf deploy --local --bot`
+- terms and conditions: `tradleconf deploy --local --terms`
 
 #### To the cloud
 
@@ -268,7 +272,7 @@ sample response:
 
 `tradleconf load --remote`
 
-#### Push bot/plugins configuration 
+#### Push bot/plugins configuration
 
 `tradleconf deploy --remote --bot`
 
@@ -425,8 +429,8 @@ Example config:
         },
         // Create a property map you want to use for running this check.
         // Property map's values are the property in the form and keys how they named in plugin.
-        // Properties could be derived from different forms. 
-        // Here is an example when data are derived from one form the tradle.BusinessInformation 
+        // Properties could be derived from different forms.
+        // Here is an example when data are derived from one form the tradle.BusinessInformation
         // with the following ComplyAdvantage API settings:
         "propertyMap": {
           "tradle.BusinessInformation": {
@@ -437,7 +441,7 @@ Example config:
       }
     }
   }
-} 
+}
 ```
 
 #### OpenCorporates
@@ -458,7 +462,7 @@ Example config:
       ]
     }
   }
-} 
+}
 ```
 
 #### Onfido
@@ -510,8 +514,8 @@ Example config:
 ```
 #### Document Checker
 
-Provider: DocumentChecker  
-Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.  
+Provider: DocumentChecker
+Purpose: Check authenticity of the Photo ID document using Keesing Document Checker.
 
 Example config:
 
@@ -528,8 +532,8 @@ Example config:
 ```
 #### TrueFace
 
-Provider: TrueFace  
-Purpose: detect whether a selfie is a spoof  
+Provider: TrueFace
+Purpose: detect whether a selfie is a spoof
 
 Example config:
 
@@ -553,10 +557,10 @@ Example config:
 
 #### RankOne
 
-Provider: RankOne  
+Provider: RankOne
 Purpose:
-- compare photo id vs selfie photo for similarity  
-- analyze a photo with a face, extract various information such as demographics and orientation  
+- compare photo id vs selfie photo for similarity
+- analyze a photo with a face, extract various information such as demographics and orientation
 
 Example config:
 
@@ -721,7 +725,7 @@ Purpose: allow to auto approve customer application if all the listed checks pas
   "conditional-auto-approve": {
     "products": {
       "tradle.CertifiedID": [
-        // List of checks that need to 'Pass' in order to auto-approve the application 
+        // List of checks that need to 'Pass' in order to auto-approve the application
         "tradle.SanctionsCheck",
         "tradle.DocumentValidityCheck",
         ...
@@ -735,7 +739,32 @@ Purpose: allow to auto approve customer application if all the listed checks pas
   }
 }
 ```
+#### Sme onboarding
 
+Purpose: allow to prefill subsidiary application from associated resource created when main application was submitted
+```js
+...
+"plugins": {
+  // ...
+  "sme-onboarding": {}
+}
+```
+#### Sme auto-approve
+
+Purpose: allow to auto approve SME application if all child applications (subsidiaries, controlling persons) were approved
+```js
+...
+"plugins": {
+  // ...
+  "sme-auto-approve": [
+    {
+      "child": "tradle.legal.ControllingPersonOnboarding",
+      "parent": "tradle.legal.LegalEntity"
+    },
+    ...
+  ]
+}
+```
 #### Data Import / Remediation
 
 If you already have data from a customer and don't want them to re-enter it, you can have them import it in their Tradle app by scanning a QR code. To create the data bundle and claim stub, see  [./docs/data-import.md](https://github.com/tradle/tradleconf/blob/master/docs/data-import.md)
@@ -757,7 +786,42 @@ Example config:
   }
 }
 ```
+#### Controlling person registration
 
+Purpose: When SME administrator fills out CP and CE for officers and beneficial owners (BO) of the company, the notification should be sent out for the corresponding officer and/or BO to get onboarded
+```js
+...
+"plugins": {
+  // ...
+  "controllingPersonRegistration": {
+    "senderEmail": "...",
+    "products": {
+      "io.lenka.LegalEntity": [
+        "tradle.legal.LegalEntityControllingPerson"
+      ],
+      ...
+    }
+  }
+}
+```
+#### Controlling entity validation
+
+Purpose: When SME administrator fills out CP and CE for officers and beneficial owners (BO) of the company, the notification should be sent out for the corresponding officer and/or BO to get onboarded
+```js
+...
+"plugins": {
+  // ...
+  "controllingEntityValidation": {
+    "senderEmail": "...",
+    "products": {
+      "io.lenka.LegalEntity": [
+        "tradle.legal.LegalEntityControllingPerson"
+      ],
+      ...
+    }
+  }
+}
+```
 #### Verify Phone Number
 
 Purpose: verify a user controls a phone number
@@ -784,7 +848,7 @@ Example config:
 
 #### tradleconf update
 
-**Symptom**: InvalidInput: expected "adminEmail"  
+**Symptom**: InvalidInput: expected "adminEmail"
 **Cause**: in MyCloud <= 2.3.0, you need to confirm the AWS SNS Subscription for Alerts. Look for an email with subject "AWS Notification - Subscription Confirmation" and confirm it. If the confirmation expired, go to the AWS SNS Console for your AWS region (e.g. https://console.aws.amazon.com/sns/v2/home?region=us-east-1#/topics), find the topic that looks like `[your-stack-name]-alerts-alarm` (e.g. `tdl-tradle-ltd-dev-alerts-alarm`), and create and confirm an Email subscription to that topic.
 
 #### tradleconf enable-kyc-services
