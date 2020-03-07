@@ -373,6 +373,13 @@ const updateCommand = program
   .allowUnknownOption(false)
   .action(createAction('update'))
 
+const updateToLatest = program
+  .command('update-to-latest')
+  .option('-c', 'set if you want to include release candidate versions')
+  .description('update your MyCloud to the latest available version')
+  .allowUnknownOption(false)
+  .action(createAction('updateToLatest'))
+
 const updateManuallyCommand = program
   .command('update-manually')
   .option('-t, --template-url [templateUrl]', 'stack template url. Defaults to reuse currently deployed template')

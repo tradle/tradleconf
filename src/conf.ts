@@ -829,6 +829,19 @@ export class Conf {
     }
   }
 
+  public updateToLatest = async (opts: Partial<UpdateOpts>) => {
+    const updates = await this.listUpdates()
+    if (!updates.length) {
+      logger.debug(`no updates found`)
+      return;
+    }
+
+    const { tag } = updates.pop()
+    logger.debug(`updating to: ${tag}`)
+    // @ts-ignore
+    await this.update({ tag, ...opts })
+  };
+
   public updateManually = async ({ templateUrl, stackParameters }) => {
     this._ensureRemote()
     this._ensureStackNameKnown()
