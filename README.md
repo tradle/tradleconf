@@ -11,6 +11,7 @@ CLI for managing your Tradle MyCloud instance
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
   - [AWS cli & credentials](#aws-cli--credentials)
   - [AWSLogs (optional)](#awslogs-optional)
+- [Docker](#docker)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
 - [Customize](#customize)
@@ -97,6 +98,19 @@ While you wait, read on.
 #### AWSLogs (optional)
 
 If you want to inspect logs from your lambda functions in realtime, you'll need to install [awslogs](https://github.com/jorgebastida/awslogs), as the command `tradleconf log` uses awslogs underneath.
+
+### Docker
+
+To use tradleconf via docker, you can add the following function to your `~/.bash_profile`:
+
+```sh
+tradleconf() {
+  docker pull tradle/conf
+  docker run --rm -v $HOME/.aws:/root/.aws -v $(pwd):/app/conf tradle/conf:latest $@
+}
+```
+
+Then use the `tradleconf` command in your shell as described below
 
 ### Install and load current configuration
 
