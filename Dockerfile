@@ -4,6 +4,8 @@ FROM node:10
 
 # WORKDIR /home/node/app
 
+RUN apt-get update && apt-get install -y python-pip && pip install awslogs
+
 WORKDIR /app
 
 COPY package*.json ./
