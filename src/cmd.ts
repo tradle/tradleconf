@@ -375,7 +375,9 @@ const updateCommand = program
 
 const updateToLatest = program
   .command('update-to-latest')
-  .option('-c', 'set if you want to include release candidate versions')
+  .option('--minor', 'limit updates to patches and minor versions')
+  .option('--patch', 'limit updates to patches')
+  .option('-c, --include-release-candidates', 'include release candidate versions')
   .description('update your MyCloud to the latest available version')
   .allowUnknownOption(false)
   .action(createAction('updateToLatest'))

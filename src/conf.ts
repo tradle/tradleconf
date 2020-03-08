@@ -1,13 +1,8 @@
 import path from 'path'
-import { parse as parseUrl } from 'url'
-import querystring from 'querystring'
 import os from 'os'
-import yn from 'yn'
 import tmp from 'tmp'
 import _ from 'lodash'
-import co from 'co'
 import promisify from 'pify'
-import promiseRetry from 'promise-retry'
 // import YAML from 'js-yaml'
 import AWS from 'aws-sdk'
 import _mkdirp from 'mkdirp'
@@ -15,13 +10,10 @@ import shelljs from 'shelljs'
 import Listr from 'listr'
 import QR from '@tradle/qr'
 import QRSchema from '@tradle/qr-schema'
-import Errors from '@tradle/errors'
-import ModelsPack from '@tradle/models-pack'
 import {
   init as promptInit,
   fn as promptFn,
   confirmOrAbort,
-  confirm,
 } from './prompts'
 import { update, getDefaultUpdateParameters } from './update'
 import { destroy } from './destroy'
@@ -36,8 +28,6 @@ import { create as wrapDynamoDB } from './dynamodb'
 
 import {
   configureKYCServicesStack,
-  // updateKYCServicesStack,
-  getServicesStackId,
   deleteCorrespondingServicesStack,
 } from './kyc-services'
 
@@ -77,6 +67,16 @@ const getLongFunctionName = ({ stackName, functionName }) => {
   if (functionName.lastIndexOf(stackName) === 0) return functionName
 
   return `${stackName}-${functionName}`
+}
+
+const trimToMinor = (tag) => {
+  const [major, minor] = tag.split('.')
+  return `${major}.${minor}.0`
+}
+
+const trimToMajor = (tag) => {
+  const [major] = tag.split('.')
+  return `${major}.0.0`
 }
 
 const DEPLOYABLES = [
@@ -829,14 +829,42 @@ export class Conf {
     }
   }
 
-  public updateToLatest = async (opts: Partial<UpdateOpts>) => {
-    const updates = await this.listUpdates()
+  public updateToLatest = async ({
+    includeReleaseCandidates,
+    minor,
+    patch
+  }: {
+    includeReleaseCandidates: boolean,
+    minor: boolean,
+    patch: boolean,
+  }) => {
+    let [updates, { version: currentVersion }] = await Promise.all([
+      this.listUpdates(),
+      this.info()
+    ])
+
+    // cut off -rc.x
+    const currentTag = currentVersion.tag.replace(/-.*$/, '')
+
+    if (!includeReleaseCandidates) {
+      updates = updates.filter(({ tag }) => !tag.includes('-rc'))
+    }
+
+    if (patch) {
+      // rm minor version upgrades
+      updates = updates.filter(({ tag }) => trimToMinor(tag) === trimToMinor(currentTag))
+    } else if (minor) {
+      // rm major version upgrades
+      updates = updates.filter(({ tag }) => trimToMajor(tag) === trimToMajor(currentTag))
+    }
+
     if (!updates.length) {
       logger.debug(`no updates found`)
       return;
     }
 
     const { tag } = updates.pop()
+
     logger.debug(`updating to: ${tag}`)
     // @ts-ignore
     await this.update({ tag, ...opts })
