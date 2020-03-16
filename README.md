@@ -65,6 +65,9 @@ CLI for managing your Tradle MyCloud instance
   - [Controlling person registration](#controlling-person-registration)
   - [Controlling entity validation](#controlling-entity-validation)
   - [Verify Phone Number](#verify-phone-number)
+  - [Prefill Beneficial Owners](#prefill-controllingPerson)
+  - [Modification History](#client-edits)
+  - [Inter-Form conditionals](#interFormConditionals)
 - [Troubleshooting](#troubleshooting)
   - [tradleconf update](#tradleconf-update)
   - [tradleconf enable-kyc-services](#tradleconf-enable-kyc-services)
@@ -855,6 +858,63 @@ Example config:
       }
     }
   }
+}
+```
+#### Prefill Beneficial Owners (BO)
+
+Purpose: Reduce/eliminate data entry for corporate onboarding. Information for prefill is taken from the passed Check resources that confirm company existence and list BO
+
+Example config:
+
+```js
+...
+"plugins": {
+  // ...
+  "prefill-controllingPerson": {
+    [product ID]: {
+      "skipBo": {
+        [form ID]: {
+           "regulated": true,
+           "country": ["GB", "DE"]
+        }
+      }
+    }
+  }
+}
+```
+#### Data lineage
+
+Purpose: Records the data and source of data prefilled from the third party sources and records all the changes made by client. Additionally creates a Check resource in case there was a prefill with 3rd party data and it differs from the changes the client applied to it.
+
+Example config:
+
+```js
+...
+"plugins": {
+  // ...
+  "client-edits": {
+    "distance": 5
+  }
+}
+```
+
+#### Inter-Form conditionals
+
+Purpose: change flow of the application based on the settings in previously submitted forms. 
+
+Example config to request the form 'tradle.ProofOfAddress' only if the property 'country' in the previously submitted form 'tradle.Residence' is set to US
+
+```js
+...
+"plugins": {
+  // ...
+  "tradle.Product": [
+    "tradle.Residence",
+    ...
+    {
+      "tradle.ProofOfAddress": "add: forms['tradle.Residence'].country = 'US'"
+    }
+  ],
 }
 ```
 
