@@ -141,7 +141,7 @@ See sample custom models in `./models-sample`. You can create your own in `./mod
 
 Define your provider's style in `./conf/style.json` (see [./conf/style.sample.json](./conf/style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
 
-See more details and screenshots for styles [here](https://github.com/tradle/tradleconf/blob/master/docs/data-import.md)
+See more details and screenshots for styles [here](https://github.com/tradle/tradleconf/blob/master/docs/style.md)
 
 #### Custom Bot Configuration (and plugins)
 
