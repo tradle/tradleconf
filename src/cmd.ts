@@ -19,7 +19,7 @@ const DESC = {
 updateNotifier({
   pkg,
   updateCheckInterval: 60 * 60 * 1000 // 1 hr
-}).notify()
+}).notify({ isGlobal: true })
 
 require('dotenv').config({
   path: '.env'
