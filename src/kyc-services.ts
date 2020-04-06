@@ -89,11 +89,14 @@ export const configureKYCServicesStack = async (conf: Conf, {
   ].filter(nonNull).join(', ')
 
   await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
-  const enabledServices = Object.keys(REPO_NAMES).filter(service => service in LICENSE_PATHS) as KYCServiceName[]
-  if (enabledServices.length) {
+  const requiredLicenses = Object.keys(REPO_NAMES)
+    .filter(key => repoNames.includes(REPO_NAMES[key]))
+    .filter(service => service in LICENSE_PATHS) as KYCServiceName[]
+
+  if (requiredLicenses.length) {
     await checkLicenses({
       s3: client.s3,
-      licenses: enabledServices,
+      licenses: requiredLicenses,
       bucket,
     })
   }
