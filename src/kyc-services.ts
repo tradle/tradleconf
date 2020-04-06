@@ -38,14 +38,14 @@ interface UpdateKYCServicesOpts {
   accountId: string
   truefaceSpoof?: boolean
   rankOne?: boolean
-  idrndLiveFace?: boolean
+  idrndLiveface?: boolean
   stackParameters?: any
 }
 
 interface ConfigureKYCServicesOpts extends UpdateKYCServicesOpts {
   truefaceSpoof?: boolean
   rankOne?: boolean
-  idrndLiveFace?: boolean
+  idrndLiveface?: boolean
 }
 
 export const getStackName = utils.getServicesStackName
@@ -58,7 +58,7 @@ export const getServicesStackId = async (cloudformation: AWS.CloudFormation, myc
 export const configureKYCServicesStack = async (conf: Conf, {
   truefaceSpoof,
   rankOne,
-  idrndLiveFace,
+  idrndLiveface,
   client,
   accountId,
   mycloudStackName,
@@ -72,20 +72,20 @@ export const configureKYCServicesStack = async (conf: Conf, {
   const bucketEncryptionKey = await utils.getBucketEncryptionKey({ s3: client.s3, kms: client.kms, bucket })
 
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
-  if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean' && typeof idrndLiveFace === 'boolean') {
+  if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean' && typeof idrndLiveface === 'boolean') {
     // user knows what they want
   } else {
     const tfVerb = truefaceSpoof ? 'enable' : 'disable'
     const roVerb = rankOne ? 'enable' : 'disable'
-    const idrndVerb = idrndLiveFace ? 'enable' : 'disable'
-    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne, ${idrndVerb} IDRNDLiveFace?`)
+    const idrndVerb = idrndLiveface ? 'enable' : 'disable'
+    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne, ${idrndVerb} IDRNDLiveface?`)
   }
 
   const repoNames = [
     REPO_NAMES.nginx,
     truefaceSpoof && REPO_NAMES.truefaceSpoof,
     rankOne && REPO_NAMES.rankOne,
-    idrndLiveFace && REPO_NAMES.idrndLiveFace
+    idrndLiveface && REPO_NAMES.idrndLiveface
   ].filter(nonNull).join(', ')
 
   await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
@@ -166,7 +166,7 @@ Continue?`)
     })
   }
 
-  if (idrndLiveFace) {
+  if (idrndLiveface) {
     parameters.push({
       ParameterKey: 'EnableIDRNDLiveFace',
       ParameterValue: 'true',

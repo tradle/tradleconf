@@ -10,7 +10,7 @@ export const REPO_NAMES: KYCServicesConf = {
   truefaceSpoof: 'trueface-spoof',
   rankOne: 'rank-one',
   nginx: 'tradle-kyc-nginx-proxy',
-  idrndLiveFace: 'idrnd_idlive_face'
+  idrndLiveface: 'idrnd-liveface'
 }
 
 export const BIG_BUCKETS = ['LogsBucket', 'ObjectsBucket']
@@ -35,5 +35,5 @@ export const LICENSE_PATHS: KYCServicesConf = {
 export const PARAM_TO_KYC_SERVICE_NAME: MapToKYCService = {
   EnableTruefaceSpoof: 'truefaceSpoof',
   EnableRankOne: 'rankOne',
-  EnableIDRNDLiveFace: 'idrndLiveFace'
+  EnableIDRNDLiveFace: 'idrndLiveface'
 }

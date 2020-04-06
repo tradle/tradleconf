@@ -97,7 +97,7 @@ export interface Choice {
 export interface SetKYCServicesOpts {
   truefaceSpoof?: boolean
   rankOne?: boolean
-  idrndLiveFace?: boolean
+  idrndLiveface?: boolean
   paramInstanceType?: string
 }
 
@@ -176,7 +176,7 @@ export type KYCServicesConf = {
   truefaceSpoof?: any
   rankOne?: any
   nginx?: any,
-  idrndLiveFace?: any
+  idrndLiveface?: any
 }
 
 export type KYCServiceName = keyof KYCServicesConf

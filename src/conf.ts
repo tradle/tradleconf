@@ -939,7 +939,7 @@ export class Conf {
     return this.setKYCServices({
       rankOne: true,
       truefaceSpoof: true,
-      idrndLiveFace: true,
+      idrndLiveface: true,
       paramInstanceType,
     })
   }
@@ -977,7 +977,7 @@ export class Conf {
     })
   }
 
-  public setKYCServices = async ({ truefaceSpoof, rankOne, idrndLiveFace, paramInstanceType }: SetKYCServicesOpts) => {
+  public setKYCServices = async ({ truefaceSpoof, rankOne, idrndLiveface, paramInstanceType }: SetKYCServicesOpts) => {
     this._ensureRemote()
     this._ensureRegionKnown()
 
@@ -989,7 +989,7 @@ export class Conf {
     await configureKYCServicesStack(this, {
       truefaceSpoof,
       rankOne,
-      idrndLiveFace,
+      idrndLiveface,
       mycloudStackName: this.stackName,
       mycloudRegion: this.region,
       accountId: utils.parseStackArn(this.stackId).accountId,

@@ -460,7 +460,7 @@ const setKYCServices = program
   .command('set-kyc-services')
   .option('--trueface-spoof', 'enable / disable TrueFace Spoof')
   .option('--rank-one', 'enable / disable RankOne')
-  .option('--idrnd_idlive_face', 'enable / disable IDRND IDLive Face')
+  .option('--idrnd-liveface', 'enable / disable IDRND LiveFace')
   .option('--param-instance-type [instanceType]', 'EC2 instance type (default: m5.xlarge')
   .allowUnknownOption(false)
   .action(createAction('setKYCServices'))
