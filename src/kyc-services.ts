@@ -38,12 +38,14 @@ interface UpdateKYCServicesOpts {
   accountId: string
   truefaceSpoof?: boolean
   rankOne?: boolean
+  idrndLiveFace?: boolean
   stackParameters?: any
 }
 
 interface ConfigureKYCServicesOpts extends UpdateKYCServicesOpts {
   truefaceSpoof?: boolean
   rankOne?: boolean
+  idrndLiveFace?: boolean
 }
 
 export const getStackName = utils.getServicesStackName
@@ -56,11 +58,12 @@ export const getServicesStackId = async (cloudformation: AWS.CloudFormation, myc
 export const configureKYCServicesStack = async (conf: Conf, {
   truefaceSpoof,
   rankOne,
+  idrndLiveFace,
   client,
   accountId,
   mycloudStackName,
   mycloudRegion,
-  stackParameters={},
+  stackParameters = {},
 }: ConfigureKYCServicesOpts) => {
   const servicesStackName = getStackName(mycloudStackName)
   const servicesStackId = await getServicesStackId(client.cloudformation, mycloudStackName)
@@ -69,18 +72,20 @@ export const configureKYCServicesStack = async (conf: Conf, {
   const bucketEncryptionKey = await utils.getBucketEncryptionKey({ s3: client.s3, kms: client.kms, bucket })
 
   const discoveryObjPath = `${bucket}/discovery/ecs-services.json`
-  if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean') {
+  if (typeof truefaceSpoof === 'boolean' && typeof rankOne === 'boolean' && typeof idrndLiveFace === 'boolean') {
     // user knows what they want
   } else {
     const tfVerb = truefaceSpoof ? 'enable' : 'disable'
     const roVerb = rankOne ? 'enable' : 'disable'
-    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne?`)
+    const idrndVerb = idrndLiveFace ? 'enable' : 'disable'
+    await confirmOrAbort(`${tfVerb} TrueFace Spoof, ${roVerb} RankOne, ${idrndVerb} IDRNDLiveFace?`)
   }
 
   const repoNames = [
     REPO_NAMES.nginx,
     truefaceSpoof && REPO_NAMES.truefaceSpoof,
     rankOne && REPO_NAMES.rankOne,
+    idrndLiveFace && REPO_NAMES.idrndLiveFace
   ].filter(nonNull).join(', ')
 
   await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
@@ -159,6 +164,18 @@ Continue?`)
       ParameterKey: 'S3PathToRankOneLicense',
       ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
     })
+  }
+
+  if (idrndLiveFace) {
+    parameters.push({
+      ParameterKey: 'EnableIDRNDLiveFace',
+      ParameterValue: 'true',
+    })
+
+    //  parameters.push({
+    //    ParameterKey: 'S3PathToIDRNDLiveFaceLicense',
+    //    ParameterValue: `${bucket}/${LICENSE_PATHS.rankOne}`,
+    //  })
   }
 
   if (enableSSH) {

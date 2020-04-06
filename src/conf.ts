@@ -56,7 +56,7 @@ const mkdirp = promisify(_mkdirp)
 const pfs = promisify(fs)
 const { prettify, isValidProjectPath, toEnvFile } = utils
 const silentLogger = Object.keys(logger).reduce((silent, method) => {
-  silent[method] = () => {}
+  silent[method] = () => { }
   return silent
 }, {})
 
@@ -95,7 +95,7 @@ const DEPLOY_ALL_OPTS = DEPLOYABLES.reduce((obj, prop) => {
 }, {})
 
 const getOptsOnly = opts => _.omit(opts, 'args')
-const normalizeDeployOpts = (opts, command='deploy') => {
+const normalizeDeployOpts = (opts, command = 'deploy') => {
   if (!_.isEmpty(opts.args)) {
     throw new CustomErrors.InvalidInput(`unknown arguments: ${opts.args.join(' ')}`)
   }
@@ -138,7 +138,7 @@ const readFile = {
 const createImportDataUtilsMethod = ({
   conf,
   method,
-  props=[],
+  props = [],
   required
 }: {
   conf: Conf
@@ -147,9 +147,9 @@ const createImportDataUtilsMethod = ({
   required?: string[]
 }) => async (data) => {
   data = _.pick(data, props)
-  ;(required || props).forEach(prop => {
-    if (!(prop in data)) throw new CustomErrors.InvalidInput(`expected "${prop}"`)
-  })
+    ; (required || props).forEach(prop => {
+      if (!(prop in data)) throw new CustomErrors.InvalidInput(`expected "${prop}"`)
+    })
 
   return await conf.invokeAndReturn({
     functionName: functions.importDataUtils,
@@ -176,8 +176,8 @@ export class Conf {
   private project?: string
   private nodeFlags?: NodeFlags
 
-  constructor (opts: ConfOpts) {
-    const { remote, region, profile, namespace, stackId, stackName, project, nodeFlags={} } = opts
+  constructor(opts: ConfOpts) {
+    const { remote, region, profile, namespace, stackId, stackName, project, nodeFlags = {} } = opts
 
     if (typeof remote !== 'boolean') {
       throw new CustomErrors.InvalidInput(`expected boolean "remote"`)
@@ -201,10 +201,10 @@ export class Conf {
 
     let client
     Object.defineProperty(this, 'client', {
-      set (value) {
+      set(value) {
         client = value
       },
-      get () {
+      get() {
         if (!client) {
           client = this.createAWSClient()
         }
@@ -255,9 +255,9 @@ export class Conf {
     functionName
   })
 
-  public getDeployItems = (opts:any) => {
+  public getDeployItems = (opts: any) => {
     opts = normalizeDeployOpts(opts)
-    const parts:any = {}
+    const parts: any = {}
     if (opts.style) {
       parts.style = readFile.style()
     }
@@ -282,7 +282,7 @@ export class Conf {
     return parts
   }
 
-  public load = async (opts:any={}) => {
+  public load = async (opts: any = {}) => {
     const opLogger = opts.logger || logger
     opts = normalizeDeployOpts(opts, 'load')
     opLogger.info(`loading: ${getDeployablesKeys(opts).join(', ')}\n`)
@@ -372,7 +372,7 @@ export class Conf {
       overwriteEnv,
       region,
       awsProfile,
-      stack={},
+      stack = {},
       projectPath,
       loadCurrentConf,
     } = await promptInit(this)
@@ -453,10 +453,10 @@ export class Conf {
     // if (!yn(willLoad)) return
   }
 
-  public createAWSClient = (opts:AWSConfigOpts={}) => {
+  public createAWSClient = (opts: AWSConfigOpts = {}) => {
     const {
-      profile=this.profile || process.env.awsProfile,
-      region=this.region
+      profile = this.profile || process.env.awsProfile,
+      region = this.region
     } = opts
 
     if (region) {
@@ -496,19 +496,19 @@ export class Conf {
     }
   }
 
-  public getStacks = async (opts={}) => {
+  public getStacks = async (opts = {}) => {
     const client = this.createAWSClient(opts)
     return await utils.listStacks(client.cloudformation)
   }
 
-  public waitForStackUpdate = async (opts?:WaitStackOpts) => {
-    const { stackId=this.stackId } = opts || {}
+  public waitForStackUpdate = async (opts?: WaitStackOpts) => {
+    const { stackId = this.stackId } = opts || {}
     const client = this.createAWSClient()
     await utils.awaitStackUpdate(client.cloudformation, stackId)
   }
 
-  public waitForStackDelete = async (opts?:WaitStackOpts) => {
-    const { stackId=this.stackId } = opts || {}
+  public waitForStackDelete = async (opts?: WaitStackOpts) => {
+    const { stackId = this.stackId } = opts || {}
     const client = this.createAWSClient()
     await utils.awaitStackDelete(client.cloudformation, stackId)
   }
@@ -593,7 +593,7 @@ export class Conf {
     }
   }
 
-  public destroy = async ({ profile=this.profile, stackArn=this.stackId }) => {
+  public destroy = async ({ profile = this.profile, stackArn = this.stackId }) => {
     if (!stackArn) {
       this._ensureStackNameKnown()
       this._ensureRemote()
@@ -667,11 +667,11 @@ export class Conf {
     return functions.map(f => f.slice(this.stackName.length + 1))
   }
 
-  public tail = async (opts:any={}) => {
+  public tail = async (opts: any = {}) => {
     return this.log({ watch: true, ...opts })
   }
 
-  public log = async (opts:any={}) => {
+  public log = async (opts: any = {}) => {
     this._ensureStackNameKnown()
     this._ensureRemote()
 
@@ -753,7 +753,7 @@ export class Conf {
     return identity._permalink
   }
 
-  public getCurrentVersion = async ():Promise<VersionInfo> => {
+  public getCurrentVersion = async (): Promise<VersionInfo> => {
     const versions = await this.exec({
       args: ['listmyversions --limit 1'],
       noWarning: true
@@ -766,7 +766,7 @@ export class Conf {
 
   public listUpdates = async ({ provider }: {
     provider?: string
-  }={}):Promise<VersionInfo[]> => {
+  } = {}): Promise<VersionInfo[]> => {
     let command = 'listupdates'
     // temporarily double-specified for backwards compat
     // TODO: remove --provider-permalink
@@ -780,7 +780,7 @@ export class Conf {
     })
   }
 
-  public listPreviousVersions = async ():Promise<VersionInfo[]> => {
+  public listPreviousVersions = async (): Promise<VersionInfo[]> => {
     return await this.exec({
       args: [`listmyversions`],
       noWarning: true
@@ -800,7 +800,7 @@ export class Conf {
     })
   }
 
-  public getUpdateInfo = async ({ tag }):Promise<GetUpdateInfoResp> => {
+  public getUpdateInfo = async ({ tag }): Promise<GetUpdateInfoResp> => {
     this._ensureRemote()
     const result = await this.exec({
       args: [`getupdateinfo --tag "${tag}"`],
@@ -939,6 +939,7 @@ export class Conf {
     return this.setKYCServices({
       rankOne: true,
       truefaceSpoof: true,
+      idrndLiveFace: true,
       paramInstanceType,
     })
   }
@@ -976,11 +977,11 @@ export class Conf {
     })
   }
 
-  public setKYCServices = async ({ truefaceSpoof, rankOne, paramInstanceType }: SetKYCServicesOpts) => {
+  public setKYCServices = async ({ truefaceSpoof, rankOne, idrndLiveFace, paramInstanceType }: SetKYCServicesOpts) => {
     this._ensureRemote()
     this._ensureRegionKnown()
 
-    const stackParameters:any = {}
+    const stackParameters: any = {}
     if (paramInstanceType) {
       stackParameters.InstanceType = paramInstanceType
     }
@@ -988,6 +989,7 @@ export class Conf {
     await configureKYCServicesStack(this, {
       truefaceSpoof,
       rankOne,
+      idrndLiveFace,
       mycloudStackName: this.stackName,
       mycloudRegion: this.region,
       accountId: utils.parseStackArn(this.stackId).accountId,
@@ -1053,8 +1055,8 @@ export class Conf {
     this._ensureInitialized()
 
     let {
-      sourceStackArn=this.stackId,
-      newStackName=this.stackName,
+      sourceStackArn = this.stackId,
+      newStackName = this.stackName,
       stackParameters
     } = opts
 
@@ -1076,7 +1078,7 @@ export class Conf {
   public restoreResources = async (opts) => {
     this._ensureRemote()
 
-    const { date, sourceStackArn=this.stackId, output } = opts
+    const { date, sourceStackArn = this.stackId, output } = opts
     if (!sourceStackArn) {
       this._ensureInitialized()
     }
@@ -1131,8 +1133,8 @@ export class Conf {
 
   public genStackParameters = async (opts) => {
     this._ensureRemote()
-    const { sourceStackArn=this.stackId, output, asObject } = opts
-    let params:any = await this._genStackParameters({ stackId: sourceStackArn })
+    const { sourceStackArn = this.stackId, output, asObject } = opts
+    let params: any = await this._genStackParameters({ stackId: sourceStackArn })
     if (asObject) {
       params = utils.paramsToObject(params)
     }
@@ -1162,7 +1164,7 @@ export class Conf {
       throw new CustomErrors.InvalidInput(`expected mode to be 'single' or 'batch'`)
     }
 
-    const params:any = {
+    const params: any = {
       SealingMode: mode,
     }
 
@@ -1298,7 +1300,7 @@ export class Conf {
     }
   }
 
-  private _invoke = async ({ functionName, arg={}, noWarning }: InvokeOpts) => {
+  private _invoke = async ({ functionName, arg = {}, noWarning }: InvokeOpts) => {
     // confirm if remote was not explicitly specified
     if (!(this.remote || noWarning)) {
       await confirmOrAbort(`Targeting REMOTE deployment. Continue?`)
@@ -1340,10 +1342,10 @@ export class Conf {
     const pwd = process.cwd()
     shelljs.cd(project)
     logger.debug('be patient, local invocations can be slow')
-    const envVars:any = _.pick(process.env, ['SERVERLESS_OFFLINE_APIGW'])
+    const envVars: any = _.pick(process.env, ['SERVERLESS_OFFLINE_APIGW'])
     if (!envVars.IS_OFFLINE) envVars.IS_OFFLINE = '1'
 
-    const command =`${stringifyEnv(envVars)} node ${flagsStr} \
+    const command = `${stringifyEnv(envVars)} node ${flagsStr} \
   "${project}/node_modules/.bin/sls" invoke local \
   -f "${functionName}" \
   -l false \
@@ -1381,7 +1383,7 @@ export class Conf {
     await this._init({ loadCurrentConf: true })
   }
 
-  private _getBaseUpdateStackOpts = ():AWS.CloudFormation.UpdateStackInput => {
+  private _getBaseUpdateStackOpts = (): AWS.CloudFormation.UpdateStackInput => {
     this._ensureStackNameKnown()
     this._ensureRemote()
     return {
