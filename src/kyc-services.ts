@@ -86,9 +86,9 @@ export const configureKYCServicesStack = async (conf: Conf, {
     truefaceSpoof && REPO_NAMES.truefaceSpoof,
     rankOne && REPO_NAMES.rankOne,
     idrndLiveface && REPO_NAMES.idrndLiveface
-  ].filter(nonNull).join(', ')
+  ].filter(nonNull)
 
-  await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames}`)
+  await confirmOrAbort(`has Tradle given you access to the following ECR repositories? ${repoNames.join(', ')}`)
   const requiredLicenses = Object.keys(REPO_NAMES)
     .filter(key => repoNames.includes(REPO_NAMES[key]))
     .filter(service => service in LICENSE_PATHS) as KYCServiceName[]
