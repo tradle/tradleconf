@@ -15,6 +15,7 @@
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js --ignore-path .gitignore .",
     "test": "node lib/test",
+    "tswatch": "tsc -w",
     "precommit": "tsc && lint-staged && npm test",
     "prepublish": "tsc",
     "release": "standard-version",
