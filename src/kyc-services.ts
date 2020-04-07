@@ -115,7 +115,7 @@ You can request a limit increase from AWS here: https://console.aws.amazon.com/s
 Continue?`)
   }
 
-  const willDeleteStack = !(truefaceSpoof || rankOne)
+  const willDeleteStack = !(truefaceSpoof || rankOne || idrndLiveface)
   if (willDeleteStack) {
     await confirmOrAbort(`you've disabled all the services disabled, can I delete the KYC services stack?`)
     logger.info('deleting KYC services stack: ${servicesStackId}, ETA: 5-10 minutes')
