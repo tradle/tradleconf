@@ -174,6 +174,8 @@ To delete your kyc-services stack (it's stateless, so you can always create a ne
 
 `tradleconf disable-kyc-services`
 
+For developers: adding a new service option can be tracked in git history for changes made at 2020-04-05 for idrnd-liveface
+
 ### Deploy
 
 You can deploy your configuration to your local Tradle development environment running on your machine, or to your Tradle MyCloud running in AWS.
