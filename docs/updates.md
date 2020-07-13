@@ -16,6 +16,26 @@ If you already know the version you want to update to, run:
 
 Note: you can also use the `update` command to roll back to previous versions. Bugfixes are the preferred resolution strategy, so such rollbacks are not part of our testing process. Use at your own risk!
 
+## Automatic Updates
+
+You can create a script, e.g. `update-tradle-to-latest.sh`
+
+```bash
+#/bin/bash
+
+cd $HOME/tradle/conf # you need to set this correctly
+tradleconf update-to-latest
+# tradleconf update-to-latest --minor # only update patches and minor versions
+# tradleconf update-to-latest --patch # only update patches
+# tradleconf update-to-latest # only update to stable release
+# tradleconf update-to-latest -c # update to all stable releases and candidates
+```
+
+add a line to your crontab:
+```
+*/5 * * * * /path/to/update-tradle-to-latest.sh  # check for updates every 5 minutes
+```
+
 ## How it Works
 
 1. Tradle releases a new version of MyCloud

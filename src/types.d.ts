@@ -97,12 +97,13 @@ export interface Choice {
 export interface SetKYCServicesOpts {
   truefaceSpoof?: boolean
   rankOne?: boolean
+  idrndLiveface?: boolean
   paramInstanceType?: string
 }
 
 export type PointInTime = string
 
-export type CloudResourceType = 'bucket'|'table'|'key'|'loggroup'|'restapi'
+export type CloudResourceType = 'bucket' | 'table' | 'key' | 'loggroup' | 'restapi'
 export interface CloudResource {
   type: CloudResourceType
   name: string
@@ -174,7 +175,8 @@ export interface RestoreTableCliOpts extends RestoreToPointInTimeOpts, ClientOpt
 export type KYCServicesConf = {
   truefaceSpoof?: any
   rankOne?: any
-  nginx?: any
+  nginx?: any,
+  idrndLiveface?: any
 }
 
 export type KYCServiceName = keyof KYCServicesConf
@@ -182,4 +184,3 @@ export type KYCServiceName = keyof KYCServicesConf
 export type MapToKYCService = {
   [x: string]: KYCServiceName
 }
-

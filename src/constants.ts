@@ -5,11 +5,12 @@ import {
 } from './types'
 
 export const TRADLE_ACCOUNT_ID = '210041114155'
-export const SERVICES_STACK_TEMPLATE_URL = 'https://s3.eu-west-2.amazonaws.com/tradle.io/cf-templates/kyc-in-ecs/1.1.2/main.yml'
-export const REPO_NAMES:KYCServicesConf = {
+export const SERVICES_STACK_TEMPLATE_URL = 'https://s3.eu-west-2.amazonaws.com/tradle.io/cf-templates/kyc-in-ecs/1.2.1/main.yml'
+export const REPO_NAMES: KYCServicesConf = {
   truefaceSpoof: 'trueface-spoof',
   rankOne: 'rank-one',
   nginx: 'tradle-kyc-nginx-proxy',
+  idrndLiveface: 'idrnd-liveface'
 }
 
 export const BIG_BUCKETS = ['LogsBucket', 'ObjectsBucket']
@@ -25,12 +26,14 @@ export const IMMUTABLE_STACK_PARAMETERS = [
 
 export const DOT = '·'
 
-export const LICENSE_PATHS:KYCServicesConf = {
+export const LICENSE_PATHS: KYCServicesConf = {
   truefaceSpoof: 'license/trueface-spoof/creds.json',
-  rankOne: 'license/rankone/ROC.lic',
+  rankOne: 'license/rankone/ROC.lic'
+  //  idrndLiveFace: 'license/idrnd-liveface/idrnd.lic',
 }
 
-export const PARAM_TO_KYC_SERVICE_NAME:MapToKYCService = {
+export const PARAM_TO_KYC_SERVICE_NAME: MapToKYCService = {
   EnableTruefaceSpoof: 'truefaceSpoof',
   EnableRankOne: 'rankOne',
+  EnableIDRNDLiveFace: 'idrndLiveface'
 }

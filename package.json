@@ -1,6 +1,6 @@
 {
   "name": "@tradle/conf",
-  "version": "1.45.3",
+  "version": "1.49.0",
   "description": "CLI for managing your Tradle MyCloud instance",
   "repository": {
     "type": "git",
@@ -15,12 +15,15 @@
   "scripts": {
     "lint": "eslint --quiet --ext .json --ext .js --ignore-path .gitignore .",
     "test": "node lib/test",
+    "tswatch": "tsc -w",
     "precommit": "tsc && lint-staged && npm test",
     "prepublish": "tsc",
     "release": "standard-version",
     "release:patch": "standard-version --release-as patch",
     "release:minor": "standard-version --release-as minor",
-    "release:major": "standard-version --release-as major"
+    "release:major": "standard-version --release-as major",
+    "docker:build": "./build-image.sh",
+    "docker:publish": "docker push tradle.conf"
   },
   "keywords": [
     "tradle",
@@ -77,7 +80,8 @@
     "lint-staged": "^7.2.0",
     "sinon": "^7.1.0",
     "standard-version": "github:mvayngrib/standard-version#fixdeps",
-    "tape": "^4.9.1"
+    "tape": "^4.9.1",
+    "typescript": "3.3.4000"
   },
   "lint-staged": {
     "README.md": [

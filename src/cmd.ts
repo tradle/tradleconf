@@ -19,7 +19,7 @@ const DESC = {
 updateNotifier({
   pkg,
   updateCheckInterval: 60 * 60 * 1000 // 1 hr
-}).notify()
+}).notify({ isGlobal: true })
 
 require('dotenv').config({
   path: '.env'
@@ -113,7 +113,7 @@ const normalizeOpts = (...args) => {
 
   assertRequiredOptions(command)
 
-  let confOpts:ConfOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.confOpts)
+  let confOpts: ConfOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.confOpts)
   if (program.debugBrk) {
     confOpts['debug-brk'] = true
   }
@@ -151,7 +151,7 @@ const createAction = (action: keyof Conf) => (...args) => {
 
   const { confOpts, commandOpts } = normalized
   return run(() => {
-    const conf:Conf = createConf(confOpts)
+    const conf: Conf = createConf(confOpts)
     if (!conf[action]) {
       throw new CustomErrors.InvalidInput(`conf method not found: ${action}`)
     }
@@ -172,9 +172,9 @@ const run = async (fn) => {
     } else if (Errors.matches(err, CustomErrors.UserAborted)) {
       logger.info('command canceled')
     } else {
-      const { name='Error', message } = err
+      const { name = 'Error', message } = err
       logger.error(`${name}: ${message}`)
-      ;(matchedCommand || program).outputHelp()
+        ; (matchedCommand || program).outputHelp()
     }
 
     process.exit()
@@ -219,8 +219,8 @@ const defaults = {
 }
 
 const {
-  profile=defaults.confOpts.profile,
-  region=defaults.confOpts.region,
+  profile = defaults.confOpts.profile,
+  region = defaults.confOpts.region,
 } = program
 
 if (profile) {
@@ -373,6 +373,15 @@ const updateCommand = program
   .allowUnknownOption(false)
   .action(createAction('update'))
 
+const updateToLatest = program
+  .command('update-to-latest')
+  .option('--minor', 'limit updates to patches and minor versions')
+  .option('--patch', 'limit updates to patches')
+  .option('-c, --include-release-candidates', 'include release candidate versions')
+  .description('update your MyCloud to the latest available version')
+  .allowUnknownOption(false)
+  .action(createAction('updateToLatest'))
+
 const updateManuallyCommand = program
   .command('update-manually')
   .option('-t, --template-url [templateUrl]', 'stack template url. Defaults to reuse currently deployed template')
@@ -451,6 +460,7 @@ const setKYCServices = program
   .command('set-kyc-services')
   .option('--trueface-spoof', 'enable / disable TrueFace Spoof')
   .option('--rank-one', 'enable / disable RankOne')
+  .option('--idrnd-liveface', 'enable / disable IDRND LiveFace')
   .option('--param-instance-type [instanceType]', 'EC2 instance type (default: m5.xlarge')
   .allowUnknownOption(false)
   .action(createAction('setKYCServices'))

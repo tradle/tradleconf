@@ -11,6 +11,7 @@ CLI for managing your Tradle MyCloud instance
   - [Launch a MyCloud instance](#launch-a-mycloud-instance)
   - [AWS cli & credentials](#aws-cli--credentials)
   - [AWSLogs (optional)](#awslogs-optional)
+- [Docker](#docker)
 - [Install and load current configuration](#install-and-load-current-configuration)
 - [Updating tradleconf](#updating-tradleconf)
 - [Customize](#customize)
@@ -64,7 +65,9 @@ CLI for managing your Tradle MyCloud instance
   - [Controlling person registration](#controlling-person-registration)
   - [Controlling entity validation](#controlling-entity-validation)
   - [Verify Phone Number](#verify-phone-number)
-  - [Client Edits](#client-edits)
+  - [Prefill Beneficial Owners](#prefill-controllingPerson)
+  - [Modification History](#client-edits)
+  - [Inter-Form conditionals](#interFormConditionals)
 - [Troubleshooting](#troubleshooting)
   - [tradleconf update](#tradleconf-update)
   - [tradleconf enable-kyc-services](#tradleconf-enable-kyc-services)
@@ -99,6 +102,19 @@ While you wait, read on.
 
 If you want to inspect logs from your lambda functions in realtime, you'll need to install [awslogs](https://github.com/jorgebastida/awslogs), as the command `tradleconf log` uses awslogs underneath.
 
+### Docker
+
+To use tradleconf via docker, you can add the following function to your `~/.bash_profile`:
+
+```sh
+tradleconf() {
+  docker pull tradle/conf
+  docker run --rm -v $HOME/.aws:/root/.aws -v $(pwd):/app/conf tradle/conf:latest $@
+}
+```
+
+Then use the `tradleconf` command in your shell as described below
+
 ### Install and load current configuration
 
 Note: the below instructions are for managing a single MyCloud instance.
@@ -128,7 +144,7 @@ See sample custom models in `./models-sample`. You can create your own in `./mod
 
 Define your provider's style in `./conf/style.json` (see [./conf/style.sample.json](./conf/style.sample.json)). Style must adhere to the [StylesPack](https://github.com/tradle/models/tree/master/models/tradle.StylesPack.json) model.
 
-See more details and screenshots for styles [here](https://github.com/tradle/tradleconf/blob/master/docs/data-import.md)
+See more details and screenshots for styles [here](https://github.com/tradle/tradleconf/blob/master/docs/style.md)
 
 #### Custom Bot Configuration (and plugins)
 
@@ -157,6 +173,8 @@ To specify which kyc services to enable, run:
 To delete your kyc-services stack (it's stateless, so you can always create a new one):
 
 `tradleconf disable-kyc-services`
+
+For developers: adding a new service option can be tracked in git history for changes made at 2020-04-05 for idrnd-liveface
 
 ### Deploy
 
@@ -844,9 +862,63 @@ Example config:
   }
 }
 ```
-#### Client Edits
+#### Prefill Beneficial Owners (BO)
 
-Purpose:
+Purpose: Reduce/eliminate data entry for corporate onboarding. Information for prefill is taken from the passed Check resources that confirm company existence and list BO
+
+Example config:
+
+```js
+...
+"plugins": {
+  // ...
+  "prefill-controllingPerson": {
+    [product ID]: {
+      "skipBo": {
+        [form ID]: {
+           "regulated": true,
+           "country": ["GB", "DE"]
+        }
+      }
+    }
+  }
+}
+```
+#### Data lineage
+
+Purpose: Records the data and source of data prefilled from the third party sources and records all the changes made by client. Additionally creates a Check resource in case there was a prefill with 3rd party data and it differs from the changes the client applied to it.
+
+Example config:
+
+```js
+...
+"plugins": {
+  // ...
+  "client-edits": {
+    "distance": 5
+  }
+}
+```
+
+#### Inter-Form conditionals
+
+Purpose: change flow of the application based on the settings in previously submitted forms. 
+
+Example config to request the form 'tradle.ProofOfAddress' only if the property 'country' in the previously submitted form 'tradle.Residence' is set to US
+
+```js
+...
+"plugins": {
+  // ...
+  "tradle.Product": [
+    "tradle.Residence",
+    ...
+    {
+      "tradle.ProofOfAddress": "add: forms['tradle.Residence'].country = 'US'"
+    }
+  ],
+}
+```
 
 ### Troubleshooting
 
