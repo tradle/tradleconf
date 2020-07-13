@@ -64,6 +64,7 @@ CLI for managing your Tradle MyCloud instance
   - [Controlling person registration](#controlling-person-registration)
   - [Controlling entity validation](#controlling-entity-validation)
   - [Verify Phone Number](#verify-phone-number)
+  - [Client Edits](#client-edits)
 - [Troubleshooting](#troubleshooting)
   - [tradleconf update](#tradleconf-update)
   - [tradleconf enable-kyc-services](#tradleconf-enable-kyc-services)
@@ -843,6 +844,9 @@ Example config:
   }
 }
 ```
+#### Client Edits
+
+Purpose:
 
 ### Troubleshooting
 
