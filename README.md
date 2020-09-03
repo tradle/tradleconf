@@ -319,7 +319,12 @@ If for some reason or other, you need to disable your deployment temporarily, yo
 
 This will turn most of your cloud functions off. Mobile/web clients will be unable to reach your MyCloud.
 
-To re-enable your deployment, you run:
+To re-enable your deployment:
+- go to the AWS lambda console
+- find xxx-cli lambda
+- remove **DISABLED** from this lambda **Environment variables**
+- Save the changes
+- Run:
 
 `tradleconf enable --remote`
 
