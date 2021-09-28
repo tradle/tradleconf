@@ -315,7 +315,7 @@ to revert:
 
 If for some reason or other, you need to disable your deployment temporarily, you can run:
 
-`tradleconf disable ---remote`
+`tradleconf disable --remote`
 
 This will turn most of your cloud functions off. Mobile/web clients will be unable to reach your MyCloud.
 
