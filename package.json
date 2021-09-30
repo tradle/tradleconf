@@ -35,7 +35,7 @@
   },
   "homepage": "https://github.com/tradle/configure-tradle",
   "dependencies": {
-    "@tradle/errors": "^1.1.0",
+    "@tradle/errors": "^2.0.0",
     "@tradle/merge-models": "^2.1.0",
     "@tradle/models": "github:tradle/models",
     "@tradle/models-cloud": "github:tradle/models-cloud",
