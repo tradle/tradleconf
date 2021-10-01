@@ -582,7 +582,7 @@ export class Conf {
       data: { host, provider: permalink }
     })
 
-    const buf = new Buffer(dataUrl.slice(dataUrl.indexOf('base64,') + 7), 'base64')
+    const buf = Buffer.from(dataUrl.slice(dataUrl.indexOf('base64,') + 7), 'base64')
     require('fs').writeFileSync(output, buf)
     logger.info(`wrote qr code to: ${output}\n`)
   }
@@ -648,7 +648,7 @@ export class Conf {
     }
 
     if (info.isBase64Encoded) {
-      info.body = new Buffer(info.body, 'base64')
+      info.body = Buffer.from(info.body, 'base64')
     }
 
     const endpoint = JSON.parse(info.body)
