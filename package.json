@@ -40,7 +40,7 @@
     "@tradle/models": "github:tradle/models",
     "@tradle/models-cloud": "github:tradle/models-cloud",
     "@tradle/models-pack": "^1.1.0",
-    "@tradle/protocol": "^4.2.0",
+    "@tradle/protocol": "^5.1.0",
     "@tradle/qr": "github:tradle/qr",
     "@tradle/qr-schema": "github:tradle/qr-schema",
     "@tradle/validate-model": "^7.1.1",
