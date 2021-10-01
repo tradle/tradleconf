@@ -5,7 +5,6 @@ import _ from 'lodash'
 import promisify from 'pify'
 // import YAML from 'js-yaml'
 import AWS from 'aws-sdk'
-import _mkdirp from 'mkdirp'
 import shelljs from 'shelljs'
 import Listr from 'listr'
 import QR from '@tradle/qr'
@@ -52,8 +51,6 @@ import * as fs from './fs'
 
 tmp.setGracefulCleanup() // delete tmp files even on uncaught exception
 
-const mkdirp = promisify(_mkdirp)
-const pfs = promisify(fs)
 const { prettify, isValidProjectPath, toEnvFile } = utils
 const silentLogger = Object.keys(logger).reduce((silent, method) => {
   silent[method] = () => { }
@@ -327,7 +324,7 @@ export class Conf {
   }
 
   public writeToFiles = async ({ dir, name, arr }) => {
-    await mkdirp(dir)
+    await fs.mkdirp(dir)
     await Promise.all(arr.map(item => {
       return fs.pwrite(path.join(dir, name(item)), item)
     }))
@@ -406,7 +403,7 @@ export class Conf {
         paths.models,
         paths.lenses,
         paths.conf
-      ].map(dir => mkdirp(dir)))
+      ].map(dir => fs.mkdirp(dir)))
     }
 
     const saveEnvTask = {
