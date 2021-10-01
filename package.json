@@ -43,8 +43,8 @@
     "@tradle/protocol": "^5.1.0",
     "@tradle/qr": "github:tradle/qr",
     "@tradle/qr-schema": "github:tradle/qr-schema",
-    "@tradle/validate-model": "^7.1.1",
-    "@tradle/validate-resource": "^4.3.0",
+    "@tradle/validate-model": "^7.1.32",
+    "@tradle/validate-resource": "^4.3.5",
     "amazon-s3-uri": "0.0.3",
     "ansi-colors": "^3.1.0",
     "aws-sdk": "^2.382.0",
@@ -58,7 +58,7 @@
     "inquirer": "^5.1.0",
     "lexicographic-semver": "^1.0.1",
     "listr": "^0.13.0",
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.21",
     "marked": "^0.3.9",
     "mkdirp": "^0.5.1",
     "node-fetch": "^2.0.0",
@@ -74,7 +74,7 @@
     "yn": "^2.0.0"
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.104",
+    "@types/lodash": "^4.14.175",
     "@types/node": "^9.4.6",
     "husky": "^0.14.3",
     "lint-staged": "^7.2.0",
