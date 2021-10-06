@@ -1,8 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import promisify from 'pify'
 
-const pfs = promisify(fs)
 const prettify = obj => {
   return typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2)
 }
@@ -19,7 +17,8 @@ export const maybeReadJSON = file => {
 }
 
 export const write = (file, data) => fs.writeFileSync(file, prettify(data))
-export const pwrite = (file, data) => pfs.writeFile(file, prettify(data))
+export const mkdirp = (path) => fs.promises.mkdir(path, { recursive: true })
+export const pwrite = (file, data) => fs.promises.writeFile(file, prettify(data))
 export const exists = file => fs.existsSync(file)
 export const readDirOfJSONs = dir => fs.readdirSync(dir)
   .filter(file => file.endsWith('.json'))

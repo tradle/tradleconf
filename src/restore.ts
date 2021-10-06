@@ -355,7 +355,7 @@ export const deriveParametersFromStack = async ({ client, stackId }: {
 //   await s3.putObject({
 //     Bucket,
 //     Key,
-//     Body: new Buffer(JSON.stringify(template)),
+//     Body: Buffer.from(JSON.stringify(template)),
 //     ACL: 'public-read',
 //     ContentType: 'application/json',
 //   }).promise()
@@ -418,7 +418,7 @@ export const restoreStack = async (opts: {
     await s3.putObject({
       Bucket,
       Key,
-      Body: new Buffer(JSON.stringify(template)),
+      Body: Buffer.from(JSON.stringify(template)),
       ACL: 'public-read',
       ContentType: 'application/json',
     }).promise()
