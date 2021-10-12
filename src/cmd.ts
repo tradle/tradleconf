@@ -6,7 +6,7 @@ require('source-map-support').install()
 process.env.AWS_SDK_LOAD_CONFIG = true
 
 import updateNotifier from 'update-notifier'
-import Errors from '@tradle/errors'
+import * as Errors from '@tradle/errors'
 import { Errors as CustomErrors } from './errors'
 import { logger, colors, chalk } from './logger'
 import { Conf, ConfOpts, NodeFlags } from './types'
@@ -199,6 +199,7 @@ program
   .option('--inspect-brk', 'invoke serverless function under the debugger')
   .option('--debug', 'invoke serverless function under the debugger')
   .option('--debug-brk', 'invoke serverless function under the debugger')
+  .allowUnknownOption(true)
 
 program.on('--help', () => logger.warn('\nuse the `help` command to get command-specific help'))
 if (!process.argv.slice(2).length) {
