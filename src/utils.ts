@@ -103,8 +103,8 @@ interface SetTableBillingModeParams extends TableParams {
   billingMode: AWS.DynamoDB.BillingMode
 }
 
-export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-([a-zA-Z0-9-]*?)-ltd-([a-z]+)$/
-export const MY_CLOUD_STACK_NAME_STRICTER_REGEX = /^tdl-([a-z0-9]*?)-ltd-([a-z]+)$/
+export const MY_CLOUD_STACK_NAME_REGEX = /^tdl-([a-zA-Z0-9-]*?)-ltd-([a-z0-9]+)$/
+export const MY_CLOUD_STACK_NAME_STRICTER_REGEX = /^tdl-([a-z0-9]*?)-ltd-([a-z0-9]+)$/
 
 const NOT_FOUND_ERRORS = [
   { code: 'NotFound' }, // s3
