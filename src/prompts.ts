@@ -129,8 +129,13 @@ export const init = async (conf: Conf) => {
           throw new Error('no stacks found')
         }
 
-        return stackInfos
-          .filter(({ name }) => isMyCloudStackName(name))
+        const mycloudStackInfos = stackInfos.filter(({ name }) => isMyCloudStackName(name))
+
+        if (!mycloudStackInfos.length) {
+          throw new Error(`no mycloud stacks found. (found stacks: ${stackInfos.map(({ name }) => name).join(', ')}`)
+        }
+
+        return mycloudStackInfos
           .map(({ name, id }) => ({
             name,
             value: { name, id }
