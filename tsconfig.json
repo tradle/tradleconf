@@ -11,6 +11,7 @@
     "outDir": "lib",
     "lib": [
       "es6",
+      "dom",
       "es2017",
       "esnext.asynciterable"
     ],
