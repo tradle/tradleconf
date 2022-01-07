@@ -1,5 +1,12 @@
 node_modules/
 *.log
 .env
+.env.sample
 .env.local
 **/node_modules/**
+Dockerfile
+.dockerignore
+.nvmrc
+*.tgz
+examples/*
+.eslintrc.js
