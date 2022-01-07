@@ -61,18 +61,23 @@ const getCommandName = command => {
   return command && command.name()
 }
 
-const NODE_FLAGS = [
-  'inspect',
-  'inspect-brk',
-  'debug',
-  'debug-brk'
-]
+const NODE_OPTS = {
+  'inspect': ['--$', 'activate lamba inspector on host:port (default: 127.0.0.1:9229)', '[[host:]port]'],
+  'inspect-brk': ['--$', 'activate lamba inspector on host:port and break at start of user script', '[[host:]port]'],
+  'inspect-port': ['--$ <[host]:port>', 'set host:port for lamba inspector'],
+  'inspect-publish-uid': ['--$ <uid>', 'comma separated list of destinations for lamba inspector uid(default:stderr,http)'],
+  'debug': ['--$', 'activate *legacy* lamba inspector on host:port (default: 127.0.0.1:9229)', '<[host:]port>'],
+  'debug-brk': ['--$', 'activate *legacy* lamba inspector on host:port and break at start of user script', '<[host:]port>'],
+  'debug-port': ['--$ <[host]:port>', 'set host:port for lamba inspector'],
+}
+const PROGRAM_OPTS = {
+  'local': ['-l, --$', 'target local development environment'],
+  'remote': ['-r, --$', ' target remote environment'],
+  'project': ['-x, --$ [path]', ' path to serverless project on disk'],
+  ...NODE_OPTS
+}
 
-const PROGRAM_OPTS = [
-  'local',
-  'remote',
-  'project'
-].concat(NODE_FLAGS)
+const NODE_FLAGS = Object.keys(NODE_OPTS)
 
 let matchedCommand
 
@@ -108,15 +113,34 @@ const assertRequiredOptions = command => {
   }
 }
 
+function lowerCamel (input) {
+  const parts = input.split('-')
+  for (let i = 1; i < parts.length; i++) {
+    parts[i] = parts[i][0].toUpperCase() + parts[i].slice(1)
+  }
+  return parts.join('')
+}
+
+function getOpt (name) {
+  const lcName = lowerCamel(name)
+  return program[lcName] || defaults.confOpts[lcName]
+}
+
 const normalizeOpts = (...args) => {
   const command = matchedCommand = args.pop()
 
   assertRequiredOptions(command)
 
-  let confOpts: ConfOpts = _.defaults(_.pick(program, PROGRAM_OPTS), defaults.confOpts)
-  if (program.debugBrk) {
-    confOpts['debug-brk'] = true
-  }
+  let confOpts: ConfOpts = Object.entries(PROGRAM_OPTS).reduce((opts, [name, [_template, _docs, optionalArg]]) => {
+    let value = getOpt(name)
+    if (optionalArg) {
+      value = getOpt(`${name}-value`) || value
+    }
+    if (value !== undefined && value !== false) {
+      opts[name] = value
+    }
+    return opts
+  }, {})
 
   const commandName = getCommandName(command)
   if (typeof confOpts.remote !== 'boolean' &&
@@ -192,14 +216,16 @@ const run = async (fn) => {
 const program = require('commander')
 program
   .version(pkg.version)
-  .option('-l, --local', 'target local development environment')
-  .option('-r, --remote', 'target remote environment')
-  .option('-x, --project [path]', 'path to serverless project on disk')
-  .option('--inspect', 'invoke serverless function under the debugger')
-  .option('--inspect-brk', 'invoke serverless function under the debugger')
-  .option('--debug', 'invoke serverless function under the debugger')
-  .option('--debug-brk', 'invoke serverless function under the debugger')
-  .allowUnknownOption(true)
+
+for (const [opt, [keyTemplate, docs, optionalArg]] of Object.entries(PROGRAM_OPTS)) {
+  program.option((keyTemplate as string).replace('$', opt), docs)
+  if (optionalArg) {
+    // commander has a limitation that doesnt allow us to have an optional field that may be boolean or
+    // contain a value and subcommands.
+    program.option(`${(keyTemplate as string).replace('$', `${opt}-value`)} ${optionalArg}`)
+  }
+}
+program.allowUnknownOption(true)
 
 program.on('--help', () => logger.warn('\nuse the `help` command to get command-specific help'))
 if (!process.argv.slice(2).length) {
