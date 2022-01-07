@@ -17,7 +17,7 @@
     "test": "node lib/test",
     "tswatch": "tsc -w",
     "precommit": "tsc && lint-staged && npm test",
-    "prepublish": "tsc",
+    "prepare": "tsc",
     "release": "standard-version",
     "release:patch": "standard-version --release-as patch",
     "release:minor": "standard-version --release-as minor",
