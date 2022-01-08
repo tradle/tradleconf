@@ -121,26 +121,21 @@ function lowerCamel (input) {
   return parts.join('')
 }
 
-function getOpt (name) {
-  const lcName = lowerCamel(name)
-  return program[lcName] || defaults.confOpts[lcName]
-}
-
 const normalizeOpts = (...args) => {
   const command = matchedCommand = args.pop()
 
   assertRequiredOptions(command)
 
   let confOpts: ConfOpts = Object.entries(PROGRAM_OPTS).reduce((opts, [name, [_template, _docs, optionalArg]]) => {
-    let value = getOpt(name)
+    let value = program[lowerCamel(name)]
     if (optionalArg) {
-      value = getOpt(`${name}-value`) || value
+      value = program[lowerCamel(`${name}-value`)] || value
     }
     if (value !== undefined && value !== false) {
       opts[name] = value
     }
     return opts
-  }, {})
+  }, {...defaults.confOpts})
 
   const commandName = getCommandName(command)
   if (typeof confOpts.remote !== 'boolean' &&
