@@ -35,7 +35,7 @@
   },
   "homepage": "https://github.com/tradle/configure-tradle",
   "dependencies": {
-    "@tradle/errors": "^2.0.0",
+    "@tradle/errors": "^2.0.1",
     "@tradle/merge-models": "^3.0.0",
     "@tradle/models": "github:tradle/models",
     "@tradle/models-cloud": "github:tradle/models-cloud",
@@ -43,7 +43,7 @@
     "@tradle/protocol": "^5.1.1",
     "@tradle/qr": "^2.1.1",
     "@tradle/qr-schema": "^3.0.4",
-    "@tradle/validate-model": "^7.1.35",
+    "@tradle/validate-model": "^7.1.36",
     "@tradle/validate-resource": "^4.3.5",
     "amazon-s3-uri": "0.0.3",
     "ansi-colors": "^4.1.1",
@@ -82,7 +82,7 @@
     "sinon": "^7.1.0",
     "standard-version": "^9.3.2",
     "tape": "^5.4.0",
-    "typescript": "3.3.4000"
+    "typescript": "^3.9.10"
   },
   "lint-staged": {
     "README.md": [
