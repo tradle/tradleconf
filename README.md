@@ -741,24 +741,31 @@ Example config:
 ```
 #### Conditional auto-approve
 
-Purpose: allow to auto approve customer application if all the listed checks passed
+Purpose: allow to auto approve customer application if all the listed checks passed. **Any check not included in this list will not prevent auto-approval once the required checks have passed.**
 ```js
 ...
 "plugins": {
   // ...
   "conditional-auto-approve": {
     "products": {
-      "tradle.CertifiedID": [
-        // List of checks that need to 'Pass' in order to auto-approve the application
-        "tradle.SanctionsCheck",
-        "tradle.DocumentValidityCheck",
-        ...
-      ],
-      "tradle.CorporateBankAccount": [
-        "tradle.CorporationExistsCheck",
-        "tradle.SanctionsCheck",
-        ...
-      ]
+      // If you want to auto-approve application when all checks Pass
+      "tradle.Quotation": {},
+      // If you want to auto-approve application when only listed checks Pass
+      "tradle.CertifiedID": {
+        "checks": [
+          // List of checks that need to 'Pass' in order to auto-approve the application
+          "tradle.SanctionsCheck",
+          "tradle.DocumentValidityCheck",
+          ...
+        ]
+      },
+      "tradle.CorporateBankAccount": {
+        "checks": [
+          "tradle.CorporationExistsCheck",
+          "tradle.SanctionsCheck",
+          ...
+        ]
+      }
     }
   }
 }
@@ -907,7 +914,7 @@ Example config:
 
 #### Inter-Form conditionals
 
-Purpose: change flow of the application based on the settings in previously submitted forms. 
+Purpose: change flow of the application based on the settings in previously submitted forms.
 
 Example config to request the form 'tradle.ProofOfAddress' only if the property 'country' in the previously submitted form 'tradle.Residence' is set to US
 
