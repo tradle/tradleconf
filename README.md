@@ -827,7 +827,7 @@ Purpose: When SME administrator fills out CP and CE for officers and beneficial 
   "controllingPersonRegistration": {
     "senderEmail": "...",
     "products": {
-      "io.lenka.LegalEntity": [
+      "io.legal.LegalEntity": [
         "tradle.legal.LegalEntityControllingPerson"
       ],
       ...
@@ -845,7 +845,7 @@ Purpose: When SME administrator fills out CP and CE for officers and beneficial 
   "controllingEntityValidation": {
     "senderEmail": "...",
     "products": {
-      "io.lenka.LegalEntity": [
+      "io.legal.LegalEntity": [
         "tradle.legal.LegalEntityControllingPerson"
       ],
       ...
